@@ -1,0 +1,1305 @@
+﻿<UserControl x:Class="WpfCompanyApp.Views.SettingsView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:conv="clr-namespace:WpfCompanyApp.Converters"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+              xmlns:Release="clr-namespace:VMControls.WPF.Release;assembly=VMControls.WPF.Release"
+              Language="en-US"
+             mc:Ignorable="d"
+             Background="#20232A">
+
+    <!-- ================== 🔧 RESOURCES ================== -->
+    <UserControl.Resources>
+        <conv:Range01ValidationRule x:Key="Range01ValidationRule" />
+        <conv:StringNullOrEmptyToVisibilityConverter x:Key="StringNullOrEmptyToVisibilityConverter"/>
+        <conv:SliderValueToWidthConverter x:Key="SliderValueToWidthConverter"/>
+        <conv:EnableTextConverter x:Key="EnableTextConverter"/>
+        <conv:EnableButtonStyleConverter x:Key="EnableButtonStyleConverter"/>
+        <Style x:Key="PrettyComboBox" TargetType="ComboBox">
+            <Setter Property="Background" Value="#3A3A3A"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#5E5E5E"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="ScrollViewer.CanContentScroll" Value="True"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ComboBox">
+                        <Grid>
+                            <Border x:Name="Bd"
+                            CornerRadius="8"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+                                <Grid>
+                                    <!-- Nội dung chọn -->
+                                    <ContentPresenter Margin="4,0,28,0"
+                                              VerticalAlignment="Center"
+                                              HorizontalAlignment="Center"
+                                              Content="{TemplateBinding SelectionBoxItem}"
+                                              ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                                              ContentTemplateSelector="{TemplateBinding ItemTemplateSelector}"/>
+
+                                    <!-- Nút mũi tên -->
+                                    <ToggleButton x:Name="DropDownToggle"
+                                          Grid.Column="1"
+                                          Focusable="False"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Background="Transparent"
+                                          BorderBrush="{x:Null}"
+                                          HorizontalAlignment="Right"
+                                          Width="24">
+                                        <Path Data="M 0 0 L 4 4 L 8 0 Z"
+                                      Width="8"
+                                      Height="4"
+                                      Stretch="Uniform"
+                                      Fill="#E0E0E0"
+                                      HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"/>
+                                    </ToggleButton>
+                                </Grid>
+                            </Border>
+
+                            <!-- Popup dropdown -->
+                            <Popup x:Name="PART_Popup"
+                           Placement="Bottom"
+                           IsOpen="{TemplateBinding IsDropDownOpen}"
+                           AllowsTransparency="True"
+                           Focusable="False"
+                           PopupAnimation="Slide">
+                                <Border CornerRadius="8"
+                                Background="#333333"
+                                BorderBrush="#5E5E5E"
+                                BorderThickness="2">
+                                    <ScrollViewer Margin="0,2,0,2"
+                                          SnapsToDevicePixels="True">
+                                        <StackPanel IsItemsHost="True"/>
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+
+                        <ControlTemplate.Triggers>
+                            <!-- Hover -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#9E9E9E"/>
+                            </Trigger>
+
+                            <!-- Focus -->
+                            <Trigger Property="IsKeyboardFocusWithin" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#1E88E5"/>
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="2.5"/>
+                            </Trigger>
+
+                            <!-- Disabled -->
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="#777"/>
+                                <Setter TargetName="Bd" Property="Background" Value="#444"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+
+            <!-- Style cho từng item trong dropdown -->
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                        <Setter Property="VerticalContentAlignment" Value="Center"/>
+                        <Setter Property="Padding" Value="8,4"/>
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Foreground" Value="White"/>
+
+                        <Style.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter Property="Background" Value="#1E88E5"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#6A1B9A"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 💠 Button Style - Có hiệu ứng mượt -->
+        <!-- Fixed Button Style: animate scale via RenderTransform property path -->
+        <Style TargetType="Button">
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Margin" Value="4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="#FFFFFF"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Background" Value="#007ACC"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="RenderTransformOrigin" Value="0.5,0.5"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Grid>
+                            <!-- border is named and we will target its RenderTransform -->
+                            <Border x:Name="border"
+                            Background="{TemplateBinding Background}"
+                            CornerRadius="8"
+                            SnapsToDevicePixels="True">
+                                <!-- RenderTransform is set on the Border -->
+                                <Border.RenderTransform>
+                                    <ScaleTransform ScaleX="1" ScaleY="1"/>
+                                </Border.RenderTransform>
+
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="8" ShadowDepth="2" Opacity="0.25"/>
+                                </Border.Effect>
+
+                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                            </Border>
+                        </Grid>
+
+                        <!-- Use ControlTemplate.Triggers: animate RenderTransform of 'border' by property path -->
+                        <ControlTemplate.Triggers>
+                            <!-- Hover: animate scale a bit and change background via Setter -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="border"
+                                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                     To="1.05"
+                                                     Duration="0:0:0.12"/>
+                                            <DoubleAnimation Storyboard.TargetName="border"
+                                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                     To="1.05"
+                                                     Duration="0:0:0.12"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="border"
+                                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                     To="1"
+                                                     Duration="0:0:0.12"/>
+                                            <DoubleAnimation Storyboard.TargetName="border"
+                                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                     To="1"
+                                                     Duration="0:0:0.12"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+
+                                <!-- change background color (no animation) for reliability -->
+                                <Setter TargetName="border" Property="Background" Value="#3399FF"/>
+                            </Trigger>
+
+                            <!-- Pressed: shrink and slightly reduce opacity -->
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.85"/>
+                                <Trigger.EnterActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="border"
+                                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                     To="0.96"
+                                                     Duration="0:0:0.06"/>
+                                            <DoubleAnimation Storyboard.TargetName="border"
+                                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                     To="0.96"
+                                                     Duration="0:0:0.06"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.EnterActions>
+                                <Trigger.ExitActions>
+                                    <BeginStoryboard>
+                                        <Storyboard>
+                                            <DoubleAnimation Storyboard.TargetName="border"
+                                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleX)"
+                                                     To="1"
+                                                     Duration="0:0:0.08"/>
+                                            <DoubleAnimation Storyboard.TargetName="border"
+                                                     Storyboard.TargetProperty="(UIElement.RenderTransform).(ScaleTransform.ScaleY)"
+                                                     To="1"
+                                                     Duration="0:0:0.08"/>
+                                        </Storyboard>
+                                    </BeginStoryboard>
+                                </Trigger.ExitActions>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- TextBox Style đẹp -->
+        <Style x:Key="PrettyTextBox" TargetType="TextBox">
+            <Setter Property="Background" Value="#3A3A3A"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="BorderBrush" Value="#5E5E5E"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="Padding" Value="8,4"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+
+            <!-- Template bo góc -->
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="TextBox">
+                        <Border x:Name="Bd"
+                            CornerRadius="8"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+                            <ScrollViewer x:Name="PART_ContentHost"/>
+                        </Border>
+
+                        <!-- Trigger khi focus -->
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsKeyboardFocused" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#1E88E5"/>
+                                <Setter TargetName="Bd" Property="BorderThickness" Value="2.5"/>
+                            </Trigger>
+
+                            <!-- Hover -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#9E9E9E"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="Validation.HasError" Value="True">
+                    <Setter Property="BorderBrush" Value="Red"/>
+                    <Setter Property="BorderThickness" Value="2"/>
+                    <Setter Property="ToolTip"
+                    Value="{Binding (Validation.Errors)[0].ErrorContent,
+                                    RelativeSource={RelativeSource Self}}"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- 💚 Nút xanh lá (Save) -->
+        <Style x:Key="ModernButton_Green" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#43A047"/>
+        </Style>
+
+        <!-- 💙 Nút xanh dương (Move) -->
+        <Style x:Key="ModernButton_Blue" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#2196F3"/>
+        </Style>
+
+        <!-- ❤️ Nút đỏ (Delete) -->
+        <Style x:Key="ModernButton_Red" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="#E53935"/>
+        </Style>
+        <!-- ===== STYLE GROUPBOX ĐỒNG BỘ SETTING ===== -->
+        <Style x:Key="DarkGroupBox" TargetType="GroupBox">
+            <Setter Property="Foreground" Value="#E0E0E0"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="Margin" Value="8"/>
+
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupBox">
+                        <Border Background="#2F343F"
+                        CornerRadius="10"
+                        BorderBrush="#3C3C3C"
+                        BorderThickness="1"
+                        Padding="10">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- HEADER -->
+                                <TextBlock Text="{TemplateBinding Header}"
+                                   Foreground="#00E676"
+                                   FontSize="17"
+                                   FontWeight="Bold"
+                                   Margin="4,0,0,10"/>
+
+                                <!-- CONTENT -->
+                                <ContentPresenter Grid.Row="1"/>
+                            </Grid>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+    </UserControl.Resources>
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="9*"/>
+            <ColumnDefinition Width="389*"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="70"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- ====== HEADER ====== -->
+        <Border Grid.Row="0" Background="#007ACC" Margin="0,0,0,15" CornerRadius="0,0,10,10" Grid.ColumnSpan="2">
+            <TextBlock Text="Setting"
+                       FontSize="34"
+                       FontWeight="Bold"
+                       Foreground="White"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center">
+                <TextBlock.Effect>
+                    <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.3"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </Border>
+
+        <!-- ====== MAIN CONTENT ====== -->
+        <Grid Grid.Row="1" Grid.ColumnSpan="2">
+            <TabControl x:Name="tabRobot"
+                        
+                        FontWeight="SemiBold"
+                        Background="#20232A"
+                        BorderBrush="#3C3C3C"
+                        Foreground="#E0E0E0"
+                        BorderThickness="1">
+                <TabControl.Resources>
+                    <Style TargetType="TabItem">
+                        <Setter Property="MinHeight" Value="40"/>
+                        <Setter Property="MinWidth" Value="150"/>
+                        <Setter Property="Padding" Value="10,5"/>
+                        <Setter Property="FontSize" Value="16"/>
+                    </Style>
+
+                </TabControl.Resources>
+
+
+                <!-- ============= TAB 1: ROBOT POSITION MANAGEMENT ============= -->
+                <TabItem Header="ROBOT POSITION MANAGEMENT">
+                    <Grid Background="#20232A">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="420"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- JOB MANAGEMENT PANEL -->
+                        <Border Grid.Column="0" Background="#2F343F" CornerRadius="10" Padding="15" Margin="0,0,15,0">
+                            <StackPanel>
+                                <TextBlock Text="JOB MANAGEMENT" FontSize="20" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center" Margin="0,0,0,15"/>
+
+                                <DataGrid ItemsSource="{Binding Jobs}"
+                                          SelectedItem="{Binding SelectedJob, Mode=TwoWay}"
+                                          AutoGenerateColumns="False"
+                                          CanUserAddRows="False"
+                                          CanUserDeleteRows="False"
+                                          IsReadOnly="False"
+                                          HeadersVisibility="Column"
+                                          Background="#2F343F"
+                                          Foreground="#E0E0E0"
+                                          BorderBrush="#3C3C3C"
+                                          RowBackground="#2C2F33"
+                                          AlternatingRowBackground="#32363F"
+                                          SelectionMode="Single"
+                                          SelectionUnit="FullRow"
+                                          Margin="0,0,0,10">
+                                    <DataGrid.Resources>
+                                        <Style TargetType="DataGridColumnHeader">
+                                            <Setter Property="Background" Value="#333"/>
+                                            <Setter Property="Foreground" Value="#EEE"/>
+                                            <Setter Property="FontWeight" Value="Bold"/>
+                                            <Setter Property="Height" Value="28"/>
+                                        </Style>
+                                        <Style TargetType="DataGridRow">
+                                            <Setter Property="Background" Value="#2F343F"/>
+                                            <Setter Property="Foreground" Value="#EEE"/>
+                                            <Style.Triggers>
+                                                <Trigger Property="IsSelected" Value="True">
+                                                    <Setter Property="Background" Value="#007ACC"/>
+                                                    <Setter Property="Foreground" Value="White"/>
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DataGrid.Resources>
+
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="0.5*" />
+                                        <DataGridTextColumn Header="Job Name" Binding="{Binding JobName}" Width="1.5*" />
+                                        <DataGridTextColumn Header="Created Time" Binding="{Binding DatetimeJob, StringFormat=yyyy-MM-dd HH:mm:ss}" Width="1.5*" />
+                                        <DataGridTemplateColumn Header="Delete" Width="Auto">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Button Content="🗑 Delete"
+                                                            Command="{Binding DataContext.DeleteJobCommand, RelativeSource={RelativeSource AncestorType=DataGrid}}"
+                                                            CommandParameter="{Binding}"
+                                                            Style="{StaticResource ModernButton_Red}"/>
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                              
+                                    <Button Content="Add Job" FontSize="18" Command="{Binding AddJobCommand}" Width="80" Height="40"  Style="{StaticResource ModernButton_Green}" Margin="5,0,0,0"/>
+                                    <Button Content="Reload"  FontSize="18" Command="{Binding LoadJobsCommand}" Width="80" Height="40"  Style="{StaticResource ModernButton_Blue}" Margin="5,0,0,0"/>
+                                    <Button Content="Save Job"  FontSize="18" Command="{Binding SaveJobCommand}" Width="80" Height="40"  Style="{StaticResource ModernButton_Blue}" Margin="5,0,0,0"/>
+                              </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ROBOT POSITION PANEL -->
+                        <Border Grid.Column="1" Background="#2F343F" CornerRadius="2" Padding="5">
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <Grid x:Name="vmProduce" Grid.Row="0"  Margin="0,0,0,0">
+                                
+                                        <Release:VmMainViewConfigControl  x:Name="vmMainViewConfigControl" x:FieldModifier="public"   />
+
+                                </Grid>
+                            </Grid>
+                        </Border>
+                    </Grid>
+                </TabItem>
+
+                <!-- ============= TAB 2: SETTING ROBOT TRAJECTORY ============= -->
+                <TabItem Header="SETTING ROBOT TRAJECTORY" >
+
+                    <Grid Background="#1E1E1E">
+
+                        <Viewbox Stretch="Uniform">
+
+                            <Grid Margin="10">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="auto"/>
+                                    <RowDefinition Height="auto"/>
+                                </Grid.RowDefinitions>
+                                <!-- ==== SLIDER SPEED ==== -->
+                        <Grid Grid.Row="0" Margin="0,10">
+                            <StackPanel>
+                                <TextBlock Text="Setting Robot Trajectory" FontSize="22" FontWeight="Bold" Margin="0 0 0 10" Foreground="#F5F5F5"/>
+                                <!-- SLIDER -->
+                                <StackPanel Orientation="Horizontal" Margin="0 5" VerticalAlignment="Center">
+                                    <TextBlock Text="Speed:" Width="110"  FontSize="20" VerticalAlignment="Center" Foreground="#CCCCCC"/>
+                                    <TextBlock  FontSize="18" Text="0" Width="25" TextAlignment="Right" VerticalAlignment="Center" Foreground="#999999"/>
+                                    <Grid Width="220" Margin="5,0">
+                                        <!-- Thanh nền -->
+                                        <Border Height="5" Background="#3C3C3C" VerticalAlignment="Center" CornerRadius="3"/>
+                                        <!-- Thanh màu xanh -->
+                                        <Border Height="5" Background="#007ACC" VerticalAlignment="Center" CornerRadius="3" HorizontalAlignment="Left">
+                                            <Border.Width>
+                                                <MultiBinding Converter="{StaticResource SliderValueToWidthConverter}">
+                                                    <Binding Path="Value" ElementName="sliderSpeed"/>
+                                                    <Binding Path="ActualWidth" RelativeSource="{RelativeSource Mode=FindAncestor, AncestorType=Grid}"/>
+                                                    <Binding Path="Maximum" ElementName="sliderSpeed"/>
+                                                </MultiBinding>
+                                            </Border.Width>
+                                        </Border>
+                                        <!-- Slider trong suốt -->
+                                        <Slider x:Name="sliderSpeed" Minimum="0" Maximum="100"  FontSize="18" Value="{Binding Speed, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" TickFrequency="5" IsSnapToTickEnabled="True" Background="Transparent" Opacity="0"/>
+                                    </Grid>
+                                    <TextBlock Text="100" Width="35" VerticalAlignment="Center" Foreground="#999999"  FontSize="18"/>
+                                    <TextBlock Text="{Binding Speed, StringFormat={}{0:F0}%}" Margin="10,0,0,0" VerticalAlignment="Center" Foreground="#F5F5F5"  FontSize="18"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Grid>
+                        <!-- ==== BUTTON SECTION ==== -->
+                        <Grid Grid.Row="1"
+                          Margin="0,25,0,0"
+                          Background="#1E1E1E">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <!-- Dòng 1 -->
+                                <RowDefinition Height="Auto"/>
+                                <!-- Dòng 2 -->
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <!-- Col 0: Forward / PrePick -->
+                                <ColumnDefinition Width="Auto"/>
+                                <!-- Col 1: Return / Workspace -->
+                                <ColumnDefinition Width="Auto"/>
+                                <!-- Col 2: Home -->
+                            </Grid.ColumnDefinitions>
+
+                            <!-- 🌈 STYLE CHUNG CHO BUTTON -->
+                            <Grid.Resources>
+                                <Style TargetType="Button">
+                                    <Setter Property="FontWeight" Value="SemiBold"/>
+                                    <Setter Property="FontSize" Value="14"/>
+                                    <Setter Property="BorderThickness" Value="0"/>
+                                    <Setter Property="Margin" Value="5"/>
+                                    <Setter Property="Padding" Value="5,3"/>
+                                    <Setter Property="Height" Value="36"/>
+                                    <Setter Property="Width" Value="130"/>
+                                    <Setter Property="Cursor" Value="Hand"/>
+                                    <Setter Property="Foreground" Value="#F5F5F5"/>
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="Button">
+                                                <Grid>
+                                                    <Border x:Name="border"
+                                    Background="{TemplateBinding Background}"
+                                    CornerRadius="8"
+                                    SnapsToDevicePixels="True">
+                                                        <Border.Effect>
+                                                            <DropShadowEffect Color="Black"
+                                                      BlurRadius="8"
+                                                      ShadowDepth="2"
+                                                      Opacity="0.25"/>
+                                                        </Border.Effect>
+                                                        <ContentPresenter HorizontalAlignment="Center"
+                                                  VerticalAlignment="Center"/>
+                                                    </Border>
+                                                </Grid>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="border" Property="Background" Value="#3399FF"/>
+                                                    </Trigger>
+                                                    <Trigger Property="IsPressed" Value="True">
+                                                        <Setter TargetName="border" Property="Background" Value="#1E88E5"/>
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
+                                </Style>
+                            </Grid.Resources>
+
+                            <!-- =============== ROW 0 / COL 0: FORWARD ================= -->
+                            <Border Grid.Row="0" Grid.Column="0"
+            Background="#2D2D2D" CornerRadius="10"
+            Padding="15" Margin="10"
+            Width="660">
+                                <Border.Effect>
+                                    <DropShadowEffect Color="Black" BlurRadius="12" ShadowDepth="3" Opacity="0.25"/>
+                                </Border.Effect>
+
+                                <StackPanel>
+                                    <TextBlock Text="FORWARD TRAJECTORY"
+                       FontSize="20"
+                       FontWeight="Bold"
+                       Foreground="#E0E0E0"
+                       Margin="0,0,0,15"
+                       HorizontalAlignment="Center"/>
+
+                                    <UniformGrid Rows="6" Columns="5" HorizontalAlignment="Center" Margin="0,10">
+
+                                        <!-- HEADER -->
+                                        <TextBlock Text="Save" FontSize="18" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Move" FontSize="18" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Save Vel" FontSize="18" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Velocity" FontSize="18" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Move Type" FontSize="18" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+
+                                        <!-- ROW 1 -->
+                                        <Button Width="110" Content="💾 Đi Tha 1" FontSize="18" Background="#388E3C"
+                                            Height="36"
+                                            Command="{Binding SaveForwardPointCommand}" CommandParameter="1" Click="Button_Click_1"/>
+
+                                        <Button Width="110" Content="🤖 Move " FontSize="18" Background="#1E88E5"
+                        Height="36"
+                        Command="{Binding MoveForwardPointCommand}" CommandParameter="1" Click="Button_Click"/>
+
+                                        <Button Content="💾 Vel1" Width="110" Height="36" Background="#6A1B9A" FontSize="18"
+                        Command="{Binding SaveForwardVelocityCommand}" CommandParameter="1"/>
+
+                                        <TextBox Style="{StaticResource PrettyTextBox}"
+                         FontSize="18"
+                         Width="80"
+                         Height="36"
+                         VerticalContentAlignment="Center">
+                                            <TextBox.Text>
+                                                <Binding Path="ForwardVelocities[0]" UpdateSourceTrigger="LostFocus">
+                                                    <Binding.ValidationRules>
+                                                        <conv:Range01ValidationRule />
+                                                    </Binding.ValidationRules>
+                                                </Binding>
+                                            </TextBox.Text>
+                                        </TextBox>
+
+                                        <ComboBox Width="90" Height="36" FontSize="16"  Style="{StaticResource PrettyComboBox}"
+                          ItemsSource="{Binding MoveTypeOptions}"
+                          SelectedItem="{Binding MoveTypes[0], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                        <!-- ROW 2 -->
+                                        <Button Width="110" Content="💾 Đi Tha 2" FontSize="18" Background="#388E3C"
+                        Height="36"
+                        Command="{Binding SaveForwardPointCommand}" CommandParameter="2"/>
+
+                                        <Button Width="110" Content="🤖 Move " FontSize="18" Background="#1E88E5"
+                        Height="36"
+                        Command="{Binding MoveForwardPointCommand}" CommandParameter="2"/>
+
+                                        <Button Content="💾 Vel2" Width="110" Height="36" Background="#6A1B9A" FontSize="18"
+                        Command="{Binding SaveForwardVelocityCommand}" CommandParameter="2"/>
+
+                                        <TextBox Style="{StaticResource PrettyTextBox}"
+                         FontSize="18"
+                         Width="80"
+                         Height="36"
+                         VerticalContentAlignment="Center">
+                                            <TextBox.Text>
+                                                <Binding Path="ForwardVelocities[1]" UpdateSourceTrigger="LostFocus">
+                                                    <Binding.ValidationRules>
+                                                        <conv:Range01ValidationRule />
+                                                    </Binding.ValidationRules>
+                                                </Binding>
+                                            </TextBox.Text>
+                                        </TextBox>
+
+                                        <ComboBox Width="90" Height="36" FontSize="16"  Style="{StaticResource PrettyComboBox}"
+                          ItemsSource="{Binding MoveTypeOptions}"
+                          SelectedItem="{Binding MoveTypes[1], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                        <!-- ROW 3 -->
+                                        <Button Width="110" Content="💾 Đi Tha 3" FontSize="18" Background="#388E3C"
+                        Height="36"
+                        Command="{Binding SaveForwardPointCommand}" CommandParameter="3"/>
+
+                                        <Button Width="110" Content="🤖 Move " FontSize="18" Background="#1E88E5"
+                        Height="36"
+                        Command="{Binding MoveForwardPointCommand}" CommandParameter="3"/>
+
+                                        <Button Content="💾 Vel3" Width="110" Height="36" Background="#6A1B9A" FontSize="18"
+                        Command="{Binding SaveForwardVelocityCommand}" CommandParameter="3"/>
+
+                                        <TextBox Style="{StaticResource PrettyTextBox}"
+                         FontSize="18"
+                         Width="80"
+                         Height="36"
+                         VerticalContentAlignment="Center">
+                                            <TextBox.Text>
+                                                <Binding Path="ForwardVelocities[2]" UpdateSourceTrigger="LostFocus">
+                                                    <Binding.ValidationRules>
+                                                        <conv:Range01ValidationRule />
+                                                    </Binding.ValidationRules>
+                                                </Binding>
+                                            </TextBox.Text>
+                                        </TextBox>
+
+                                        <ComboBox Width="90" Height="36" FontSize="16"  Style="{StaticResource PrettyComboBox}"
+                          ItemsSource="{Binding MoveTypeOptions}"
+                          SelectedItem="{Binding MoveTypes[2], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                         <!--ROW 4--> 
+                                        <Button Width="110" Content="💾 Đi Tha 4" FontSize="18" Background="#388E3C"
+                        Height="36"
+                        Command="{Binding SaveForwardPointCommand}" CommandParameter="4"/>
+
+                                        <Button Width="110" Content="🤖 Move " FontSize="18" Background="#1E88E5"
+                        Height="36"
+                        Command="{Binding MoveForwardPointCommand}" CommandParameter="4"/>
+
+                                        <Button Content="💾 Vel4" Width="110" Height="36" Background="#6A1B9A" FontSize="18"
+                        Command="{Binding SaveForwardVelocityCommand}" CommandParameter="4"/>
+
+                                        <TextBox Style="{StaticResource PrettyTextBox}"
+                         FontSize="18"
+                         Width="80"
+                         Height="36"
+                         VerticalContentAlignment="Center">
+                                            <TextBox.Text>
+                                                <Binding Path="ForwardVelocities[3]" UpdateSourceTrigger="LostFocus">
+                                                    <Binding.ValidationRules>
+                                                        <conv:Range01ValidationRule />
+                                                    </Binding.ValidationRules>
+                                                </Binding>
+                                            </TextBox.Text>
+                                        </TextBox>
+
+                                        <ComboBox Width="90" Height="36" FontSize="16"  Style="{StaticResource PrettyComboBox}"
+                          ItemsSource="{Binding MoveTypeOptions}"
+                          SelectedItem="{Binding MoveTypes[3], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                         <!--ROW 5--> 
+                                        <Button Width="110" Content="💾 Đi Tha 5" FontSize="18" Background="#388E3C"
+                        Height="36"
+                        Command="{Binding SaveForwardPointCommand}" CommandParameter="5"/>
+
+                                        <Button Width="110" Content="🤖 Move " FontSize="18" Background="#1E88E5"
+                        Height="36"
+                        Command="{Binding MoveForwardPointCommand}" CommandParameter="5"/>
+
+                                        <Button Content="💾 Vel5" Width="110" Height="36" Background="#6A1B9A" FontSize="18"
+                        Command="{Binding SaveForwardVelocityCommand}" CommandParameter="5"/>
+
+                                        <TextBox Style="{StaticResource PrettyTextBox}"
+                         FontSize="18"
+                         Width="80"
+                         Height="36"
+                         VerticalContentAlignment="Center">
+                                            <TextBox.Text>
+                                                <Binding Path="ForwardVelocities[4]" UpdateSourceTrigger="LostFocus">
+                                                    <Binding.ValidationRules>
+                                                        <conv:Range01ValidationRule />
+                                                    </Binding.ValidationRules>
+                                                </Binding>
+                                            </TextBox.Text>
+                                        </TextBox>
+
+                                        <ComboBox Width="90" Height="36" FontSize="16"  Style="{StaticResource PrettyComboBox}"
+                          ItemsSource="{Binding MoveTypeOptions}"
+                          SelectedItem="{Binding MoveTypes[4], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                    </UniformGrid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- =============== ROW 0 / COL 1: RETURN ================= -->
+                            <Border Grid.Row="0" Grid.Column="1"
+            Background="#2D2D2D" CornerRadius="10"
+            Padding="15" Margin="10"
+            Width="660">
+                                <Border.Effect>
+                                    <DropShadowEffect Color="Black" BlurRadius="12" ShadowDepth="3" Opacity="0.25"/>
+                                </Border.Effect>
+
+                                <StackPanel>
+
+                                    <TextBlock Text="RETURN TRAJECTORY"
+                       FontSize="20"
+                       FontWeight="Bold"
+                       Foreground="#E0E0E0"
+                       Margin="0,0,0,15"
+                       HorizontalAlignment="Center"/>
+
+                                    <UniformGrid Rows="6" Columns="5" HorizontalAlignment="Center" Margin="0,10">
+
+                                        <!-- Header -->
+                                        <TextBlock Text="Save" FontSize="18" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Move" FontSize="18" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Save Vel" FontSize="18" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Velocity" FontSize="18" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Type" FontSize="18" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+
+                                        <!-- Row 1 -->
+                                        <Button Width="110" Content="💾 Quay Về 1" FontSize="18" Background="#388E3C"
+                        Height="36"
+                        Command="{Binding SaveReturnPointCommand}" CommandParameter="1"/>
+
+                                        <Button Width="110" Content="🤖 Move " FontSize="18" Background="#1E88E5"
+                        Height="36"
+                        Command="{Binding MoveReturnPointCommand}" CommandParameter="1"/>
+
+                                        <Button Content="💾 Vel1" Width="110" Height="36" Background="#6A1B9A" FontSize="18"
+                        Command="{Binding SaveReturnVelocityCommand}" CommandParameter="1"/>
+
+                                        <TextBox Style="{StaticResource PrettyTextBox}"
+                         FontSize="18"
+                         Width="80"
+                         Height="36"
+                         VerticalContentAlignment="Center">
+                                            <TextBox.Text>
+                                                <Binding Path="ReturnVelocities[0]"
+                                 UpdateSourceTrigger="LostFocus">
+                                                    <Binding.ValidationRules>
+                                                        <conv:Range01ValidationRule />
+                                                    </Binding.ValidationRules>
+                                                </Binding>
+                                            </TextBox.Text>
+                                        </TextBox>
+
+                                        <ComboBox Width="90" Height="36" FontSize="16"  Style="{StaticResource PrettyComboBox}"
+                          ItemsSource="{Binding MoveTypeOptions}"
+                          SelectedItem="{Binding ReturnMoveTypes[0], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                        <!-- Row 2 -->
+                                        <Button Width="110" Content="💾 Quay Về 2" FontSize="18" Background="#388E3C"
+                        Height="36"
+                        Command="{Binding SaveReturnPointCommand}" CommandParameter="2"/>
+
+                                        <Button Width="110" Content="🤖 Move " FontSize="18" Background="#1E88E5"
+                        Height="36"
+                        Command="{Binding MoveReturnPointCommand}" CommandParameter="2"/>
+
+                                        <Button Content="💾 Vel2" Width="110" Height="36" Background="#6A1B9A" FontSize="18"
+                        Command="{Binding SaveReturnVelocityCommand}" CommandParameter="2"/>
+
+                                        <TextBox Style="{StaticResource PrettyTextBox}"
+                         FontSize="18"
+                         Width="80"
+                         Height="36"
+                         VerticalContentAlignment="Center">
+                                            <TextBox.Text>
+                                                <Binding Path="ReturnVelocities[1]"
+                                 UpdateSourceTrigger="LostFocus">
+                                                    <Binding.ValidationRules>
+                                                        <conv:Range01ValidationRule />
+                                                    </Binding.ValidationRules>
+                                                </Binding>
+                                            </TextBox.Text>
+                                        </TextBox>
+
+                                        <ComboBox Width="90" Height="36" FontSize="16"  Style="{StaticResource PrettyComboBox}"
+                          ItemsSource="{Binding MoveTypeOptions}"
+                          SelectedItem="{Binding ReturnMoveTypes[1], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                        <!-- Row 3 -->
+                                        <Button Width="110" Content="💾 Quay Về 3" FontSize="18" Background="#388E3C"
+                        Height="36"
+                        Command="{Binding SaveReturnPointCommand}" CommandParameter="3"/>
+
+                                        <Button Width="110" Content="🤖 Move " FontSize="18" Background="#1E88E5"
+                        Height="36"
+                        Command="{Binding MoveReturnPointCommand}" CommandParameter="3"/>
+
+                                        <Button Content="💾 Vel3" Width="110" Height="36" Background="#6A1B9A" FontSize="18"
+                        Command="{Binding SaveReturnVelocityCommand}" CommandParameter="3"/>
+
+                                        <TextBox Style="{StaticResource PrettyTextBox}"
+                         FontSize="18"
+                         Width="80"
+                         Height="36"
+                         VerticalContentAlignment="Center">
+                                            <TextBox.Text>
+                                                <Binding Path="ReturnVelocities[2]"
+                                 UpdateSourceTrigger="LostFocus">
+                                                    <Binding.ValidationRules>
+                                                        <conv:Range01ValidationRule />
+                                                    </Binding.ValidationRules>
+                                                </Binding>
+                                            </TextBox.Text>
+                                        </TextBox>
+
+                                        <ComboBox Width="90" Height="36" FontSize="16"  Style="{StaticResource PrettyComboBox}"
+                          ItemsSource="{Binding MoveTypeOptions}"
+                          SelectedItem="{Binding ReturnMoveTypes[2], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                        <!-- Row 4 -->
+                                        <Button Width="110" Content="💾 Quay Về 4" FontSize="18" Background="#388E3C"
+                        Height="36"
+                        Command="{Binding SaveReturnPointCommand}" CommandParameter="4"/>
+
+                                        <Button Width="110" Content="🤖 Move " FontSize="18" Background="#1E88E5"
+                        Height="36"
+                        Command="{Binding MoveReturnPointCommand}" CommandParameter="4"/>
+
+                                        <Button Content="💾 Vel4" Width="110" Height="36" Background="#6A1B9A" FontSize="18"
+                        Command="{Binding SaveReturnVelocityCommand}" CommandParameter="4"/>
+
+                                        <TextBox Style="{StaticResource PrettyTextBox}"
+                         FontSize="18"
+                         Width="80"
+                         Height="36"
+                         VerticalContentAlignment="Center">
+                                            <TextBox.Text>
+                                                <Binding Path="ReturnVelocities[3]"
+                                 UpdateSourceTrigger="LostFocus">
+                                                    <Binding.ValidationRules>
+                                                        <conv:Range01ValidationRule />
+                                                    </Binding.ValidationRules>
+                                                </Binding>
+                                            </TextBox.Text>
+                                        </TextBox>
+
+                                        <ComboBox Width="90" Height="36" FontSize="16"  Style="{StaticResource PrettyComboBox}"
+                          ItemsSource="{Binding MoveTypeOptions}"
+                          SelectedItem="{Binding ReturnMoveTypes[3], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                        <!-- Row 5 -->
+                                        <Button Width="110" Content="💾 Quay Về 5" FontSize="18" Background="#388E3C"
+                        Height="36"
+                        Command="{Binding SaveReturnPointCommand}" CommandParameter="5"/>
+
+                                        <Button Width="110" Content="🤖 Move " FontSize="18" Background="#1E88E5"
+                        Height="36"
+                        Command="{Binding MoveReturnPointCommand}" CommandParameter="5" />
+
+                                        <Button Content="💾 Vel5" Width="110" Height="36" Background="#6A1B9A" FontSize="18"
+                        Command="{Binding SaveReturnVelocityCommand}" CommandParameter="5"/>
+
+                                        <TextBox Style="{StaticResource PrettyTextBox}"
+                         FontSize="18"
+                         Width="80"
+                         Height="36"
+                         VerticalContentAlignment="Center">
+                                            <TextBox.Text>
+                                                <Binding Path="ReturnVelocities[4]"
+                                 UpdateSourceTrigger="LostFocus">
+                                                    <Binding.ValidationRules>
+                                                        <conv:Range01ValidationRule />
+                                                    </Binding.ValidationRules>
+                                                </Binding>
+                                            </TextBox.Text>
+                                        </TextBox>
+
+                                        <ComboBox Width="90" Height="36" FontSize="16"  Style="{StaticResource PrettyComboBox}"
+                          ItemsSource="{Binding MoveTypeOptions}"
+                          SelectedItem="{Binding ReturnMoveTypes[4], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                    </UniformGrid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- =============== ROW 0 / COL 2: HOME ================= -->
+                            <Border Grid.Row="0" Grid.Column="2"
+            Background="#2D2D2D" CornerRadius="10"
+            Padding="15" Margin="10"
+            Width="340">
+                                <Border.Effect>
+                                    <DropShadowEffect Color="Black" BlurRadius="12" ShadowDepth="3" Opacity="0.25"/>
+                                </Border.Effect>
+                                <StackPanel>
+                                    <TextBlock Text="HOME POSITION"
+                       FontSize="20"
+                       FontWeight="Bold"
+                       Foreground="#E0E0E0"
+                       Margin="0,0,0,15"
+                       HorizontalAlignment="Center"/>
+                                    <UniformGrid Rows="1" Columns="2" HorizontalAlignment="Center">
+                                        <Button Content="💾 Save Home" FontSize="18" Background="#D17C00" Command="{Binding SaveHomeCommand}"/>
+                                        <Button Content="🏠 Move Home" FontSize="18" Background="#A45C00" Command="{Binding MoveHomeCommand}"/>
+                                    </UniformGrid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- =============== ROW 1 / COL 0: PRE-PICK (ĐẦY ĐỦ TÍNH NĂNG) ================= -->
+                            <Border Grid.Row="1" Grid.Column="0"
+            Background="#2D2D2D" CornerRadius="10"
+            Padding="15" Margin="10"
+            Width="660">
+                                <Border.Effect>
+                                    <DropShadowEffect Color="Black" BlurRadius="12" ShadowDepth="3" Opacity="0.25"/>
+                                </Border.Effect>
+
+                                <StackPanel>
+                                    <TextBlock Text="PRE-PICK POSE"
+                       FontSize="20"
+                       FontWeight="Bold"
+                       Foreground="#E0E0E0"
+                       Margin="0,0,0,10"
+                       HorizontalAlignment="Center"/>
+
+                                    <TextBlock Text="1 điểm trước khi xuống gắp "
+                       FontSize="13"
+                       Foreground="#B0B0B0"
+                       Margin="0,0,0,10"
+                       TextAlignment="Center"/>
+
+                                    <!-- Giống cấu trúc RETURN nhưng chỉ 1 hàng dữ liệu -->
+                                    <UniformGrid Rows="2" Columns="5" HorizontalAlignment="Center" Margin="0,10">
+
+                                        <!-- HEADER -->
+                                        <TextBlock Text="Save" FontSize="18" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Move" FontSize="18" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Save Vel" FontSize="18" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Velocity" FontSize="18" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+                                        <TextBlock Text="Type" FontSize="18" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
+
+                                        <!-- ROW PRE-PICK -->
+                                        <Button Width="110" Content="💾 Save" FontSize="18" Background="#388E3C"
+                        Height="36"
+                        Command="{Binding SavePrePickPoseCommand}"/>
+
+                                        <Button Width="110" Content="🤖 Move" FontSize="18" Background="#1E88E5"
+                        Height="36"
+                        Command="{Binding MovePrePickPoseCommand}"/>
+
+                                        <Button Content="💾 Save Vel" Width="110" Height="36" Background="#6A1B9A" FontSize="18"
+                        Command="{Binding SavePrePickVelocityCommand}"/>
+
+                                        <TextBox Style="{StaticResource PrettyTextBox}"
+                         FontSize="18"
+                         Width="80"
+                         Height="36"
+                         VerticalContentAlignment="Center">
+                                            <TextBox.Text>
+                                                <Binding Path="PrePickVelocity"
+                                 UpdateSourceTrigger="LostFocus">
+                                                    <Binding.ValidationRules>
+                                                        <conv:Range01ValidationRule />
+                                                    </Binding.ValidationRules>
+                                                </Binding>
+                                            </TextBox.Text>
+                                        </TextBox>
+
+                                        <ComboBox Width="90" Height="36" FontSize="16"  Style="{StaticResource PrettyComboBox}"
+                          ItemsSource="{Binding MoveTypeOptions}"
+                          SelectedItem="{Binding PrePickMoveType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+                                    </UniformGrid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- =============== ROW 1 / COL 1: WORKSPACE ================= -->
+                            <Border Grid.Row="1" Grid.Column="1"
+            Background="#2D2D2D" CornerRadius="10"
+            Padding="15" Margin="10"
+            Width="660">
+                                <Border.Effect>
+                                    <DropShadowEffect Color="Black" BlurRadius="12" ShadowDepth="3" Opacity="0.25"/>
+                                </Border.Effect>
+
+                                <StackPanel>
+                                    <TextBlock Text="WORKSPACE POINTS"
+                       FontSize="20"
+                       FontWeight="Bold"
+                       Foreground="#E0E0E0"
+                       Margin="0,0,0,10"
+                       HorizontalAlignment="Center"/>
+
+                                    <TextBlock Text="4 điểm giới hạn không gian làm việc"
+                       FontSize="13"
+                       Foreground="#B0B0B0"
+                       Margin="0,0,0,10"
+                       TextAlignment="Center"/>
+
+                                    <UniformGrid Rows="4" Columns="4" HorizontalAlignment="Center" Margin="0,5,0,0">
+
+                                        <!-- P1 -->
+                                        <Button Content="💾 Save P1"
+                        Background="#388E3C"
+                        FontSize="16"
+                        Command="{Binding SaveWorkspacePointCommand}"
+                        CommandParameter="1"/>
+                                        <Button Content="🤖 Move P1"
+                        Background="#1E88E5"
+                        FontSize="16"
+                        Command="{Binding MoveWorkspacePointCommand}"
+                        CommandParameter="1"/>
+
+                                        <!-- P2 -->
+                                        <Button Content="💾 Save P2"
+                        Background="#388E3C"
+                        FontSize="16"
+                        Command="{Binding SaveWorkspacePointCommand}"
+                        CommandParameter="2"/>
+                                        <Button Content="🤖 Move P2"
+                        Background="#1E88E5"
+                        FontSize="16"
+                        Command="{Binding MoveWorkspacePointCommand}"
+                        CommandParameter="2"/>
+
+                                        <!-- P3 -->
+                                        <Button Content="💾 Save P3"
+                        Background="#388E3C"
+                        FontSize="16"
+                        Command="{Binding SaveWorkspacePointCommand}"
+                        CommandParameter="3"/>
+                                        <Button Content="🤖 Move P3"
+                        Background="#1E88E5"
+                        FontSize="16"
+                        Command="{Binding MoveWorkspacePointCommand}"
+                        CommandParameter="3"/>
+
+                                        <!-- P4 -->
+                                        <Button Content="💾 Save P4"
+                        Background="#388E3C"
+                        FontSize="16"
+                        Command="{Binding SaveWorkspacePointCommand}"
+                        CommandParameter="4"/>
+                                        <Button Content="🤖 Move P4"
+                        Background="#1E88E5"
+                        FontSize="16"
+                        Command="{Binding MoveWorkspacePointCommand}"
+                        CommandParameter="4"/>
+                                        <!-- P5 -->
+                                        <Button Content="💾 Save P5"
+                                Background="#388E3C"
+                                FontSize="16"
+                                Command="{Binding SaveWorkspacePointCommand}"
+                                CommandParameter="5"/>
+                               <Button Content="🤖 Move P5"
+                                Background="#1E88E5"
+                                FontSize="16"
+                                Command="{Binding MoveWorkspacePointCommand}"
+                                CommandParameter="5"/>
+                                        <!-- P4 -->
+                                        <Button Content="💾 Save P6"
+                                            Background="#388E3C"
+                                            FontSize="16"
+                                            Command="{Binding SaveWorkspacePointCommand}"
+                                            CommandParameter="6"/>
+                                        <Button Content="🤖 Move P6"
+                                            Background="#1E88E5"
+                                            FontSize="16"
+                                            Command="{Binding MoveWorkspacePointCommand}"
+                                            CommandParameter="6"/>
+                                    </UniformGrid>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- ROW 1 / COL 2: để trống hoặc sau này thêm nhóm khác -->
+                                </Grid>
+
+                            </Grid>
+                        </Viewbox>
+
+                    </Grid>
+                </TabItem>
+
+                <!-- ============= TAB 3: SETTING ROBOT sensor ============= -->
+                <TabItem Header="SETTING ROBOT SENSOR">
+                    <Grid Background="#20232A">
+
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <Grid Margin="20">
+
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="Auto"/>
+                                </Grid.RowDefinitions>
+
+                                <!-- ================= ROW 1 ================= -->
+                                <Grid Grid.Row="0" Margin="0,0,0,20">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="1.2*"/>
+                                        <ColumnDefinition Width="1.2*"/>
+                                        <ColumnDefinition Width="1.6*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Select Basket -->
+                                    <GroupBox Header="Select Basket"
+                              Style="{StaticResource DarkGroupBox}">
+                                        <StackPanel>
+                                            <CheckBox Content="Basket 1" Foreground="White"/>
+                                            <CheckBox Content="Basket 2" Foreground="White"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <!-- Select Head -->
+                                    <GroupBox Header="Select Head"
+                              Grid.Column="1"
+                              Style="{StaticResource DarkGroupBox}">
+                                        <StackPanel>
+                                            <CheckBox Content="Suction head 1" Foreground="White"/>
+                                            <CheckBox Content="Suction head 2" Foreground="White"/>
+                                            <CheckBox Content="Suction head 3" Foreground="White"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <!-- Sensor Full Work -->
+                                    <GroupBox Header="Sensor Full Work"
+                              Grid.Column="2"
+                              Style="{StaticResource DarkGroupBox}">
+                                        <ComboBox Style="{StaticResource PrettyComboBox}"
+                                  Margin="4"/>
+                                    </GroupBox>
+                                </Grid>
+
+                                <!-- ================= ROW 2 ================= -->
+                                <Grid Grid.Row="1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="2.2*"/>
+                                        <ColumnDefinition Width="1*"/>
+                                        <ColumnDefinition Width="1*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- Speed -->
+                                    <GroupBox Header="Tốc độ robot"
+          Style="{StaticResource DarkGroupBox}">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition/>
+                                                <RowDefinition/>
+                                                <RowDefinition/>
+                                                <RowDefinition/>
+                                                <RowDefinition/>
+                                            </Grid.RowDefinitions>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="2.8*"/>
+                                                <ColumnDefinition Width="*"/>
+                                            </Grid.ColumnDefinitions>
+
+                                            <!-- Tốc độ Robot chụp ảnh -->
+                                            <TextBlock Text="Tốc độ Robot chụp ảnh"
+                                               Foreground="#CCCCCC"/>
+                                                                        <ComboBox Grid.Column="1"
+                                              ItemsSource="{Binding SpeedOptions}"
+                                              SelectedItem="{Binding SpeedCapture, Mode=TwoWay}"
+                                              Style="{StaticResource PrettyComboBox}"/>
+
+                                            <!-- Tốc độ Robot chờ hút -->
+                                            <TextBlock Text="Tốc độ Robot chờ hút"
+                                                Grid.Row="1"
+                                                Foreground="#CCCCCC"/>
+                                                                        <ComboBox Grid.Column="1"
+                                                Grid.Row="1"
+                                                ItemsSource="{Binding SpeedOptions}"
+                                                SelectedItem="{Binding SpeedWaitPick, Mode=TwoWay}"
+                                                Style="{StaticResource PrettyComboBox}"/>
+
+                                            <!-- Tốc độ Robot đi lên vị trí thả -->
+                                            <TextBlock Text="Tốc độ Robot đi lên vị trí thả"
+                                               Grid.Row="2"
+                                               Foreground="#CCCCCC"/>
+                                                                        <ComboBox Grid.Column="1"
+                                              Grid.Row="2"
+                                              ItemsSource="{Binding SpeedOptions}"
+                                              SelectedItem="{Binding SpeedMoveUp, Mode=TwoWay}"
+                                              Style="{StaticResource PrettyComboBox}"/>
+
+                                            <!-- Tốc độ Robot quay về sau khi thả -->
+                                            <TextBlock Text="Tốc độ Robot quay về sau khi thả"
+                                               Grid.Row="3"
+                                               Foreground="#CCCCCC"/>
+                                                                        <ComboBox Grid.Column="1"
+                                              Grid.Row="3"
+                                              ItemsSource="{Binding SpeedOptions}"
+                                              SelectedItem="{Binding SpeedReturn, Mode=TwoWay}"
+                                              Style="{StaticResource PrettyComboBox}"/>
+
+                                            <!-- Chưa dùng -->
+                                            <TextBlock Text="Chưa dùng đến"
+                                                Grid.Row="4"
+                                               Foreground="#777777"/>
+                                                                        <ComboBox Grid.Column="1"
+                                              Grid.Row="4"
+                                              ItemsSource="{Binding SpeedOptions}"
+                                              SelectedItem="{Binding SpeedUnused, Mode=TwoWay}"
+                                              Style="{StaticResource PrettyComboBox}"/>
+                                        </Grid>
+                                    </GroupBox>
+
+
+                                    <!-- Air -->
+                                    <GroupBox Header="Chọn thổi khí"
+                              Grid.Column="1"
+                              Style="{StaticResource DarkGroupBox}">
+                                        <CheckBox Content="Thổi khí"
+                                  Foreground="White"
+                                  Margin="6"/>
+                                    </GroupBox>
+
+                                    <!-- System -->
+                                    <GroupBox Header="System"
+                              Grid.Column="2"
+                              Style="{StaticResource DarkGroupBox}">
+                                        <StackPanel>
+                                            <CheckBox Content="SetSensor"
+                                      Foreground="White"/>
+                                            <Separator Margin="8"/>
+                                            <CheckBox Content="WriteLog"
+                                      Foreground="White"/>
+                                        </StackPanel>
+                                    </GroupBox>
+                                </Grid>
+
+                            </Grid>
+                        </ScrollViewer>
+
+                    </Grid>
+                </TabItem>
+
+            </TabControl>
+        </Grid>
+    </Grid>
+</UserControl>

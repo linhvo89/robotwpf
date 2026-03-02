@@ -1,0 +1,75 @@
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+
+    <!-- Keep existing AssemblyInfo.cs -->
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+
+    <!-- Needed for some NuGet deps on .NET Framework -->
+    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+    <GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+
+    <ApplicationIcon>left-1-1.ico</ApplicationIcon>
+
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+
+    <Platforms>AnyCPU;x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="Views\backgroudXYZ.png" />
+    <None Remove="Views\backgroudXYZ2.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="11.0.0-preview.1.26104.118" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="NModbus" Version="3.0.81" />
+    <PackageReference Include="Serilog" Version="2.12.0" />
+    <PackageReference Include="Serilog.Extensions.Hosting" Version="4.2.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="4.1.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.2" />
+    <PackageReference Include="System.Text.Json" Version="10.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="Image\" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="VM.Core">
+      <HintPath>bin\Debug\net48\VM.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="VM.PlatformSDKCS">
+      <HintPath>bin\Debug\net48\VM.PlatformSDKCS.dll</HintPath>
+    </Reference>
+    <Reference Include="VMBaseControls">
+      <HintPath>bin\Debug\net48\VMBaseControls.dll</HintPath>
+    </Reference>
+    <Reference Include="VMControls.Interface">
+      <HintPath>bin\Debug\net48\VMControls.Interface.dll</HintPath>
+    </Reference>
+    <Reference Include="VMControls.RenderInterface">
+      <HintPath>bin\Debug\net48\VMControls.RenderInterface.dll</HintPath>
+    </Reference>
+    <Reference Include="VMControls.WPF.Release">
+      <HintPath>bin\Debug\net48\VMControls.WPF.Release.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Views\backgroudXYZ.png" />
+    <Resource Include="Views\backgroudXYZ2.png" />
+  </ItemGroup>
+
+</Project>

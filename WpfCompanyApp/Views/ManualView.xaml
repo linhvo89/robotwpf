@@ -1,0 +1,1290 @@
+﻿<UserControl x:Class="WpfCompanyApp.Views.ManualView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:Release="clr-namespace:VMControls.WPF.Release;assembly=VMControls.WPF.Release"
+             xmlns:conv="clr-namespace:WpfCompanyApp.Converters"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <UserControl.Resources>
+
+        <!-- ===================== THEME (GIỐNG ẢNH) ===================== -->
+        <SolidColorBrush x:Key="AppBg"        Color="#0F1623"/>
+        <SolidColorBrush x:Key="PanelBg"      Color="#1A2231"/>
+        <SolidColorBrush x:Key="CardBg"       Color="#2A3343"/>
+        <SolidColorBrush x:Key="CardBorder"   Color="#3A465B"/>
+        <SolidColorBrush x:Key="InputBg"      Color="#2B3444"/>
+        <SolidColorBrush x:Key="InputBorder"  Color="#5A6A7C"/>
+        <SolidColorBrush x:Key="Accent"       Color="#007ACC"/>
+        <SolidColorBrush x:Key="HeaderGreen"  Color="#00FF7A"/>
+        <SolidColorBrush x:Key="TextPrimary"  Color="#EAF0FF"/>
+        <SolidColorBrush x:Key="TextMuted"    Color="#B7C3D6"/>
+
+        <!-- ===================== SENSOR IO DOT ===================== -->
+        <SolidColorBrush x:Key="DotOff" Color="#3A3A3A"/>
+        <SolidColorBrush x:Key="DotOn"  Color="#00C853"/>
+
+        <Style x:Key="IoDotStyle" TargetType="Ellipse">
+            <Setter Property="Width" Value="24"/>
+            <Setter Property="Height" Value="24"/>
+            <Setter Property="Fill" Value="{StaticResource DotOff}"/>
+            <Setter Property="Stroke" Value="#202020"/>
+            <Setter Property="StrokeThickness" Value="1"/>
+            <Setter Property="HorizontalAlignment" Value="Right"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <!-- ===================== TEXT DEFAULT ===================== -->
+        <Style TargetType="{x:Type TextBlock}">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+        </Style>
+
+        <Style x:Key="FieldLabelStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="Foreground" Value="{StaticResource TextMuted}"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Margin" Value="0,0,6,0"/>
+        </Style>
+
+        <!-- ===================== INPUTS ===================== -->
+        <Style TargetType="{x:Type TextBox}">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="Background" Value="{StaticResource InputBg}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource InputBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+        </Style>
+
+        <Style TargetType="{x:Type ComboBox}">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="Background" Value="{StaticResource InputBg}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource InputBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,6"/>
+            <Setter Property="Height" Value="32"/>
+        </Style>
+
+        <Style x:Key="LogTextBoxStyle" TargetType="{x:Type TextBox}">
+            <Setter Property="AcceptsReturn" Value="True"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="HorizontalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="FontFamily" Value="Consolas"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Padding" Value="10"/>
+            <Setter Property="Background" Value="#0F141E"/>
+            <Setter Property="BorderBrush" Value="{StaticResource CardBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+        </Style>
+
+        <!-- ===================== BUTTONS ===================== -->
+        <Style TargetType="{x:Type Button}">
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="#3A3A3A"/>
+            <Setter Property="BorderBrush" Value="{StaticResource CardBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="12,7"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              RecognizesAccessKey="True"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.9"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.85"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.55"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="PrimaryButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource {x:Type Button}}">
+            <Setter Property="Background" Value="{StaticResource Accent}"/>
+            <Setter Property="BorderBrush" Value="{StaticResource Accent}"/>
+        </Style>
+
+        <!-- ===================== GROUPBOX = CARD (GIỐNG ẢNH) ===================== -->
+        <Style TargetType="GroupBox">
+            <Setter Property="Margin" Value="10"/>
+            <Setter Property="Padding" Value="12"/>
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="GroupBox">
+                        <Grid>
+                            <Border Background="{StaticResource CardBg}"
+                                    BorderBrush="{StaticResource CardBorder}"
+                                    BorderThickness="1"
+                                    CornerRadius="12"
+                                    SnapsToDevicePixels="True">
+                                <Border.Effect>
+                                    <DropShadowEffect BlurRadius="18" ShadowDepth="0" Opacity="0.35"/>
+                                </Border.Effect>
+                            </Border>
+
+                            <Grid Margin="14,12,14,14">
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto"/>
+                                    <RowDefinition Height="*"/>
+                                </Grid.RowDefinitions>
+
+                                <TextBlock Grid.Row="0"
+                                           Text="{TemplateBinding Header}"
+                                           FontSize="16"
+                                           FontWeight="Bold"
+                                           Foreground="{StaticResource HeaderGreen}"
+                                           Margin="2,0,2,10"/>
+
+                                <ContentPresenter Grid.Row="1"/>
+                            </Grid>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- ===================== TOGGLES (GIỮ NGUYÊN CỦA BẠN) ===================== -->
+        <Style x:Key="OnOffToggleButtonStyle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="100"/>
+            <Setter Property="Height" Value="30"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="#D32F2F"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="10"
+                                Padding="6">
+                            <TextBlock Text="{TemplateBinding Content}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="False">
+                                <Setter TargetName="border" Property="Background" Value="#D32F2F"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#00C853"/>
+                            </Trigger>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.9"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Background" Value="#555"/>
+                                <Setter Property="Foreground" Value="#AAA"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="LampToggleBaseStyle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="80"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="#555555"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="border"
+                                CornerRadius="18"
+                                Background="{TemplateBinding Background}"
+                                Padding="6">
+                            <TextBlock Text="{TemplateBinding Content}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.9"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Background" Value="#333333"/>
+                                <Setter Property="Foreground" Value="#AAAAAA"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="GreenLampStyle" TargetType="ToggleButton" BasedOn="{StaticResource LampToggleBaseStyle}">
+            <Style.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Background" Value="#00E676"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="RedLampStyle" TargetType="ToggleButton" BasedOn="{StaticResource LampToggleBaseStyle}">
+            <Style.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Background" Value="#FF1744"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="YellowLampStyle" TargetType="ToggleButton" BasedOn="{StaticResource LampToggleBaseStyle}">
+            <Setter Property="Foreground" Value="White"/>
+            <Style.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Background" Value="#FFD600"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="StateButtonBaseStyle" TargetType="ToggleButton">
+            <Setter Property="Width" Value="120"/>
+            <Setter Property="Height" Value="42"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Background" Value="#555555"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="border"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="10"
+                                Padding="6">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.9"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Background" Value="#333333"/>
+                                <Setter Property="Foreground" Value="#AAAAAA"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="EnableButtonStyle" TargetType="ToggleButton" BasedOn="{StaticResource StateButtonBaseStyle}">
+            <Style.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Background" Value="#00C853"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="DisableButtonStyle" TargetType="ToggleButton" BasedOn="{StaticResource StateButtonBaseStyle}">
+            <Setter Property="Foreground" Value="White"/>
+            <Style.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Background" Value="#FFD600"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="OpenButtonStyle" TargetType="ToggleButton" BasedOn="{StaticResource StateButtonBaseStyle}">
+            <Style.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Background" Value="#00E676"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="CloseButtonStyle" TargetType="ToggleButton" BasedOn="{StaticResource StateButtonBaseStyle}">
+            <Style.Triggers>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Background" Value="#D32F2F"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <conv:OnOffTextConverter x:Key="OnOffText"/>
+
+        <!-- ===================== TAB CONTROL FIX (KHÔNG ẨN TAB) ===================== -->
+        <Style x:Key="NiceTabItemStyle" TargetType="{x:Type TabItem}">
+            <Setter Property="Foreground" Value="{StaticResource TextPrimary}"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="Padding" Value="14,8"/>
+            <Setter Property="Margin" Value="0,0,8,0"/>
+            <Setter Property="MinWidth" Value="150"/>
+            <Setter Property="Height" Value="36"/>
+            <Setter Property="Background" Value="#111827"/>
+            <Setter Property="BorderBrush" Value="{StaticResource CardBorder}"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type TabItem}">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="10"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter ContentSource="Header"
+                                              RecognizesAccessKey="True"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#1F2937"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#243145"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                                <Setter Property="Panel.ZIndex" Value="10"/>
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Opacity" Value="0.55"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="NiceTabControlStyle" TargetType="{x:Type TabControl}">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="ItemContainerStyle" Value="{StaticResource NiceTabItemStyle}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type TabControl}">
+                        <Grid SnapsToDevicePixels="True">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+
+                            <DockPanel Grid.Row="0" LastChildFill="False" Margin="0,0,0,10">
+                                <TabPanel x:Name="HeaderPanel"
+                                          IsItemsHost="True"
+                                          KeyboardNavigation.TabIndex="1"
+                                          HorizontalAlignment="Left"/>
+                            </DockPanel>
+
+                            <Border Grid.Row="1"
+                                    Background="{StaticResource PanelBg}"
+                                    CornerRadius="12"
+                                    BorderBrush="{StaticResource CardBorder}"
+                                    BorderThickness="1"
+                                    Padding="10">
+                                <ContentPresenter x:Name="PART_SelectedContentHost"
+                                                  ContentSource="SelectedContent"
+                                                  SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                            </Border>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+    </UserControl.Resources>
+
+    <!-- ===================== BODY ===================== -->
+    <Grid Background="{StaticResource AppBg}"
+          DataContext="{Binding Data}">
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="70"/>
+            <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+
+        <!-- HEADER -->
+        <Border Grid.Row="0"
+                Background="{StaticResource Accent}"
+                Margin="0,0,0,10"
+                CornerRadius="0,0,12,12">
+            <TextBlock Text="Manual"
+                       FontSize="34"
+                       FontWeight="Bold"
+                       Foreground="White"
+                       HorizontalAlignment="Center"
+                       VerticalAlignment="Center">
+                <TextBlock.Effect>
+                    <DropShadowEffect BlurRadius="8" ShadowDepth="1" Opacity="0.3"/>
+                </TextBlock.Effect>
+            </TextBlock>
+        </Border>
+
+        <!-- CONTENT -->
+        <Grid Grid.Row="1" Margin="10">
+            <TabControl Style="{StaticResource NiceTabControlStyle}">
+
+                <!-- ===================== TAB 1: MANUAL ROBOT (FULL) ===================== -->
+                <TabItem Header="Manual Robot">
+                    <Grid Margin="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="3*"/>
+                            <ColumnDefinition Width="2*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <!-- LEFT PANEL -->
+                        <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
+                            <StackPanel>
+
+                                <!-- TOP ROW: Camera + Lamp -->
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+
+                                    <!-- CAMERA -->
+                                    <GroupBox Grid.Column="0" Header="Camera">
+                                        <StackPanel Orientation="Horizontal">
+                                            <TextBox Width="120" Text="0" Margin="0,0,10,0"/>
+                                            <Button Content="Trigger Test"
+                                                    Width="140"
+                                                    Style="{StaticResource PrimaryButtonStyle}"/>
+                                        </StackPanel>
+                                    </GroupBox>
+
+                                    <!-- LAMP -->
+                                    <GroupBox Grid.Column="1" Header="Lamp">
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                            <ToggleButton Content="Green"
+                                                          Style="{StaticResource GreenLampStyle}"
+                                                          IsChecked="{Binding GreenLampOn}"
+                                                          Margin="5"/>
+                                            <ToggleButton Content="Red"
+                                                          Style="{StaticResource RedLampStyle}"
+                                                          IsChecked="{Binding RedLampOn}"
+                                                          Margin="5"/>
+                                            <ToggleButton Content="Yellow"
+                                                          Style="{StaticResource YellowLampStyle}"
+                                                          IsChecked="{Binding YellowLampOn}"
+                                                          Margin="5"/>
+                                        </StackPanel>
+                                    </GroupBox>
+                                </Grid>
+
+                                <!-- PUSH AIR -->
+                                <GroupBox Header="Push Air">
+                                    <WrapPanel Margin="10,5,10,5">
+                                        <ToggleButton Content="PushAir 1" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding PushAir1}" Margin="0,0,15,0"/>
+                                        <ToggleButton Content="PushAir 2" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding PushAir2}" Margin="0,0,15,0"/>
+                                        <ToggleButton Content="PushAir 3" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding PushAir3}" Margin="0,0,15,0"/>
+                                        <ToggleButton Content="Sub Push" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding SubPush}"/>
+                                    </WrapPanel>
+                                </GroupBox>
+
+                                <GroupBox Header="Cylinders">
+                                    <WrapPanel Margin="10,5,10,5">
+                                        <ToggleButton Content="Cylinder 1" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding Cylinder1}" Margin="0,0,15,0"/>
+                                        <ToggleButton Content="Cylinder 2" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding Cylinder2}" Margin="0,0,15,0"/>
+                                        <ToggleButton Content="Cylinder 3" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding Cylinder3}"/>
+                                    </WrapPanel>
+                                </GroupBox>
+
+                                <GroupBox Header="Vacuum">
+                                    <WrapPanel Margin="10,5,10,5">
+                                        <ToggleButton Content="Vacuum 1" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding Vacuum1}" Margin="0,0,15,0"/>
+                                        <ToggleButton Content="Vacuum 2" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding Vacuum2}" Margin="0,0,15,0"/>
+                                        <ToggleButton Content="Vacuum 3" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding Vacuum3}"/>
+                                    </WrapPanel>
+                                </GroupBox>
+
+                             
+
+                                <!-- JOG CONTROL -->
+                                <GroupBox Header="Jog Control">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <!-- XYZ -->
+                                        <Canvas Grid.Column="0" Width="180" Height="180" Margin="8">
+                                            <Canvas.Background>
+                                                <ImageBrush ImageSource="/Views/backgroudXYZ.png" Stretch="Fill"/>
+                                            </Canvas.Background>
+
+                                            <Button Canvas.Left="70" Canvas.Top="0"
+                                                    Width="40" Height="40"
+                                                    Background="Transparent" BorderThickness="0"
+                                                    Style="{x:Null}"
+                                                    Command="{Binding JogZPlusCommand}"/>
+
+                                            <Button Canvas.Left="70" Canvas.Top="140"
+                                                    Width="40" Height="40"
+                                                    Background="Transparent" BorderThickness="0"
+                                                    Style="{x:Null}"
+                                                    Command="{Binding JogZMinusCommand}"/>
+
+                                            <Button Canvas.Left="10" Canvas.Top="33"
+                                                    Width="40" Height="40"
+                                                    Background="Transparent" BorderThickness="0"
+                                                    Style="{x:Null}"
+                                                    Command="{Binding JogXMinusCommand}"/>
+
+                                            <Button Canvas.Left="130" Canvas.Top="101"
+                                                    Width="40" Height="40"
+                                                    Background="Transparent" BorderThickness="0"
+                                                    Style="{x:Null}"
+                                                    Command="{Binding JogXPlusCommand}"/>
+
+                                            <Button Canvas.Left="131" Canvas.Top="34"
+                                                    Width="40" Height="40"
+                                                    Background="Transparent" BorderThickness="0"
+                                                    Style="{x:Null}"
+                                                    Command="{Binding JogYPlusCommand}"/>
+
+                                            <Button Canvas.Left="10" Canvas.Top="101"
+                                                    Width="40" Height="40"
+                                                    Background="Transparent" BorderThickness="0"
+                                                    Style="{x:Null}"
+                                                    Command="{Binding JogYMinusCommand}"/>
+                                        </Canvas>
+
+                                        <!-- RX RY RZ -->
+                                        <Canvas Grid.Column="1" Width="180" Height="180" Margin="8">
+                                            <Canvas.Background>
+                                                <ImageBrush ImageSource="/Views/backgroudXYZ2.png" Stretch="Fill"/>
+                                            </Canvas.Background>
+
+                                            <Button Canvas.Left="98" Canvas.Top="0"
+                                                    Width="40" Height="40"
+                                                    Background="Transparent" BorderThickness="0"
+                                                    Style="{x:Null}"
+                                                    Command="{Binding JogRZPlusCommand}"/>
+
+                                            <Button Canvas.Left="44"
+                                                    Width="40" Height="40"
+                                                    Background="Transparent" BorderThickness="0"
+                                                    Style="{x:Null}"
+                                                    Command="{Binding JogRZMinusCommand}"/>
+
+                                            <Button Canvas.Left="137" Canvas.Top="81"
+                                                    Width="40" Height="40"
+                                                    Background="Transparent" BorderThickness="0"
+                                                    Style="{x:Null}"
+                                                    Command="{Binding JogRXMinusCommand}"/>
+
+                                            <Button Canvas.Left="111" Canvas.Top="133"
+                                                    Width="40" Height="40"
+                                                    Background="Transparent" BorderThickness="0"
+                                                    Style="{x:Null}"
+                                                    Command="{Binding JogRXPlusCommand}"/>
+
+                                            <Button Canvas.Left="30" Canvas.Top="133"
+                                                    Width="40" Height="40"
+                                                    Background="Transparent" BorderThickness="0"
+                                                    Style="{x:Null}"
+                                                    Command="{Binding JogRYPlusCommand}"/>
+
+                                            <Button Canvas.Left="2" Canvas.Top="80"
+                                                    Width="40" Height="40"
+                                                    Background="Transparent" BorderThickness="0"
+                                                    Style="{x:Null}"
+                                                    Command="{Binding JogRYMinusCommand}"/>
+                                        </Canvas>
+
+                                        <!-- STEP MODE -->
+                                        <Border Grid.Column="2" Margin="10,10,5,0"
+                                                Padding="10"
+                                                CornerRadius="12"
+                                                Background="{StaticResource CardBg}"
+                                                BorderBrush="{StaticResource CardBorder}"
+                                                BorderThickness="1">
+                                            <StackPanel>
+                                                <CheckBox Content="Step mode"
+                                                          Margin="0,0,0,8"
+                                                          IsChecked="{Binding IsStepMode}"
+                                                          Foreground="{StaticResource TextPrimary}"/>
+
+                                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                                    <TextBox Width="70"
+                                                             Height="32"
+                                                             Text="{Binding StepMM}"
+                                                             HorizontalContentAlignment="Center"
+                                                             VerticalContentAlignment="Center"
+                                                             Margin="0,0,8,0"/>
+                                                    <TextBlock Text="mm"
+                                                               Foreground="{StaticResource TextMuted}"
+                                                               VerticalAlignment="Center"/>
+                                                </StackPanel>
+
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBox Width="70"
+                                                             Height="32"
+                                                             Text="{Binding StepDegree}"
+                                                             HorizontalContentAlignment="Center"
+                                                             VerticalContentAlignment="Center"
+                                                             Margin="0,0,8,0"/>
+                                                    <TextBlock Text="°"
+                                                               Foreground="{StaticResource TextMuted}"
+                                                               VerticalAlignment="Center"/>
+                                                </StackPanel>
+                                            </StackPanel>
+                                        </Border>
+                                    </Grid>
+                                </GroupBox>
+
+                                <!-- POSITION -->
+                                <GroupBox Header="Position">
+                                    <Grid Margin="6">
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto"/>
+                                            <RowDefinition Height="Auto"/>
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="110"/>
+                                            <ColumnDefinition Width="18"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="110"/>
+                                            <ColumnDefinition Width="18"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="110"/>
+                                        </Grid.ColumnDefinitions>
+
+                                        <TextBlock Grid.Row="0" Grid.Column="0" Text="X" Style="{StaticResource FieldLabelStyle}"/>
+                                        <TextBox   Grid.Row="0" Grid.Column="1" Margin="0,0,0,8" 
+                   Text="{Binding CurrentX, StringFormat=F3}" IsReadOnly="True"/>
+
+                                        <TextBlock Grid.Row="0" Grid.Column="3" Text="Y" Style="{StaticResource FieldLabelStyle}"/>
+                                        <TextBox   Grid.Row="0" Grid.Column="4" Margin="0,0,0,8" 
+                   Text="{Binding CurrentY, StringFormat=F3}" IsReadOnly="True"/>
+
+                                        <TextBlock Grid.Row="0" Grid.Column="6" Text="Z" Style="{StaticResource FieldLabelStyle}"/>
+                                        <TextBox   Grid.Row="0" Grid.Column="7" Margin="0,0,0,8" 
+                   Text="{Binding CurrentZ, StringFormat=F3}" IsReadOnly="True"/>
+
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="RX" Style="{StaticResource FieldLabelStyle}"/>
+                                        <TextBox   Grid.Row="1" Grid.Column="1" 
+                   Text="{Binding CurrentRx, StringFormat=F3}" IsReadOnly="True"/>
+
+                                        <TextBlock Grid.Row="1" Grid.Column="3" Text="RY" Style="{StaticResource FieldLabelStyle}"/>
+                                        <TextBox   Grid.Row="1" Grid.Column="4" 
+                   Text="{Binding CurrentRy, StringFormat=F3}" IsReadOnly="True"/>
+
+                                        <TextBlock Grid.Row="1" Grid.Column="6" Text="RZ" Style="{StaticResource FieldLabelStyle}"/>
+                                        <TextBox   Grid.Row="1" Grid.Column="7" 
+                   Text="{Binding CurrentRz, StringFormat=F3}" IsReadOnly="True"/>
+                                    </Grid>
+                                </GroupBox>
+
+                            </StackPanel>
+                        </ScrollViewer>
+
+                        <!-- RIGHT PANEL -->
+                        <StackPanel Grid.Column="1">
+
+                            <GroupBox Header="Robot">
+                                <StackPanel>
+
+                                    <StackPanel Orientation="Horizontal">
+                                        <TextBlock Text="Select Zone" VerticalAlignment="Center"/>
+                                        <ComboBox Width="160" Margin="10,0"/>
+                                    </StackPanel>
+
+                                    <UniformGrid Columns="3" Margin="0,10">
+
+                                        <Button Width="120" Height="42" FontSize="16" FontWeight="Bold" Foreground="White">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                    <Setter Property="Content" Value="OPEN"/>
+                                                    <Setter Property="Background" Value="#555555"/>
+                                                    <Setter Property="Command" Value="{Binding RequestOpenCommand}"/>
+
+                                                    <Style.Triggers>
+                                                        <MultiDataTrigger>
+                                                            <MultiDataTrigger.Conditions>
+                                                                <Condition Binding="{Binding OpenOn}" Value="True"/>
+                                                                <Condition Binding="{Binding EnableOn}" Value="False"/>
+                                                            </MultiDataTrigger.Conditions>
+                                                            <Setter Property="Content" Value="ENABLE"/>
+                                                            <Setter Property="Background" Value="#FFD600"/>
+                                                            <Setter Property="Command" Value="{Binding RequestEnableCommand}"/>
+                                                        </MultiDataTrigger>
+
+                                                        <MultiDataTrigger>
+                                                            <MultiDataTrigger.Conditions>
+                                                                <Condition Binding="{Binding OpenOn}" Value="True"/>
+                                                                <Condition Binding="{Binding EnableOn}" Value="True"/>
+                                                            </MultiDataTrigger.Conditions>
+                                                            <Setter Property="Content" Value="DISABLE"/>
+                                                            <Setter Property="Background" Value="#00C853"/>
+                                                            <Setter Property="Command" Value="{Binding RequestDisableCommand}"/>
+                                                        </MultiDataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+
+                                        <Button Content="CLOSE"
+            Width="120" Height="42" FontSize="16" FontWeight="Bold" Foreground="White"
+            Command="{Binding RequestCloseCommand}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                    <Setter Property="Background" Value="#555555"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding CloseOn}" Value="True">
+                                                            <Setter Property="Background" Value="#D32F2F"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                        <Button Content="FREE DRIVE"
+        Command="{Binding RequestFreeDriveCommand}"
+        Width="120" Height="42" FontSize="16" FontWeight="Bold" Foreground="White" Margin="5">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                    <Setter Property="Content" Value="BRAKE LOCK"/>
+                                                    <Setter Property="Background" Value="#555555"/>
+
+                                                    <Setter Property="IsEnabled" Value="False"/>
+                                                    <Setter Property="Opacity" Value="0.5"/>
+
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding EnableOn}" Value="True">
+                                                            <Setter Property="IsEnabled" Value="True"/>
+                                                            <Setter Property="Opacity" Value="1.0"/>
+                                                        </DataTrigger>
+
+                                                        <DataTrigger Binding="{Binding FreeDriveOn}" Value="True">
+                                                            <Setter Property="Content" Value="FREE DRIVE"/>
+                                                            <Setter Property="Background" Value="#2196F3"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                        <Button Content="Reset Robot" Width="120" Height="42" FontSize="16" FontWeight="Bold" Foreground="White" Margin="5" Command="{Binding RequestResetRobotCommand}">
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                    <Setter Property="Background" Value="#555555"/>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="#666666"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+
+                                        <Button Content="Status Robot" Width="120" Height="42" FontSize="16" FontWeight="Bold" Foreground="White" Margin="5" Command="{Binding RequestStatusRobotCommand}" >
+                                            <Button.Style>
+                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+                                                    <Setter Property="Background" Value="#555555"/>
+                                                    <Style.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                           
+                                                            <Setter Property="Background" Value="#666666"/>
+                                                        </Trigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Button.Style>
+                                        </Button>
+                                    </UniformGrid>
+
+                                </StackPanel>
+                            </GroupBox>
+
+                            <GroupBox Header="Status / Log">
+                                <ListBox Height="300"
+                                         ItemsSource="{Binding MachineLog}"
+                                         Background="#0F141E"
+                                         Foreground="{StaticResource TextPrimary}"
+                                         BorderBrush="{StaticResource CardBorder}"
+                                         BorderThickness="1"
+                                         FontFamily="Consolas"
+                                         FontSize="12"
+                                         Padding="4"
+                                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                         ScrollViewer.HorizontalScrollBarVisibility="Auto"/>
+                            </GroupBox>
+
+                        </StackPanel>
+                    </Grid>
+                </TabItem>
+
+                <!-- ===================== TAB 2: SENSOR IO (FULL) ===================== -->
+                <TabItem Header="Sensor IO">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <Grid Margin="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- CỘT 1 -->
+                            <GroupBox Grid.Column="0" Header="Cylinders Sensor">
+                                <Grid Margin="6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="28"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="36"/>
+                                        <RowDefinition Height="36"/>
+                                        <RowDefinition Height="36"/>
+                                        <RowDefinition Height="36"/>
+                                        <RowDefinition Height="36"/>
+                                        <RowDefinition Height="36"/>
+                                    </Grid.RowDefinitions>
+
+                                    <TextBlock Grid.Row="0" Text="XL1_Down"/>
+                                    <Ellipse Grid.Row="0" Grid.Column="1">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Xl1Down}" Value="True">
+                                                        <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+
+                                    <TextBlock Grid.Row="1" Text="XL1_Up"/>
+                                    <Ellipse Grid.Row="1" Grid.Column="1">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Xl1Up}" Value="True">
+                                                        <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+
+                                    <TextBlock Grid.Row="2" Text="XL2_Down"/>
+                                    <Ellipse Grid.Row="2" Grid.Column="1">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Xl2Down}" Value="True">
+                                                        <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+
+                                    <TextBlock Grid.Row="3" Text="XL2_Up"/>
+                                    <Ellipse Grid.Row="3" Grid.Column="1">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Xl2Up}" Value="True">
+                                                        <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+
+                                    <TextBlock Grid.Row="4" Text="XL3_Down"/>
+                                    <Ellipse Grid.Row="4" Grid.Column="1">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Xl3Down}" Value="True">
+                                                        <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+
+                                    <TextBlock Grid.Row="5" Text="XL3_Up"/>
+                                    <Ellipse Grid.Row="5" Grid.Column="1">
+                                        <Ellipse.Style>
+                                            <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Xl3Up}" Value="True">
+                                                        <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Ellipse.Style>
+                                    </Ellipse>
+                                </Grid>
+                            </GroupBox>
+
+                            <!-- CỘT 2 -->
+                            <StackPanel Grid.Column="1">
+                                <GroupBox Header="Suction Cups Sensor">
+                                    <Grid Margin="6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="28"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="36"/>
+                                            <RowDefinition Height="36"/>
+                                            <RowDefinition Height="36"/>
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0" Text="SS_SC1"/>
+                                        <Ellipse Grid.Row="0" Grid.Column="1">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding SsSc1}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+
+                                        <TextBlock Grid.Row="1" Text="SS_SC2"/>
+                                        <Ellipse Grid.Row="1" Grid.Column="1">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding SsSc2}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+
+                                        <TextBlock Grid.Row="2" Text="SS_SC3"/>
+                                        <Ellipse Grid.Row="2" Grid.Column="1">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding SsSc3}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                    </Grid>
+                                </GroupBox>
+
+                                <GroupBox Header="Door Sensor">
+                                    <Grid Margin="6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="28"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="36"/>
+                                            <RowDefinition Height="36"/>
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0" Text="Front Door"/>
+                                        <Ellipse Grid.Row="0" Grid.Column="1">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding FrontDoor}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+
+                                        <TextBlock Grid.Row="1" Text="Back Door"/>
+                                        <Ellipse Grid.Row="1" Grid.Column="1">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding BackDoor}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                    </Grid>
+                                </GroupBox>
+
+                                <GroupBox Header="Buzzer">
+                                    <Grid Margin="6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="28"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="36"/>
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0" Text="Buzzer"/>
+                                        <Ellipse Grid.Row="0" Grid.Column="1">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Buzzer}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                    </Grid>
+                                </GroupBox>
+                            </StackPanel>
+
+                            <!-- CỘT 3 -->
+                            <StackPanel Grid.Column="2">
+                                <GroupBox Header="Lamp">
+                                    <Grid Margin="6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="28"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="36"/>
+                                            <RowDefinition Height="36"/>
+                                            <RowDefinition Height="36"/>
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0" Text="Red"/>
+                                        <Ellipse Grid.Row="0" Grid.Column="1">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding LampRed}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+
+                                        <TextBlock Grid.Row="1" Text="Yellow"/>
+                                        <Ellipse Grid.Row="1" Grid.Column="1">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding LampYellow}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+
+                                        <TextBlock Grid.Row="2" Text="Green"/>
+                                        <Ellipse Grid.Row="2" Grid.Column="1">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding LampGreen}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                    </Grid>
+                                </GroupBox>
+
+                                <GroupBox Header="Basket Sensor">
+                                    <Grid Margin="6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="28"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="36"/>
+                                            <RowDefinition Height="36"/>
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0" Text="Basket1"/>
+                                        <Ellipse Grid.Row="0" Grid.Column="1">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Basket1}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+
+                                        <TextBlock Grid.Row="1" Text="Basket2"/>
+                                        <Ellipse Grid.Row="1" Grid.Column="1">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Basket2}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                    </Grid>
+                                </GroupBox>
+
+                                <GroupBox Header="Sensor Machine">
+                                    <Grid Margin="6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="28"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="36"/>
+                                            <RowDefinition Height="36"/>
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0" Text="May_Polishing"/>
+                                        <Ellipse Grid.Row="0" Grid.Column="1">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding MayPolishing}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+
+                                        <TextBlock Grid.Row="1" Text="May_Seat_Finishin"/>
+                                        <Ellipse Grid.Row="1" Grid.Column="1">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding MaySeatFinishin}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                    </Grid>
+                                </GroupBox>
+                            </StackPanel>
+
+                            <!-- CỘT 4 -->
+                            <StackPanel Grid.Column="3">
+                                <GroupBox Header="Status Machine">
+                                    <Grid Margin="6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="28"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="36"/>
+                                            <RowDefinition Height="36"/>
+                                            <RowDefinition Height="36"/>
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0" Text="Stop"/>
+                                        <Ellipse Grid.Row="0" Grid.Column="1">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Stop}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+
+                                        <TextBlock Grid.Row="1" Text="Reset"/>
+                                        <Ellipse Grid.Row="1" Grid.Column="1">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Reset}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+
+                                        <TextBlock Grid.Row="2" Text="Start"/>
+                                        <Ellipse Grid.Row="2" Grid.Column="1">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Start}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                    </Grid>
+                                </GroupBox>
+
+                                <GroupBox Header="Air Pressure">
+                                    <Grid Margin="6">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="28"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="36"/>
+                                        </Grid.RowDefinitions>
+
+                                        <TextBlock Grid.Row="0" Text="Air_P"/>
+                                        <Ellipse Grid.Row="0" Grid.Column="1">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding AirP}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+                                    </Grid>
+                                </GroupBox>
+                            </StackPanel>
+
+                        </Grid>
+                    </ScrollViewer>
+                </TabItem>
+
+            </TabControl>
+        </Grid>
+    </Grid>
+</UserControl>

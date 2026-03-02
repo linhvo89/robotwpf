@@ -1,0 +1,630 @@
+﻿<UserControl x:Class="WpfCompanyApp.Views.HomeView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+              xmlns:conv="clr-namespace:WpfCompanyApp.Converters"
+              xmlns:Release="clr-namespace:VMControls.WPF.Release;assembly=VMControls.WPF.Release" 
+             mc:Ignorable="d"  >
+
+    <!-- ============= STYLES ============= -->
+    <UserControl.Resources>
+
+        <!-- STYLE GỐC CHO CÁC NÚT LỆNH -->
+        <Style x:Key="CommandButtonBaseStyle" TargetType="Button">
+            <Setter Property="FontSize" Value="24"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="White"/>
+
+            <Setter Property="Padding" Value="15,8"/>
+
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                        Background="{TemplateBinding Background}"
+                        CornerRadius="8"
+                        Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.9"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Opacity" Value="0.8"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- START: mặc định xanh đậm, khi RUNNING thì xanh neon rất sáng -->
+        <Style x:Key="StartButtonStyle" TargetType="Button"
+               BasedOn="{StaticResource CommandButtonBaseStyle}">
+            <!-- mặc định: xanh đậm (chưa chạy) -->
+            <Setter Property="Background" Value="#1B5E20"/>
+            <Style.Triggers>
+                <!-- Khi state = RUNNING thì xanh sáng -->
+                <DataTrigger Binding="{Binding Data.CurrentState}" Value="Running">
+                    <Setter Property="Background" Value="#00E676"/>
+                    <!-- xanh neon -->
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- STOP: mặc định đỏ rất đậm, khi IDLE thì đỏ sáng -->
+        <Style x:Key="StopButtonStyle" TargetType="Button"
+               BasedOn="{StaticResource CommandButtonBaseStyle}">
+            <!-- mặc định: đỏ đậm -->
+            <Setter Property="Background" Value="#660000"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Style.Triggers>
+                <!-- trạng thái dừng / chờ -->
+                <DataTrigger Binding="{Binding Data.CurrentState}" Value="Idle">
+                    <Setter Property="Background" Value="#FF1744"/>
+                    <!-- đỏ sáng -->
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- HOME: xanh dương chuẩn, không phụ thuộc state -->
+        <Style x:Key="HomeButtonStyle" TargetType="Button"
+               BasedOn="{StaticResource CommandButtonBaseStyle}">
+            <Setter Property="Background" Value="#1E88E5"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+
+        <!-- PAUSE: mặc định vàng nâu đậm, khi PAUSED thì vàng sáng chói -->
+        <Style x:Key="PauseButtonStyle" TargetType="Button"
+               BasedOn="{StaticResource CommandButtonBaseStyle}">
+            <!-- mặc định: vàng nâu đậm -->
+            <Setter Property="Background" Value="#996500"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Data.CurrentState}" Value="Paused">
+                    <Setter Property="Background" Value="#FFC400"/>
+                    <!-- vàng chói -->
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- RESET: luôn xám -->
+        <Style x:Key="ResetButtonStyle" TargetType="Button"
+               BasedOn="{StaticResource CommandButtonBaseStyle}">
+            <Setter Property="Background" Value="#9E9E9E"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <Style x:Key="ShutdownButtonStyle" TargetType="Button"
+               BasedOn="{StaticResource CommandButtonBaseStyle}">
+            <Setter Property="Background" Value="#D32F2F"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+
+        <Style x:Key="RestartButtonStyle" TargetType="Button"
+               BasedOn="{StaticResource CommandButtonBaseStyle}">
+            <Setter Property="Background" Value="#E65100"/>
+            <Setter Property="Foreground" Value="White"/>
+        </Style>
+        <!-- Ô PHÔI: TRỐNG = XÁM, CÓ PHÔI = XANH -->
+        <Style x:Key="SlotCellStyle" TargetType="Border">
+            <Setter Property="Width" Value="60"/>
+            <Setter Property="Height" Value="60"/>
+            <Setter Property="CornerRadius" Value="6"/>
+            <Setter Property="Margin" Value="4"/>
+            <Setter Property="Background" Value="#2C2F33"/>
+            <Setter Property="BorderBrush" Value="#888888"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="True">
+                    <Setter Property="Background" Value="#00C853"/>
+                    <Setter Property="BorderBrush" Value="#00E676"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
+        <conv:BoolToOpacityConverter x:Key="BoolToOpacity"/>
+        <!-- STYLE CHO NÚT CHỌN JOB / CAMERA -->
+        <Style x:Key="SwitchViewButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="130"/>
+            <Setter Property="Height" Value="38"/>
+            <Setter Property="FontSize" Value="16"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+
+            <!-- CHỮ TRẮNG -->
+            <Setter Property="Foreground" Value="White"/>
+
+            <Setter Property="Background" Value="#2C2F33"/>
+            <Setter Property="BorderBrush" Value="#3C3F46"/>
+            <Setter Property="BorderThickness" Value="1"/>
+
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="8">
+                            <ContentPresenter
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"/>
+                        </Border>
+
+                        <ControlTemplate.Triggers>
+                            <!-- Hover -->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#37474F"/>
+                            </Trigger>
+
+                            <!-- Press -->
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#455A64"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="JobActiveButtonStyle"
+       TargetType="Button"
+       BasedOn="{StaticResource SwitchViewButtonStyle}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsJobViewVisible}" Value="True">
+                    <Setter Property="Background" Value="#00E676"/>
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="BorderBrush" Value="#00C853"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="CameraActiveButtonStyle"
+       TargetType="Button"
+       BasedOn="{StaticResource SwitchViewButtonStyle}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsJobViewVisible}" Value="False">
+                    <Setter Property="Background" Value="#00E676"/>
+                    <Setter Property="Foreground" Value="White"/>
+                    <Setter Property="BorderBrush" Value="#00C853"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <!-- ===== CLEAR BUTTON STYLE ===== -->
+        <Style x:Key="ClearButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="60"/>
+            <Setter Property="Height" Value="25"/>
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Background" Value="#D32F2F"/>
+            <Setter Property="BorderThickness" Value="0"/>
+
+            <!-- QUAN TRỌNG -->
+            <Setter Property="HorizontalContentAlignment" Value="Center"/>
+            <Setter Property="VerticalContentAlignment" Value="Center"/>
+
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="border"
+                        Background="{TemplateBinding Background}"
+                        CornerRadius="6">
+                            <!-- KHÔNG PADDING -->
+                            <ContentPresenter
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"/>
+                        </Border>
+
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#E53935"/>
+                            </Trigger>
+
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="border" Property="Background" Value="#B71C1C"/>
+                            </Trigger>
+
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="border" Property="Background" Value="#555555"/>
+                                <Setter Property="Foreground" Value="#AAAAAA"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+
+
+    </UserControl.Resources>
+
+    <!-- 🌌 NỀN TỔNG THỂ -->
+    <Border Background="#20232A">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="70"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="300"/>
+            </Grid.RowDefinitions>
+
+            <!-- 🟦 HEADER -->
+            <Border Grid.Row="0" Background="#1976D2" Margin="0,0,0,15" CornerRadius="0,0,10,10" >
+                <TextBlock Text="Home"
+                           FontSize="34"
+                           FontWeight="Bold"
+                           Foreground="White"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center">
+                    <TextBlock.Effect>
+                        <DropShadowEffect BlurRadius="6" ShadowDepth="1" Opacity="0.3"/>
+                    </TextBlock.Effect>
+                </TextBlock>
+            </Border>
+
+            <!-- 🟩 MAIN AREA -->
+            <!-- ============= MAIN CONTENT ============= -->
+            <Grid Grid.Row="1" Margin="10,0,10,10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="1.5*"/>
+                    <!-- Nhóm 1: Vận hành -->
+                   
+                    <!-- Nhóm 2: Khu vực phôi -->
+                    <ColumnDefinition Width="3*"/>
+                    <!-- Nhóm 3: Chọn Job -->
+                </Grid.ColumnDefinitions>
+
+                <!-- ========== NHÓM 1: VẬN HÀNH ========== -->
+                <Border Grid.Column="0"
+        Margin="10"
+        CornerRadius="10"
+        Background="#252830"
+        BorderBrush="#3C3F46"
+        BorderThickness="1">
+                    <StackPanel Margin="15">
+
+                        <Grid Margin="0,0,0,15">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBlock Grid.Column="0" 
+                       Text="Vận hành"
+                       FontSize="22"
+                       FontWeight="Bold"
+                       Foreground="#E0E0E0"
+                       VerticalAlignment="Bottom"/>
+
+                            <StackPanel Grid.Column="1" 
+                        Orientation="Horizontal" 
+                        HorizontalAlignment="Left" 
+                        VerticalAlignment="Bottom"
+                        Margin="15,0,0,2">
+
+                                <TextBlock Text="{Binding SelectedJob.JobName, TargetNullValue='(No job selected)'}"
+                           FontSize="14"
+                           FontWeight="SemiBold"
+                           Foreground="#00E676" 
+                           Margin="0,0,10,0"/>
+
+                                <TextBlock Text="{Binding HomeData}"
+                           FontSize="13"
+                           Foreground="#B0B0B0"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <WrapPanel HorizontalAlignment="Center" Margin="0,10,0,0">
+                            <Button Content="Start"
+            Command="{Binding StartCommand}"
+            Style="{StaticResource StartButtonStyle}"
+            Margin="4"/>
+                            <Button Content="Stop"
+            Command="{Binding StopCommand}"
+            Style="{StaticResource StopButtonStyle}"
+            Margin="4"/>
+                            <Button Content="Home"
+            Command="{Binding HomeCommand}"
+            Style="{StaticResource HomeButtonStyle}"
+            Margin="4"/>
+                            <Button Content="Pause"
+            Command="{Binding PauseCommand}"
+            Style="{StaticResource PauseButtonStyle}"
+            Margin="4"/>
+                            <Button Content="Reset"
+            Command="{Binding ResetCommand}"
+            Style="{StaticResource ResetButtonStyle}"
+            Margin="4"/>
+                        </WrapPanel>
+
+                        <Border Height="1" Background="#3C3F46" Margin="40,15,40,5"/>
+
+                        <WrapPanel HorizontalAlignment="Center" Margin="0,10,0,10">
+                            <Button Content="Restart"
+            Command="{Binding RestartCommand}"
+            Style="{StaticResource RestartButtonStyle}"
+            Margin="4"/>
+                            <Button Content="Shutdown"
+            Command="{Binding ShutdownCommand}"
+            Style="{StaticResource ShutdownButtonStyle}"
+            Margin="4"/>
+                        </WrapPanel>
+                    </StackPanel>
+                </Border>
+                <!-- ========== NHÓM 2: CHỌN JOB ========== -->
+                <!-- ========== NHÓM 3: CHỌN JOB ========== -->
+                <Border Grid.Column="1"
+                    Margin="10"
+                    CornerRadius="10"
+                    Background="#252830"
+                    BorderBrush="#3C3F46"
+                    BorderThickness="1">
+
+                    <Grid Margin="10">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <!-- Nút -->
+                            <RowDefinition Height="*"/>
+                            <!-- Nội dung -->
+                        </Grid.RowDefinitions>
+
+                        <!-- ===== HEADER BUTTON ===== -->
+                        <Grid Margin="0,0,0,10">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <!-- ===== LEFT: SWITCH BUTTONS ===== -->
+                            <StackPanel Orientation="Horizontal">
+                                <Button Content="Chọn Job"
+                Command="{Binding ShowJobCommand}"
+                Style="{StaticResource JobActiveButtonStyle}"
+                Margin="0,0,10,0"/>
+
+                                <Button Content="Camera"
+                Command="{Binding ShowCameraCommand}"
+                Style="{StaticResource CameraActiveButtonStyle}"/>
+                            </StackPanel>
+
+                            <!-- ===== RIGHT: STATUS INFO ===== -->
+                            <Border Grid.Column="1"
+                            Background="#1E1E1E"
+                            CornerRadius="6"
+                            Padding="8"
+                            Margin="15,0,0,0">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+
+                                    <!-- Instant Cycle -->
+                                    <TextBlock Text="Instant Cycle:"
+                       Foreground="#CCCCCC"
+                       Margin="0,0,5,0"/>
+                                    <Border Background="#FFE0B2" Padding="6,2" CornerRadius="4">
+                                        <TextBlock Text="{Binding Data.InstantCycleTime}"
+                           Foreground="#000"
+                           FontWeight="Bold"/>
+                                    </Border>
+
+                                    <!-- Average Cycle -->
+                                    <TextBlock Text="  Average:"
+                       Foreground="#CCCCCC"
+                       Margin="15,0,5,0"/>
+                                    <Border Background="#FFE0B2" Padding="6,2" CornerRadius="4">
+                                        <TextBlock Text="{Binding Data.AverageCycleTime}"
+                           Foreground="#000"
+                           FontWeight="Bold"/>
+                                    </Border>
+
+                                    <!-- Zone -->
+                                    <TextBlock Text="  Zone:"
+                       Foreground="#CCCCCC"
+                       Margin="15,0,5,0"/>
+                                    <Border Background="#FFE0B2" Padding="6,2" CornerRadius="4">
+                                        <TextBlock Text="{Binding Data.CurrentZone}"
+                           Foreground="#000"
+                           FontWeight="Bold"/>
+                                    </Border>
+
+                                    <!-- Basket 1 -->
+                                    <TextBlock Text="  Basket 1:"
+                       Foreground="#CCCCCC"
+                       Margin="15,0,5,0"/>
+                                    <Border Background="#FFE0B2" Padding="6,2" CornerRadius="4">
+                                        <TextBlock Text="{Binding Data.Basket1Count}"
+                           Foreground="#000"
+                           FontWeight="Bold"/>
+                                    </Border>
+
+                                    <!-- Basket 2 -->
+                                    <TextBlock Text="  Basket 2:"
+                       Foreground="#CCCCCC"
+                       Margin="15,0,5,0"/>
+                                    <Border Background="#FFE0B2" Padding="6,2" CornerRadius="4">
+                                        <TextBlock Text="{Binding Data.Basket2Count}"
+                           Foreground="#000"
+                           FontWeight="Bold"/>
+                                    </Border>
+
+
+                                    <!-- ===== TIME + COUNT + CLEAR (NEW) ===== -->
+                                   
+
+                                        <!-- Time -->
+                                        <TextBlock Grid.Row="0"
+                   Grid.Column="0"
+                   Text="Time:"
+                   Foreground="#CCCCCC"
+                   Margin="0,0,5,5"/>
+
+                                        <Border 
+                            Grid.Column="1"
+                            Background="#FFE0B2"
+                            Padding="6,2"
+                            CornerRadius="4"
+                           >
+                                        <TextBlock Text="{Binding Data.CycleTime}"
+                       Foreground="#000"
+                       FontWeight="Bold"/>
+                                        </Border>
+
+                                        <!-- Count -->
+                                        <TextBlock 
+                                       Grid.Column="0"
+                                       Text="Count:"
+                                       Foreground="#CCCCCC"
+                                       Margin="0,0,5,0"/>
+
+                                        <Border 
+                                        Grid.Column="1"
+                                        Background="#FFE0B2"
+                                        Padding="6,2"
+                                        CornerRadius="4">
+                                        <TextBlock Text="{Binding Data.CycleCount}"
+                                           Foreground="#000"
+                                           FontWeight="Bold"/>
+                                        </Border>
+
+                                        <!-- Clear -->
+                                    <Button Grid.Row="0"
+                                    Grid.RowSpan="2"
+                                    Grid.Column="3"
+                                    Content="Clear"
+                                    Margin="10,0,0,0"
+                                    Command="{Binding ClearCycleCommand}"
+                                    Style="{StaticResource ClearButtonStyle}"/>
+
+
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+
+                        <!-- ===== CONTENT ===== -->
+                        <Grid Grid.Row="1">
+
+                            <!-- JOB GRID -->
+                            <DataGrid x:Name="JobsGrid"
+          ItemsSource="{Binding ActiveJobs}"
+          SelectedItem="{Binding SelectedJob, Mode=TwoWay}"
+          AutoGenerateColumns="False"
+          IsReadOnly="True"
+          SelectionMode="Single"
+          SelectionUnit="FullRow"
+          Background="#2C2F33"
+          Foreground="#E0E0E0"
+          RowBackground="#2C2F33"
+          AlternatingRowBackground="#32363F"
+          BorderThickness="0"
+          GridLinesVisibility="None"
+          HeadersVisibility="Column"
+          FontSize="20">
+
+                                <DataGrid.Resources>
+
+                                    <!-- Header style -->
+                                    <Style TargetType="DataGridColumnHeader">
+                                        <Setter Property="Background" Value="#333"/>
+                                        <Setter Property="Foreground" Value="#EEE"/>
+                                        <Setter Property="FontWeight" Value="Bold"/>
+                                        <Setter Property="Height" Value="28"/>
+                                    </Style>
+
+                                    <!-- Row style -->
+                                    <Style TargetType="DataGridRow">
+
+                                        <Setter Property="Background" Value="#2F343F"/>
+                                        <Setter Property="Foreground" Value="#EEE"/>
+
+                                        <Style.Triggers>
+
+                                            <!-- Row được click chọn -->
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter Property="Background" Value="#FF9800"/>
+                                                <Setter Property="Foreground" Value="White"/>
+                                            </Trigger>
+
+                                            <!-- Job đang active -->
+                                            <DataTrigger Binding="{Binding IsActiveJob}" Value="True">
+                                                <Setter Property="Background" Value="#007ACC"/>
+                                                <Setter Property="Foreground" Value="White"/>
+                                            </DataTrigger>
+
+                                        </Style.Triggers>
+
+                                    </Style>
+
+                                </DataGrid.Resources>
+
+                                <DataGrid.Columns>
+                                    <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="60"/>
+                                    <DataGridTextColumn Header="Job Name" Binding="{Binding JobName}" Width="*"/>
+                                    <DataGridTextColumn Header="H1" Binding="{Binding H1}" Width="*"/>
+                                    <DataGridTextColumn Header="H2" Binding="{Binding H2}" Width="*"/>
+                                    <DataGridTextColumn Header="H3" Binding="{Binding H3}" Width="*"/>
+                                    <DataGridTextColumn Header="R" Binding="{Binding R}" Width="*"/>
+                                    <DataGridTextColumn Header="Job Time"
+                                    Binding="{Binding DatetimeJob, StringFormat=yyyy-MM-dd HH:mm:ss}"
+                                    Width="1.5*"/>
+                                </DataGrid.Columns>
+
+                            </DataGrid>
+
+
+                            <!-- CAMERA -->
+                            <Release:VmRenderControl
+                                x:Name="vmRenderControl1"
+                                 ModuleSource="{Binding ModuleSource}"
+                                Panel.ZIndex="10"
+                                Opacity="{Binding IsCameraViewVisible, Converter={StaticResource BoolToOpacity}}"
+                                IsHitTestVisible="{Binding IsCameraViewVisible}"
+                                HorizontalAlignment="Stretch"
+                                VerticalAlignment="Stretch"/>
+                        </Grid>
+                    </Grid>
+                </Border>
+
+
+            </Grid>
+
+            <!-- 🟨 LOG AREA (giữ nguyên) -->
+            <Grid Grid.Row="2">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="*"/>
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Margin="10">
+                    <TextBlock Text="Machine Log" FontWeight="Bold" FontSize="16" Foreground="#E0E0E0" Margin="0,0,0,5"/>
+                    <Border Background="#0E1117" CornerRadius="6" Padding="5">
+                        <ListBox ItemsSource="{Binding MachineLog}"
+                                 Height="240"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                 FontFamily="Consolas"
+                                 Background="#0E1117"
+                                 Foreground="#00FF88"/>
+                    </Border>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Margin="10">
+                    <TextBlock Text="Robot History (last 1000 lines):"
+                               FontWeight="Bold" FontSize="16" Foreground="#E0E0E0" Margin="0,0,0,5"/>
+                    <Border Background="#0E1117" CornerRadius="6" Padding="5">
+                        <ListBox ItemsSource="{Binding RobotHistory}"
+                                 FontSize="13"
+                                 Background="#0E1117"
+                                 Foreground="#00FF88"
+                                 MaxHeight="240"
+                                 Height="240"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                    </Border>
+                </StackPanel>
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>

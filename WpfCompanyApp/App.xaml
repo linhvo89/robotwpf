@@ -1,0 +1,121 @@
+﻿<Application x:Class="WpfCompanyApp.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:WpfCompanyApp.ViewModels"
+             xmlns:views="clr-namespace:WpfCompanyApp.Views">
+    <Application.Resources>
+        <DataTemplate DataType="{x:Type vm:HomeViewModel}">
+            <views:HomeView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:SettingsViewModel}">
+            <views:SettingsView />
+        </DataTemplate>
+        <DataTemplate DataType="{x:Type vm:ManualViewModel}">
+            <views:ManualView />
+        </DataTemplate>
+
+
+        <!-- BLUE BUTTON (giống tab 2) -->
+        <Style x:Key="ModernButton_Blue" TargetType="Button">
+            <Setter Property="Background" Value="#007BFF"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="Margin" Value="4"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="5" ShadowDepth="0" Opacity="0.4" Color="Black"/>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#339CFF"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- GREEN BUTTON -->
+        <Style x:Key="ModernButton_Green" TargetType="Button" BasedOn="{StaticResource ModernButton_Blue}">
+            <Setter Property="Background" Value="#28A745"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#45C76E"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- RED BUTTON -->
+        <Style x:Key="ModernButton_Red" TargetType="Button" BasedOn="{StaticResource ModernButton_Blue}">
+            <Setter Property="Background" Value="#DC3545"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#E85B6B"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- ORANGE BUTTON (HOME) -->
+        <Style x:Key="ModernButton_Orange" TargetType="Button" BasedOn="{StaticResource ModernButton_Blue}">
+            <Setter Property="Background" Value="#E67E22"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#F39C12"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <!-- Nút ENABLE màu xanh lá -->
+        <Style x:Key="ModernENABLE_Green" TargetType="Button" BasedOn="{StaticResource ModernButton_Blue}">
+            <Setter Property="Background" Value="#28A745"/>
+            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="Margin" Value="4,0,0,0"/>
+            <Setter Property="BorderThickness" Value="0"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="SnapsToDevicePixels" Value="True"/>
+            <Setter Property="Effect">
+                <Setter.Value>
+                    <DropShadowEffect BlurRadius="5" ShadowDepth="0" Opacity="0.4" Color="Black"/>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}"
+                        CornerRadius="6"
+                        SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                      VerticalAlignment="Center"
+                                      RecognizesAccessKey="True"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#45C76E"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <!-- Nút DISABLE màu vàng -->
+        <Style x:Key="ModernDISABLE_Yellow" TargetType="Button" BasedOn="{StaticResource ModernENABLE_Green}">
+            <Setter Property="Background" Value="#F1C40F"/>
+            <Setter Property="Foreground" Value="Black"/>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#F7DC6F"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+
+    </Application.Resources>
+   
+
+</Application>

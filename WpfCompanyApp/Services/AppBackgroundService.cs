@@ -1750,7 +1750,7 @@ namespace WpfCompanyApp.Services
                         HandleSavePositionTrigger(_data.IndexTrigger);
                     }
 
-                    if (_data.FUpdatePose)
+                   // if (_data.FUpdatePose)
                         _settingsState = SettingsSubState.SaveChanges;
 
                     // ==============================================================
@@ -1851,6 +1851,11 @@ namespace WpfCompanyApp.Services
                     break;
 
                 case SettingsSubState.SaveChanges:
+                    if (_data.RequestSaveAllPositionsTrigger == true)
+                    {
+                        _data.RequestSaveAllPositionsTrigger = false;
+                        HandleSaveAllPositions();
+                    }
                     if (_data.FUpdatePose)
                     {
                         string poseName = _data.NamePose;
@@ -2271,7 +2276,7 @@ namespace WpfCompanyApp.Services
 
                 // Đặt tên vị trí theo pattern "TriggerPos_1", "TriggerPos_2", ...
                 trajectory.NamePoses = $"TriggerPos_{positionId}";
-                listRobot[positionId]= new TriggerPosItem
+                listRobot[positionId-1]= new TriggerPosItem
                 {
                     Id = positionId,
                     PosMoveL = new PosMoveL
@@ -2297,7 +2302,40 @@ namespace WpfCompanyApp.Services
                 AutoCloseToast.ShowError($"Save Error: {ex.Message}", 1000);
             }
         }
+        private void HandleSaveAllPositions()
+        {
+      
 
+            _data.RequestSaveAllPositionsTrigger = false;
+            if(!CanSaveAllPositionsReq())
+            {
+                AddMachineLog("[TRIGGER] Cannot save all positions: Not all positions are ready.");
+                AutoCloseToast.ShowError("Cannot save all: Not all positions are ready", 2000);
+                return;
+            }
+            // Lưu tuần tự từng position
+            foreach (var pos in _data.RobotPositionList.ToList())
+            {
+                // Nếu bạn có IsStatus để đánh dấu đã lưu thì check ở đây:
+                // if (pos.IsStatus) continue;
+
+                // Reuse logic SavePosition hiện có của bạn:
+                // 1) set index
+                _data.IndexTrigger = pos.PositionId;
+
+                // 2) gọi hàm lưu thật (ví dụ SavePositionToDb(pos))
+                // hoặc set RequestSavePositionTrigger = true và để handler kia xử lý
+             //   SavePositionToDb(pos);
+
+                // 3) đánh dấu status (nếu có)
+                // pos.IsStatus = true;
+            }
+        }
+        private bool CanSaveAllPositionsReq()
+        {
+            var list =listRobot;
+            return list != null && list.Length > 0 && list.All(p => p.IsStatus);
+        }
     }
 
 

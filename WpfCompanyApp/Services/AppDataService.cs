@@ -255,6 +255,7 @@ namespace WpfCompanyApp.Services
 
         [ObservableProperty]
         private int numTriggerCamera=0;
+        [ObservableProperty] private bool requestSaveAllPositionsTrigger;
 
     }
 }

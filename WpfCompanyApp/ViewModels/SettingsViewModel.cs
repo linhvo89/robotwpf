@@ -779,5 +779,18 @@ namespace WpfCompanyApp.ViewModels
             _data.RequestSavePositionTrigger = true;
             _data.IndexTrigger = position.PositionId;
         }
+        [RelayCommand]
+        private void SaveAllPositionsReq()
+        {
+            // Chưa có vị trí thì thôi
+            if (_data.RobotPositionList == null || _data.RobotPositionList.Count == 0)
+                return;
+
+            // Cách 1: gọi y như bấm từng nút (set flag theo index từng cái)
+            // Nếu bạn xử lý save ở Background theo RequestSavePositionTrigger, dùng Cách 2 bên dưới cho “đúng kiến trúc”.
+
+            // Cách 2 (khuyến nghị): set flag SaveAll để background xử lý 1 lần
+            _data.RequestSaveAllPositionsTrigger = true;
+        }
     }
 }

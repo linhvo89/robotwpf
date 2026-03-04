@@ -44,6 +44,7 @@ namespace WpfCompanyApp.ViewModels
         [ObservableProperty]
         private ObservableCollection<RobotPose> robotPoses = new();
         private readonly AppDataService _data;
+        public AppDataService Data => _data;
         // ⭐ Các lựa chọn cho ComboBox (moveL, moveJ)
         public Array MoveTypeOptions => Enum.GetValues(typeof(RobotTrajectory.MoveTypeEnum));
         // Danh sách tốc độ 0.05 → 1.00
@@ -751,6 +752,32 @@ namespace WpfCompanyApp.ViewModels
             }
            
         }
+        // Thêm các property cho Trigger Camera
+        [ObservableProperty]
+        private bool requestTriggerCamera = false;
 
+        [ObservableProperty]
+        private int numTriggerCamera = 0;
+
+        [ObservableProperty]
+        private ObservableCollection<RobotPositionItem> robotPositionList = new();
+        // Add inside HomeViewModel class
+      
+
+        // Command Trigger từ UI
+        [RelayCommand]
+        private void TriggerCameraReq()
+        {
+            _data.RequestTriggerCamera = true;
+        }
+
+        // Command Save Position
+        [RelayCommand]
+        private void SavePositionReq(RobotPositionItem position)
+        {
+            if (position == null) return;
+            _data.RequestSavePositionTrigger = true;
+            _data.IndexTrigger = position.PositionId;
+        }
     }
 }

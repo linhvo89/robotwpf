@@ -648,6 +648,7 @@ namespace WpfCompanyApp.Services
         {
             try
             {
+                
                 var ip = _ini.Read("IPAddr", "RobotTCP");
                 if (!string.IsNullOrWhiteSpace(ip))
                     _ipRobot = ip;
@@ -1181,6 +1182,7 @@ namespace WpfCompanyApp.Services
         int ikep = 0;
         PosMoveL moveLHome = new PosMoveL();
         PosMoveL[] bottom = new PosMoveL[6];
+        TriggerPosItem[] listRobot;
         bool IsAlmostEqual(PosMoveL p1, PosMoveL p2, double tolerance)
         {
             bool sameX = Math.Abs(p1.X - p2.X) <= tolerance;
@@ -1736,6 +1738,18 @@ namespace WpfCompanyApp.Services
             switch (_settingsState)
             {
                 case SettingsSubState.WaitUserEdit:
+                    if (_data.RequestTriggerCamera)
+                    {
+                        _data.RequestTriggerCamera = false;
+                        HandleTriggerCamera(); // Gọi hàm xử lý Trigger
+                    }
+
+                    if (_data.RequestSavePositionTrigger)
+                    {
+                        _data.RequestSavePositionTrigger = false;
+                        HandleSavePositionTrigger(_data.IndexTrigger);
+                    }
+
                     if (_data.FUpdatePose)
                         _settingsState = SettingsSubState.SaveChanges;
 
@@ -2138,6 +2152,150 @@ namespace WpfCompanyApp.Services
 
             // Nếu lỗi thì trả về null
             return null;
+        }
+
+        // ============ TRIGGER CAMERA LOGIC ============
+
+        private void HandleTriggerCamera()
+        {
+            try
+            {
+                AddMachineLog("[TRIGGER] Bắt đầu gọi camera...");
+
+                // BƯỚC 1: Gọi camera service lấy số
+                int count = GetNumberFromCameraService();
+
+                if (count <= 0)
+                {
+                    _data.NumTriggerCamera = 0;
+                    AddMachineLog("[TRIGGER] Lỗi: Camera trả về số không hợp lệ: " + count);
+                    AutoCloseToast.ShowError("Camera Error: Invalid number", 1000);
+                    return;
+                }
+
+                AddMachineLog($"[TRIGGER] Camera trả về: {count} vị trí");
+                listRobot = new TriggerPosItem[count];
+                for(int i=0; i < count; i++)
+                {
+                    listRobot[i] = new TriggerPosItem();
+
+                }
+                // ✅ Ensure all UI-bound changes happen on UI thread in one block
+                Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    // update numeric label
+                    _data.NumTriggerCamera = count;
+                    // tạo mảng mới với đúng số lượng phần tử
+                    // update ObservableCollection that ItemsControl binds to
+                    // clear + add items so CollectionChanged fires on UI thread
+
+                    _data.RobotPositionList.Clear();
+                    for (int i = 1; i <= count; i++)
+                    {
+                        _data.RobotPositionList.Add(new RobotPositionItem
+                        {
+                            PositionId = i,
+                            PositionName = $"Position {i}"
+                        });
+                    }
+
+                    AddMachineLog($"[TRIGGER] (UI) Created {_data.RobotPositionList.Count} Save buttons");
+                });
+
+                AutoCloseToast.ShowSuccess($"Trigger Success: {count} positions ✔", 1000);
+            }
+            catch (Exception ex)
+            {
+                AddMachineLog($"[TRIGGER][ERROR] {ex.Message}");
+                AutoCloseToast.ShowError($"Trigger Error: {ex.Message}", 1000);
+            }
+        }
+
+        // Hàm lấy số từ camera service
+        private int GetNumberFromCameraService()
+        {
+            try
+            {
+                // TODO: Thay bằng logic gọi camera thực tế
+                // Ví dụ:
+                // - Gọi API camera
+                // - Gọi DLL/SDK camera
+                // - Gọi COM port giao tiếp camera
+                
+                // Demo: random số từ 3-10 để test
+                Random rand = new Random();
+                int count = rand.Next(3, 10);
+                
+                AddMachineLog($"[CAMERA] Lấy được số: {count}");
+                return count;
+            }
+            catch (Exception ex)
+            {
+                AddMachineLog($"[CAMERA][ERROR] Lỗi gọi camera: {ex.Message}");
+                return -1;
+            }
+        }
+
+        // Hàm lưu vị trí được trigger
+        private void HandleSavePositionTrigger(int positionId)
+        {
+            try
+            {
+                AddMachineLog($"[TRIGGER] Đang lưu vị trí {positionId}...");
+
+                // BƯỚC 1: Đọc tọa độ thực tế từ robot
+                string kq = _robot.ReadActualPos(0);
+                string[] array = kq.Split(',');
+
+                if (array[0] != "OK")
+                {
+                    AddMachineLog($"[TRIGGER] Lỗi đọc vị trí: {array[0]}");
+                    AutoCloseToast.ShowError("Error reading robot position", 1000);
+                    return;
+                }
+
+                // BƯỚC 2: Tạo object RobotTrajectory với tên đặc biệt
+                RobotTrajectory trajectory = new RobotTrajectory();
+                trajectory.X = double.Parse(array[1], CultureInfo.InvariantCulture);
+                trajectory.Y = double.Parse(array[2], CultureInfo.InvariantCulture);
+                trajectory.Z = double.Parse(array[3], CultureInfo.InvariantCulture);
+                trajectory.Rx = double.Parse(array[4], CultureInfo.InvariantCulture);
+                trajectory.Ry = double.Parse(array[5], CultureInfo.InvariantCulture);
+                trajectory.Rz = double.Parse(array[6], CultureInfo.InvariantCulture);
+                trajectory.J1 = double.Parse(array[7], CultureInfo.InvariantCulture);
+                trajectory.J2 = double.Parse(array[8], CultureInfo.InvariantCulture);
+                trajectory.J3 = double.Parse(array[9], CultureInfo.InvariantCulture);
+                trajectory.J4 = double.Parse(array[10], CultureInfo.InvariantCulture);
+                trajectory.J5 = double.Parse(array[11], CultureInfo.InvariantCulture);
+                trajectory.J6 = double.Parse(array[12], CultureInfo.InvariantCulture);
+
+                // Đặt tên vị trí theo pattern "TriggerPos_1", "TriggerPos_2", ...
+                trajectory.NamePoses = $"TriggerPos_{positionId}";
+                listRobot[positionId]= new TriggerPosItem
+                {
+                    Id = positionId,
+                    PosMoveL = new PosMoveL
+                    {
+                        X = trajectory.X,
+                        Y = trajectory.Y,
+                        Z = trajectory.Z,
+                        RX = trajectory.Rx,
+                        RY = trajectory.Ry,
+                        RZ = trajectory.Rz
+                    },
+                    IsStatus = true // đã save
+                };
+                //// BƯỚC 3: Lưu vào Database
+                //_db.UpdateTrajectory(trajectory);
+
+                AddMachineLog($"[TRIGGER] Đã lưu vị trí {positionId} thành công: {trajectory.NamePoses}");
+                AutoCloseToast.ShowSuccess($"Saved {trajectory.NamePoses} ✔", 1000);
+            }
+            catch (Exception ex)
+            {
+                AddMachineLog($"[TRIGGER][SAVE][ERROR] {ex.Message}");
+                AutoCloseToast.ShowError($"Save Error: {ex.Message}", 1000);
+            }
         }
 
     }

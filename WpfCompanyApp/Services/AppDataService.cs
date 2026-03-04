@@ -49,6 +49,11 @@ namespace WpfCompanyApp.Services
         public bool ResetRequested { get; set; }  // nút Reset trên UI
         public bool LoadJob { get; set; }  // nút Reset trên UI
         public string JobName{ get; set; }  // tên job cần load
+       
+        public bool RequestSavePositionTrigger { get; set; }
+        public int IndexTrigger { get; set; }
+
+
         // ====== log, pose, trajectory ======
         public ObservableCollection<string> MachineLog { get; } = new();
         public ObservableCollection<string> RobotHistory { get; } = new();
@@ -241,5 +246,15 @@ namespace WpfCompanyApp.Services
         [ObservableProperty] private double currentRx;
         [ObservableProperty] private double currentRy;
         [ObservableProperty] private double currentRz;
+
+        // =====================================================================
+        //  Trigger Camera Data
+        // =====================================================================
+        [ObservableProperty] private bool requestTriggerCamera = false;
+        public ObservableCollection<RobotPositionItem> RobotPositionList { get; } = new();
+
+        [ObservableProperty]
+        private int numTriggerCamera=0;
+
     }
 }

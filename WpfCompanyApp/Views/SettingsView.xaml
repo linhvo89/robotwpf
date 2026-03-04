@@ -460,6 +460,45 @@
                                     <Button Content="Reload"  FontSize="18" Command="{Binding LoadJobsCommand}" Width="80" Height="40"  Style="{StaticResource ModernButton_Blue}" Margin="5,0,0,0"/>
                                     <Button Content="Save Job"  FontSize="18" Command="{Binding SaveJobCommand}" Width="80" Height="40"  Style="{StaticResource ModernButton_Blue}" Margin="5,0,0,0"/>
                               </StackPanel>
+
+                                <Border BorderThickness="0,1,0,0" BorderBrush="#3C3C3C" Margin="0,10,0,10"/>
+
+                                <!-- TRIGGER CAMERA SECTION -->
+                                <TextBlock Text="TRIGGER CAMERA" FontSize="16" FontWeight="Bold" Foreground="#FFFFFF" HorizontalAlignment="Center" Margin="0,15,0,10"/>
+
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="0,0,0,10">
+                                    <Button Content="📷 Trigger" 
+                                            FontSize="16" 
+                                            Command="{Binding TriggerCameraReqCommand}" 
+                                            Width="100" 
+                                            Height="40"
+                                            Style="{StaticResource ModernButton_Blue}" 
+                                            Margin="0,0,8,0"/>
+                                    <TextBlock Text="{Binding Data.NumTriggerCamera, StringFormat='Found: {0} positions'}" 
+                                               Foreground="#E0E0E0" 
+                                               VerticalAlignment="Center" 
+                                               FontSize="14"/>
+                                </StackPanel>
+
+                                <!-- DYNAMIC SAVE POSITION BUTTONS -->
+                                <ItemsControl ItemsSource="{Binding Data.RobotPositionList}" Margin="0,0,0,10">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal" HorizontalAlignment="Center"/>
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Button Content="{Binding PositionName, StringFormat='💾 Save {0}'}"
+                                                    Command="{Binding SavePositionReqCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                    CommandParameter="{Binding}"
+                                                    Width="130" 
+                                                    Height="36" 
+                                                    Margin="4"
+                                                    Style="{StaticResource ModernButton_Green}"/>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                             </StackPanel>
                         </Border>
 
@@ -902,8 +941,7 @@
                          Height="36"
                          VerticalContentAlignment="Center">
                                             <TextBox.Text>
-                                                <Binding Path="ReturnVelocities[3]"
-                                 UpdateSourceTrigger="LostFocus">
+                                                <Binding Path="ReturnVelocities[3]" UpdateSourceTrigger="LostFocus">
                                                     <Binding.ValidationRules>
                                                         <conv:Range01ValidationRule />
                                                     </Binding.ValidationRules>
@@ -933,8 +971,7 @@
                          Height="36"
                          VerticalContentAlignment="Center">
                                             <TextBox.Text>
-                                                <Binding Path="ReturnVelocities[4]"
-                                 UpdateSourceTrigger="LostFocus">
+                                                <Binding Path="ReturnVelocities[4]" UpdateSourceTrigger="LostFocus">
                                                     <Binding.ValidationRules>
                                                         <conv:Range01ValidationRule />
                                                     </Binding.ValidationRules>

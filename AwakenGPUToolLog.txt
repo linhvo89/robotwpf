@@ -1,4 +1,0 @@
-Awake Gpu start
-GPU OK.
-vServerApp doesn't exist, GpuTool exit.
-Awake Gpu end.

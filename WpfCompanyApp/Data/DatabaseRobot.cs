@@ -6,6 +6,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Shapes;
 using WpfCompanyApp.Models;
+using WpfCompanyApp.Views;
 
 namespace WpfCompanyApp.Data
 {
@@ -13,7 +14,7 @@ namespace WpfCompanyApp.Data
     {
         private readonly string _dbPath = "jobsRobot.db";
 
-      public DatabaseRobot()
+        public DatabaseRobot()
         {
 
             _dbPath = System.IO.Path.Combine(AppContext.BaseDirectory, "jobsRobot.db");
@@ -47,13 +48,107 @@ namespace WpfCompanyApp.Data
             cmd1.ExecuteNonQuery();
             cmd2.ExecuteNonQuery();
         }
-        public  bool IsJobModelExists( string modelName)
+        public void SaveCalibPointsToDb(RobotPointCalib[] points, string namecalib)
+        {
+            if (points == null || points.Length == 0) return;
+
+            string dbPath = System.IO.Path.Combine(AppContext.BaseDirectory, "jobsRobot.db");
+            using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath}");
+            conn.Open();
+
+            // đảm bảo bảng tồn tại
+            using (var create = conn.CreateCommand())
+            {
+                create.CommandText = @"
+            CREATE TABLE IF NOT EXISTS calib_points (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                namecalib  TEXT NOT NULL,
+                imagex     REAL NOT NULL DEFAULT 0,
+                imagey     REAL NOT NULL DEFAULT 0,
+                robotx     REAL NOT NULL DEFAULT 0,
+                roboty     REAL NOT NULL DEFAULT 0,
+                angle      REAL NOT NULL DEFAULT 0,
+                created_at TEXT DEFAULT (datetime('now'))
+            );";
+                create.ExecuteNonQuery();
+            }
+
+            // ✅ XÓA HẾT DÒNG CŨ THEO namecalib (tool1, tool2...)
+            using (var del = conn.CreateCommand())
+            {
+                del.CommandText = "DELETE FROM calib_points WHERE namecalib = $name;";
+                del.Parameters.AddWithValue("$name", namecalib);
+                del.ExecuteNonQuery();
+            }
+
+            using var tx = conn.BeginTransaction();
+
+            using var cmd = conn.CreateCommand();
+            cmd.Transaction = tx;
+            cmd.CommandText = @"
+            INSERT INTO calib_points (namecalib, imagex, imagey, robotx, roboty, angle)
+            VALUES ($name, $imagex, $imagey, $robotx, $roboty, $angle);";
+
+            var pName = cmd.CreateParameter(); pName.ParameterName = "$name"; cmd.Parameters.Add(pName);
+            var pImageX = cmd.CreateParameter(); pImageX.ParameterName = "$imagex"; cmd.Parameters.Add(pImageX);
+            var pImageY = cmd.CreateParameter(); pImageY.ParameterName = "$imagey"; cmd.Parameters.Add(pImageY);
+            var pRobotX = cmd.CreateParameter(); pRobotX.ParameterName = "$robotx"; cmd.Parameters.Add(pRobotX);
+            var pRobotY = cmd.CreateParameter(); pRobotY.ParameterName = "$roboty"; cmd.Parameters.Add(pRobotY);
+            var pAngle = cmd.CreateParameter(); pAngle.ParameterName = "$angle"; cmd.Parameters.Add(pAngle);
+
+            foreach (var pt in points)
+            {
+                pName.Value = namecalib;
+                pImageX.Value = pt.ImageX;
+                pImageY.Value = pt.ImageY;
+                pRobotX.Value = pt.RobotX;
+                pRobotY.Value = pt.RobotY;
+                pAngle.Value = pt.Angle;
+
+                cmd.ExecuteNonQuery();
+            }
+
+            tx.Commit();
+        }
+        public List<RobotPointCalib> GetCalibPoints(string namecalib)
+        {
+            var result = new List<RobotPointCalib>();
+
+            string dbPath = System.IO.Path.Combine(AppContext.BaseDirectory, "jobsRobot.db");
+            using var conn = new Microsoft.Data.Sqlite.SqliteConnection($"Data Source={dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+        SELECT namecalib, imagex, imagey, robotx, roboty, angle
+        FROM calib_points
+        WHERE namecalib = $name
+        ORDER BY id ASC;";
+            cmd.Parameters.AddWithValue("$name", namecalib);
+
+            using var rd = cmd.ExecuteReader();
+            while (rd.Read())
+            {
+                result.Add(new RobotPointCalib
+                {
+                    NameCalib = rd.GetString(0),
+                    ImageX = rd.GetDouble(1),
+                    ImageY = rd.GetDouble(2),
+                    RobotX = rd.GetDouble(3),
+                    RobotY = rd.GetDouble(4),
+                    Angle = rd.GetDouble(5),
+                });
+            }
+
+            return result;
+        }
+        public bool IsJobModelExists(string modelName)
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
             conn.Open();
 
             var cmd = conn.CreateCommand();
-                    cmd.CommandText = @"
+            cmd.CommandText = @"
                 SELECT 1
                 FROM JobsName
                 WHERE JobsName = $modelName
@@ -63,7 +158,7 @@ namespace WpfCompanyApp.Data
             using var reader = cmd.ExecuteReader();
             return reader.Read();
         }
-        public  void InsertJobModel( string modelName)
+        public void InsertJobModel(string modelName)
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
             conn.Open();
@@ -95,15 +190,15 @@ namespace WpfCompanyApp.Data
             cmd.Parameters.AddWithValue("$JobsName", modelName);
             cmd.ExecuteNonQuery();
         }
-        public  List<JobModelSetting> GetJobs()
+        public List<JobModelSetting> GetJobs()
         {
             var result = new List<JobModelSetting>();
 
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
             conn.Open();
 
-                    var cmd = conn.CreateCommand();
-                    cmd.CommandText = @"
+            var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
                 SELECT Id, JobsName, 
                 CreatedAt
                 FROM JobsName;
@@ -162,13 +257,13 @@ namespace WpfCompanyApp.Data
         }
 
 
-        public void DeleteJobModelByName( string jobName)
+        public void DeleteJobModelByName(string jobName)
         {
-             using var conn = new SqliteConnection($"Data Source={_dbPath}");
-             conn.Open();
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
 
-                    var cmd = conn.CreateCommand();
-                    cmd.CommandText = @"
+            var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
                 DELETE FROM JobsName
                 WHERE JobsName = $jobName;
             ";
@@ -236,7 +331,7 @@ namespace WpfCompanyApp.Data
             cmd.ExecuteNonQuery();
         }
 
-     
+
         public void DeletePose(int poseId)
         {
             using var conn = new SqliteConnection($"Data Source={_dbPath}");
@@ -246,7 +341,7 @@ namespace WpfCompanyApp.Data
             cmd.ExecuteNonQuery();
         }
 
-        public void UpdateTrajectory( RobotTrajectory data)
+        public void UpdateTrajectory(RobotTrajectory data)
         {
             string sql = @"
             UPDATE RobotTRAJECTORY
@@ -282,7 +377,7 @@ namespace WpfCompanyApp.Data
                 cmd.Parameters.AddWithValue("@J4", data.J4);
                 cmd.Parameters.AddWithValue("@J5", data.J5);
                 cmd.Parameters.AddWithValue("@J6", data.J6);
-            //    cmd.Parameters.AddWithValue("@IsEnabled", data.IsEnabled);
+                //    cmd.Parameters.AddWithValue("@IsEnabled", data.IsEnabled);
 
                 cmd.Parameters.AddWithValue("@CreatedAt", DateTime.Now.ToString());
                 cmd.Parameters.AddWithValue("@NamePoses", data.NamePoses);
@@ -293,7 +388,7 @@ namespace WpfCompanyApp.Data
                 }
             }
         }
-        public void UpdateVel( RobotTrajectory data)
+        public void UpdateVel(RobotTrajectory data)
         {
             string sql = @"
             UPDATE RobotTRAJECTORY

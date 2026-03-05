@@ -2,6 +2,7 @@
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using WpfCompanyApp.CalibRobot;
 using WpfCompanyApp.Models;
 using WpfCompanyApp.ViewModels;
 
@@ -256,6 +257,15 @@ namespace WpfCompanyApp.Services
         [ObservableProperty]
         private int numTriggerCamera=0;
         [ObservableProperty] private bool requestSaveAllPositionsTrigger;
-
+        
+        // ✅ Thêm property để lưu tool được chọn từ ComboBox
+        [ObservableProperty]
+        private string selectedCalibTool = "Tool1"; // Mặc định "Tool1"
+        public ObservableCollection<RobotPointCalib> CalibPointsTool1 { get; } = new();
+        public ObservableCollection<RobotPointCalib> CalibPointsTool2 { get; } = new();
+        public ObservableCollection<RobotPointCalib> CalibPointsTool3 { get; } = new();
+        public Affine2D? _affine1;
+        public Affine2D? _affine2;
+        public Affine2D? _affine3;
     }
 }

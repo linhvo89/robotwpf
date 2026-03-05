@@ -761,6 +761,15 @@ namespace WpfCompanyApp.ViewModels
 
         [ObservableProperty]
         private ObservableCollection<RobotPositionItem> robotPositionList = new();
+
+        // ✅ Danh sách calibration tool (tool1, tool2, tool3)
+        [ObservableProperty]
+        private ObservableCollection<string> calibToolList = new(new[] { "Tool1", "Tool2", "Tool3" });
+
+        // ✅ Tool được chọn (mặc định Tool1)
+        [ObservableProperty]
+        private string selectedCalibTool = "Tool1";
+
         // Add inside HomeViewModel class
       
 

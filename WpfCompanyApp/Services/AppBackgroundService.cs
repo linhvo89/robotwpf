@@ -248,6 +248,9 @@ namespace WpfCompanyApp.Services
         }
         public ProcessInfoList vmProcessInfoList = new ProcessInfoList();
         VmProcedure vmProcedure;
+        float[] xpixel;
+        float[] ypixel;
+        bool triggerRun = false;
         private void VmSolution_OnWorkStatusEvent(VM.PlatformSDKCS.ImvsSdkDefine.IMVS_MODULE_WORK_STAUS workStatusInfo)
         {
             if (workStatusInfo.nWorkStatus == 0)//When the process is running, the nWorkStatus is 1
@@ -268,9 +271,7 @@ namespace WpfCompanyApp.Services
                                     vmProcedure = (VmProcedure)VmSolution.Instance[vmProcessInfoList.astProcessInfo[0].strProcessName];
                                     if (vmProcedure == null) return;
                                     List<VmDynamicIODefine.IoNameInfo> ioNameInfos = vmProcedure.ModuResult.GetAllOutputNameInfo();
-
-
-                                }
+                                 }
                                 catch (Exception ex)
                                 {
                                     StackTrace stackTrace = new StackTrace(true);
@@ -292,6 +293,17 @@ namespace WpfCompanyApp.Services
                                         {
                                             //cycletime 	string vmResult = vmProcedure.ModuResult.GetOutputString("time").astStringVal[0].strValue;
                                             string vmResult = vmProcedure.ModuResult.GetOutputString("ketqua").astStringVal[0].strValue;
+                                             xpixel = vmProcedure.ModuResult.GetOutputFloat("outX").pFloatVal;
+                                            ypixel = vmProcedure.ModuResult.GetOutputFloat("outY").pFloatVal;
+                                            if(_state == AppState.Running)
+                                            {
+                                                triggerRun = true;
+                                            }
+                                            else
+                                            {
+                                                triggerRun = false;
+                                            }
+                                                HandleTriggerCamera(xpixel.Length);
                                             try
                                             {
                                                 AddMachineLog(vmResult);
@@ -300,7 +312,6 @@ namespace WpfCompanyApp.Services
                                             {
 
                                             }
-
                                         }
                                         catch
                                         {
@@ -1191,6 +1202,7 @@ namespace WpfCompanyApp.Services
 
             return sameX && sameY && sameZ;
         }
+        int ivan = 0;
         private void HandleReady()
          {
             try
@@ -1206,135 +1218,152 @@ namespace WpfCompanyApp.Services
                         break;
 
                     case ReadySubState.MoveHome:
+                        _readyState = ReadySubState.CheckCNC0;
                         // TODO: gọi lệnh MoveHome nội bộ chu trình nếu cần
                         // if (!_robot.MoveHome()) { RaiseError(...); return; }
-                     /*  {
-                            var pose = _data.RobotTrajectories
-                       .FirstOrDefault(t => t.NamePoses == "HomePose");
+                        /*  {
+                               var pose = _data.RobotTrajectories
+                          .FirstOrDefault(t => t.NamePoses == "HomePose");
 
-                            if (pose != null)
-                            {
-                                moveLHome.X = pose.X;
-                                moveLHome.Y = pose.Y;
-                                moveLHome.Z = pose.Z;
-                                moveLHome.RX = pose.Rx;
-                                moveLHome.RY = pose.Ry;
-                                moveLHome.RZ = pose.Rz;
-                                // chiều cao khối 3D
-                                double heightOffset = 500;
-                                PosMoveL movel2 = new PosMoveL();
-                                string er = _robot.ReadActualPosMoveL(0, out movel2);
-                                if (er == "OK") {
-                                    if (IsRobotInsideHexPrism(bottom, moveLHome, heightOffset))
-                                    {
-                                        AddMachineLog("Robot nằm TRONG vùng 3D → ĐƯỢC phép Move Home");
-                                        // gửi lệnh Move Home
-                                        er = _robot.SetOverride(0, 0.05);
-                                        if (er == "OK")
-                                        {
-                                            er = _robot.SetUCSByName(0, tablesp);
-                                            if (er == "OK")
-                                            {
+                               if (pose != null)
+                               {
+                                   moveLHome.X = pose.X;
+                                   moveLHome.Y = pose.Y;
+                                   moveLHome.Z = pose.Z;
+                                   moveLHome.RX = pose.Rx;
+                                   moveLHome.RY = pose.Ry;
+                                   moveLHome.RZ = pose.Rz;
+                                   // chiều cao khối 3D
+                                   double heightOffset = 500;
+                                   PosMoveL movel2 = new PosMoveL();
+                                   string er = _robot.ReadActualPosMoveL(0, out movel2);
+                                   if (er == "OK") {
+                                       if (IsRobotInsideHexPrism(bottom, moveLHome, heightOffset))
+                                       {
+                                           AddMachineLog("Robot nằm TRONG vùng 3D → ĐƯỢC phép Move Home");
+                                           // gửi lệnh Move Home
+                                           er = _robot.SetOverride(0, 0.05);
+                                           if (er == "OK")
+                                           {
+                                               er = _robot.SetUCSByName(0, tablesp);
+                                               if (er == "OK")
+                                               {
 
-                                                ////////////////
-                                                {
-                                                    istep = 11;
-                                                    PosMoveL moveL = new PosMoveL();
-                                                    moveL.X = _data.RobotTrajectories[istep].X;
-                                                    moveL.Y = _data.RobotTrajectories[istep].Y;
-                                                    moveL.Z = _data.RobotTrajectories[istep].Z;
-                                                    moveL.RX = _data.RobotTrajectories[istep].Rx;
-                                                    moveL.RY = _data.RobotTrajectories[istep].Ry;
-                                                    moveL.RZ = _data.RobotTrajectories[istep].Rz;
-                                                    _robot.SetOverride(0, 0.05);
-                                                    er = _robot.SetUCSByName(0, tablesp);
-                                                    if (er == "OK")
-                                                    {
-                                                            if (IsAlmostEqual(moveLHome, movel2, 10))
-                                                            {
-                                                                AddMachineLog("Điểm hiên tại gần bằng điểm cũ Home!");
-                                                            }
-                                                            else
-                                                            {
-                                                                AddMachineLog("Điểm hiện tạ lệch so  hôm Home!");
+                                                   ////////////////
+                                                   {
+                                                       istep = 11;
+                                                       PosMoveL moveL = new PosMoveL();
+                                                       moveL.X = _data.RobotTrajectories[istep].X;
+                                                       moveL.Y = _data.RobotTrajectories[istep].Y;
+                                                       moveL.Z = _data.RobotTrajectories[istep].Z;
+                                                       moveL.RX = _data.RobotTrajectories[istep].Rx;
+                                                       moveL.RY = _data.RobotTrajectories[istep].Ry;
+                                                       moveL.RZ = _data.RobotTrajectories[istep].Rz;
+                                                       _robot.SetOverride(0, 0.05);
+                                                       er = _robot.SetUCSByName(0, tablesp);
+                                                       if (er == "OK")
+                                                       {
+                                                               if (IsAlmostEqual(moveLHome, movel2, 10))
+                                                               {
+                                                                   AddMachineLog("Điểm hiên tại gần bằng điểm cũ Home!");
+                                                               }
+                                                               else
+                                                               {
+                                                                   AddMachineLog("Điểm hiện tạ lệch so  hôm Home!");
 
-                                                                er = _robot.MoveL(0, moveL, 0);
-                                                                if (er == "OK")
-                                                                {
-                                                                    Thread.Sleep(1000);
-                                                                    AddRobotHistory($"[READY {istep + 1}] Move to waite Move home -> X: {_data.RobotTrajectories[istep].X}, Y: {_data.RobotTrajectories[istep].Y}, Z: {_data.RobotTrajectories[istep].Z}, RX: {_data.RobotTrajectories[istep].Rx}, RY: {_data.RobotTrajectories[istep].Ry}, RZ: {_data.RobotTrajectories[istep].Rz} ");
+                                                                   er = _robot.MoveL(0, moveL, 0);
+                                                                   if (er == "OK")
+                                                                   {
+                                                                       Thread.Sleep(1000);
+                                                                       AddRobotHistory($"[READY {istep + 1}] Move to waite Move home -> X: {_data.RobotTrajectories[istep].X}, Y: {_data.RobotTrajectories[istep].Y}, Z: {_data.RobotTrajectories[istep].Z}, RX: {_data.RobotTrajectories[istep].Rx}, RY: {_data.RobotTrajectories[istep].Ry}, RZ: {_data.RobotTrajectories[istep].Rz} ");
 
-                                                                }
-                                                                else
-                                                                {
-                                                                    AddMachineLog($"[READY {istep + 1} ] Error to waite Move home ");
-                                                                    Thread.Sleep(500);
-                                                                    _data.StopRequested = true;
-                                                                    break;
-                                                                    //  _data.StopRequested = true;
-                                                                }
-                                                            }
-                                                   
-
-                                                    }
-                                                    else
-                                                    {
-                                                        AddMachineLog($"[READY  {istep + 1}]  Error SetUCSByName ");
-                                                        Thread.Sleep(500);
-                                                        break;
-                                                    }
-
-                                                }
-                                                ///////////////
-
-                                                er = _robot.MoveL(0, moveLHome, 0);
-                                                if (er == "OK")
-                                                {
-                                                    AddRobotHistory($"[READY] Move to  Home -> X: {pose.X}, Y: {pose.Y}, Z: {pose.Z}, RX: {pose.Rx}, RY: {pose.Ry}, RZ: {pose.Rz} ");
-
-                                                    _readyState = ReadySubState.CheckCNC0;
-                                                }
-                                                else
-                                                {
-                                                    AddMachineLog($"[READY] Erorr Move to  Home {er}");
-                                                    _data.StopRequested = true;
-                                                }
-
-                                            }
-                                            else
-                                            {
-                                                AddMachineLog($"[READY] Erorr SetUCSByName {er}");
-                                            }
-
-                                        }
-                                        else
-                                        {
-                                            AddMachineLog($"[READY] Erorr SetOverride {er}");
-                                        }
-                                    }
-                                    else
-                                    {
-                                        AddMachineLog("Robot KHÔNG nằm trong vùng 3D → KHÔNG Move Home Hay di chuyển robot vào vùng an toan");
-                                        break;
-                                    }
-                                }
-                                else
-                                {
-                                    AddMachineLog("Error đọc vị trí robot");
-                                    break;
-                                }
+                                                                   }
+                                                                   else
+                                                                   {
+                                                                       AddMachineLog($"[READY {istep + 1} ] Error to waite Move home ");
+                                                                       Thread.Sleep(500);
+                                                                       _data.StopRequested = true;
+                                                                       break;
+                                                                       //  _data.StopRequested = true;
+                                                                   }
+                                                               }
 
 
-                            }
-                            else
-                            {
-                                // Không tìm thấy NamePoses tương ứng
-                                AddMachineLog($"[READY] Không tìm thấy  Home ");
-                                _data.StopRequested = true;
-                            }
-                        } */
+                                                       }
+                                                       else
+                                                       {
+                                                           AddMachineLog($"[READY  {istep + 1}]  Error SetUCSByName ");
+                                                           Thread.Sleep(500);
+                                                           break;
+                                                       }
+
+                                                   }
+                                                   ///////////////
+
+                                                   er = _robot.MoveL(0, moveLHome, 0);
+                                                   if (er == "OK")
+                                                   {
+                                                       AddRobotHistory($"[READY] Move to  Home -> X: {pose.X}, Y: {pose.Y}, Z: {pose.Z}, RX: {pose.Rx}, RY: {pose.Ry}, RZ: {pose.Rz} ");
+
+                                                       _readyState = ReadySubState.CheckCNC0;
+                                                   }
+                                                   else
+                                                   {
+                                                       AddMachineLog($"[READY] Erorr Move to  Home {er}");
+                                                       _data.StopRequested = true;
+                                                   }
+
+                                               }
+                                               else
+                                               {
+                                                   AddMachineLog($"[READY] Erorr SetUCSByName {er}");
+                                               }
+
+                                           }
+                                           else
+                                           {
+                                               AddMachineLog($"[READY] Erorr SetOverride {er}");
+                                           }
+                                       }
+                                       else
+                                       {
+                                           AddMachineLog("Robot KHÔNG nằm trong vùng 3D → KHÔNG Move Home Hay di chuyển robot vào vùng an toan");
+                                           break;
+                                       }
+                                   }
+                                   else
+                                   {
+                                       AddMachineLog("Error đọc vị trí robot");
+                                       break;
+                                   }
+
+
+                               }
+                               else
+                               {
+                                   // Không tìm thấy NamePoses tương ứng
+                                   AddMachineLog($"[READY] Không tìm thấy  Home ");
+                                   _data.StopRequested = true;
+                               }
+                           } */
                         break;
                     case ReadySubState.CheckCNC0:
+                        if(triggerRun == true && xpixel.Length>0)
+                        {
+                            var (X, Y) = _data._affine1.PixelToRobot(xpixel[ivan], ypixel[ivan]);
+
+                            AddRobotHistory($"[READY] Check CNC -> Pixel: ({xpixel[ivan]}, {ypixel[ivan]}) -> Robot: ({X}, {Y})");
+                            ivan++;
+                            if(ivan >= xpixel.Length)
+                            {
+                                ivan = 0;
+                                triggerRun = false;
+                            }
+                        }
+                        else
+                        {
+
+                        }
                      /*   {
                             int[] ci = new int[8];
                             string kq = _robot.ReadBoxCI_01234567(out ci);
@@ -1741,9 +1770,17 @@ namespace WpfCompanyApp.Services
                     if (_data.RequestTriggerCamera)
                     {
                         _data.RequestTriggerCamera = false;
-                        HandleTriggerCamera(); // Gọi hàm xử lý Trigger
+                        //  HandleTriggerCamera(); // Gọi hàm xử lý Trigger
+                        var pro = VmSolution.Instance["Flow1"] as VmProcedure;
+                        if (pro != null)
+                        {
+                            pro.Run();
+                        }
+                        else
+                        {
+                            AddMachineLog("[SETTING] Lỗi: Không tìm thấy Flow1 để chạy Trigger Camera.");
+                        }
                     }
-
                     if (_data.RequestSavePositionTrigger)
                     {
                         _data.RequestSavePositionTrigger = false;
@@ -2161,14 +2198,14 @@ namespace WpfCompanyApp.Services
 
         // ============ TRIGGER CAMERA LOGIC ============
 
-        private void HandleTriggerCamera()
+        private void HandleTriggerCamera(int count)
         {
             try
             {
                 AddMachineLog("[TRIGGER] Bắt đầu gọi camera...");
 
                 // BƯỚC 1: Gọi camera service lấy số
-                int count = GetNumberFromCameraService();
+             //   int count = GetNumberFromCameraService();
 
                 if (count <= 0)
                 {
@@ -2294,7 +2331,7 @@ namespace WpfCompanyApp.Services
                 //_db.UpdateTrajectory(trajectory);
 
                 AddMachineLog($"[TRIGGER] Đã lưu vị trí {positionId} thành công: {trajectory.NamePoses}");
-                AutoCloseToast.ShowSuccess($"Saved {trajectory.NamePoses} ✔", 1000);
+                AutoCloseToast.ShowSuccess($"Saved {trajectory.NamePoses} ✔", 2000);
             }
             catch (Exception ex)
             {
@@ -2302,39 +2339,60 @@ namespace WpfCompanyApp.Services
                 AutoCloseToast.ShowError($"Save Error: {ex.Message}", 1000);
             }
         }
+        RobotPointCalib[] robotPointCalib;
         private void HandleSaveAllPositions()
         {
-      
-
-            _data.RequestSaveAllPositionsTrigger = false;
-            if(!CanSaveAllPositionsReq())
+            if (!TryCheckAllStatus(listRobot, out int badIdx))
             {
-                AddMachineLog("[TRIGGER] Cannot save all positions: Not all positions are ready.");
+                AddMachineLog($"[CALIB] Position lỗi IsStatus=false tại index={badIdx} (ID={(badIdx >= 0 && badIdx < listRobot.Length ? listRobot[badIdx].Id : -1)})");
                 AutoCloseToast.ShowError("Cannot save all: Not all positions are ready", 2000);
+                _data.RequestSaveAllPositionsTrigger = false;
                 return;
             }
+
+            // ✅ OK hết -> lưu vào DB
+            robotPointCalib = new RobotPointCalib[listRobot.Length];
             // Lưu tuần tự từng position
-            foreach (var pos in _data.RobotPositionList.ToList())
+            for(int i=0; i < listRobot.Length; i++)
             {
-                // Nếu bạn có IsStatus để đánh dấu đã lưu thì check ở đây:
-                // if (pos.IsStatus) continue;
-
-                // Reuse logic SavePosition hiện có của bạn:
-                // 1) set index
-                _data.IndexTrigger = pos.PositionId;
-
-                // 2) gọi hàm lưu thật (ví dụ SavePositionToDb(pos))
-                // hoặc set RequestSavePositionTrigger = true và để handler kia xử lý
-             //   SavePositionToDb(pos);
-
-                // 3) đánh dấu status (nếu có)
-                // pos.IsStatus = true;
+                robotPointCalib[i] = new RobotPointCalib();
+                robotPointCalib[i].Angle = 0;
+                robotPointCalib[i].RobotX = listRobot[i].PosMoveL.X;
+                robotPointCalib[i].RobotY = listRobot[i].PosMoveL.Y;
+                robotPointCalib[i].ImageX = xpixel[i];
+                robotPointCalib[i].ImageY = ypixel[i];
             }
+            
+            // ✅ Lấy giá trị từ ComboBox SelectedCalibTool
+            // Từ SettingsViewModel thông qua _data.SelectedCalibTool (nếu có)
+            // Hoặc lấy từ UI của SettingsView (nếu binding được)
+            string selectedTool = _data.SelectedCalibTool ?? "Tool1"; // Mặc định "Tool1"
+            
+            _db.SaveCalibPointsToDb(robotPointCalib, selectedTool);
+            _data.RequestSaveAllPositionsTrigger = false;
+            
+            AddMachineLog($"[CALIB] Đã lưu tất cả {listRobot.Length} điểm calibration vào '{selectedTool}' thành công");
+            AutoCloseToast.ShowSuccess($"Saved all {listRobot.Length} calibration points to {selectedTool} ✔", 2000);
         }
-        private bool CanSaveAllPositionsReq()
+        private bool TryCheckAllStatus(TriggerPosItem[] listRobot, out int badIndex)
         {
-            var list =listRobot;
-            return list != null && list.Length > 0 && list.All(p => p.IsStatus);
+            badIndex = -1;
+            if (listRobot == null || listRobot.Length == 0)
+            {
+                badIndex = 0;
+                return false;
+            }
+
+            for (int i = 0; i < listRobot.Length; i++)
+            {
+                if (!listRobot[i].IsStatus)
+                {
+                    badIndex = i;          // index 0-based
+                    return false;
+                }
+            }
+
+            return true;
         }
     }
 

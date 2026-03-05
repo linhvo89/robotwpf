@@ -98,4 +98,15 @@ namespace WpfCompanyApp.Models
 
         public MoveTypeEnum MoveType { get; set; } = MoveTypeEnum.moveL;
     }
+
+    public class RobotPointCalib
+    {
+        public string NameCalib { get; set; }
+        public double ImageX { get; set; }
+        public double ImageY { get; set; }
+        public double Angle { get; set; }
+        public double RobotX { get; set; }
+
+        public double RobotY { get; set; }
+    }
 }

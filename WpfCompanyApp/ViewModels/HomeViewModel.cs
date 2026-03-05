@@ -10,6 +10,7 @@ using System.Text.Json;
 using System.Threading.Tasks;
 using System.Windows;
 using VM.Core;
+using WpfCompanyApp.CalibRobot;
 using WpfCompanyApp.Data;
 using WpfCompanyApp.Models;
 using WpfCompanyApp.Services;
@@ -130,6 +131,23 @@ namespace WpfCompanyApp.ViewModels
             _data.RobotTrajectories.Clear();
             foreach (var t in trajFromDb)
                 _data.RobotTrajectories.Add(t);
+            // ✅ Load calib points cho 3 tool mỗi lần Start
+            var t1 = _db.GetCalibPoints("Tool1");
+            var t2 = _db.GetCalibPoints("Tool2");
+            var t3 = _db.GetCalibPoints("Tool3");
+
+            _data.CalibPointsTool1.Clear();
+            foreach (var p in t1) _data.CalibPointsTool1.Add(p);
+
+            _data.CalibPointsTool2.Clear();
+            foreach (var p in t2) _data.CalibPointsTool2.Add(p);
+
+            _data.CalibPointsTool3.Clear();
+            foreach (var p in t3) _data.CalibPointsTool3.Add(p);
+            _data._affine1 = Affine2D.FitFromCalibPoints(_data.CalibPointsTool1);
+            _data._affine2 =Affine2D.FitFromCalibPoints(_data.CalibPointsTool2);
+            _data._affine3 =Affine2D.FitFromCalibPoints(_data.CalibPointsTool3);
+
         }
         [RelayCommand]
         private void Home()

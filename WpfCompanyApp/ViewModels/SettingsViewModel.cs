@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -800,6 +801,44 @@ namespace WpfCompanyApp.ViewModels
 
             // Cách 2 (khuyến nghị): set flag SaveAll để background xử lý 1 lần
             _data.RequestSaveAllPositionsTrigger = true;
+        }
+        [RelayCommand]
+        private void ExportCalibPointsToTxt()
+        {
+            try
+            {
+                string selectedTool = _data.SelectedCalibTool ?? "Tool1";
+                var points = _db.GetCalibPoints(selectedTool);
+
+                if (points == null || points.Count == 0)
+                {
+                    AutoCloseToast.ShowError($"Không có dữ liệu calib_points cho {selectedTool}", 1200);
+                    return;
+                }
+
+                var dialog = new SaveFileDialog
+                {
+                    Title = $"Xuất calib_points - {selectedTool}",
+                    Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*",
+                    FileName = $"{selectedTool}_calib_points.txt"
+                };
+
+                bool? result = dialog.ShowDialog();
+                if (result != true)
+                    return;
+
+                var lines = points.Select(p =>
+                 string.Format(CultureInfo.InvariantCulture,
+                     "{0,12:0.000}{1,12:0.000}{2,12:0.000}{3,12:0.000}{4,10:0.000}",
+                     p.ImageX, p.ImageY, p.RobotX, p.RobotY, p.Angle));
+
+                File.WriteAllLines(dialog.FileName, lines);
+                AutoCloseToast.ShowSuccess($"Đã xuất {points.Count} dòng ra file txt", 1200);
+            }
+            catch (Exception ex)
+            {
+                AutoCloseToast.ShowError($"Xuất calib_points thất bại: {ex.Message}", 1500);
+            }
         }
     }
 }

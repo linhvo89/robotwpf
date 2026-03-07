@@ -1,4 +1,4 @@
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace WpfCompanyApp.Models
 {
@@ -9,6 +9,10 @@ namespace WpfCompanyApp.Models
 
         [ObservableProperty]
         private string positionName = "";
+
+        [ObservableProperty]
+        private bool isStatus;
+        
     }
     public class TriggerPosItem
     {

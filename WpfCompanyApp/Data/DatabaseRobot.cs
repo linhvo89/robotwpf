@@ -122,8 +122,7 @@ namespace WpfCompanyApp.Data
             cmd.CommandText = @"
         SELECT namecalib, imagex, imagey, robotx, roboty, angle
         FROM calib_points
-        WHERE namecalib = $name
-        ORDER BY id ASC;";
+        WHERE namecalib = $name;";
             cmd.Parameters.AddWithValue("$name", namecalib);
 
             using var rd = cmd.ExecuteReader();
@@ -132,11 +131,11 @@ namespace WpfCompanyApp.Data
                 result.Add(new RobotPointCalib
                 {
                     NameCalib = rd.GetString(0),
-                    ImageX = rd.GetDouble(1),
-                    ImageY = rd.GetDouble(2),
-                    RobotX = rd.GetDouble(3),
-                    RobotY = rd.GetDouble(4),
-                    Angle = rd.GetDouble(5),
+                    ImageX = Math.Round(rd.GetDouble(1), 3),
+                    ImageY = Math.Round(rd.GetDouble(2), 3),
+                    RobotX = Math.Round(rd.GetDouble(3), 3),
+                    RobotY = Math.Round(rd.GetDouble(4), 3),
+                    Angle = Math.Round(rd.GetDouble(5), 3),
                 });
             }
 

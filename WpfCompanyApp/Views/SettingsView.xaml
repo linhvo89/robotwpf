@@ -509,30 +509,52 @@
                                                     CommandParameter="{Binding}"
                                                     Width="130" 
                                                     Height="36" 
-                                                    Margin="4"
-                                                    Style="{StaticResource ModernButton_Green}"/>
+                                                    Margin="4">
+                                                <Button.Style>
+                                                    <Style TargetType="Button" BasedOn="{StaticResource ModernButton_Green}">
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsStatus}" Value="True">
+                                                                <Setter Property="Background" Value="#007BFF"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
                                 <!-- NEW: SaveAll -->
-                                <Button Content="💾 Save All"
-                                    FontSize="16"
-                                    Command="{Binding SaveAllPositionsReqCommand}"
-                                    Width="120"
-                                    Height="40">
-                                    <Button.Style>
-                                        <Style TargetType="Button" BasedOn="{StaticResource ModernButton_Green}">
-                                            <Setter Property="IsEnabled" Value="False"/>
-                                            <Style.Triggers>
-                                                <!-- Chỉ enable khi count > 0: cần converter, vì DataTrigger không so sánh > -->
-                                                <DataTrigger Binding="{Binding Data.NumTriggerCamera, Converter={StaticResource GreaterThanZeroConverter}}" Value="True">
-                                                    <Setter Property="IsEnabled" Value="True"/>
-                                                </DataTrigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Button.Style>
-                                </Button>
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <Button Content="💾 Save All"
+                                        FontSize="16"
+                                        Command="{Binding SaveAllPositionsReqCommand}"
+                                        Width="120"
+                                        Height="40"
+                                        Margin="0,0,8,0">
+                                        <Button.Style>
+                                            <Style TargetType="Button" BasedOn="{StaticResource ModernButton_Green}">
+                                                <Setter Property="IsEnabled" Value="False"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding Data.NumTriggerCamera, Converter={StaticResource GreaterThanZeroConverter}}" Value="True">
+                                                        <Setter Property="IsEnabled" Value="True"/>
+                                                    </DataTrigger>
+                                                    <!-- Đổi màu khi SaveAll thành công -->
+                                                    <DataTrigger Binding="{Binding Data.IsSaveAllSuccess}" Value="True">
+                                                        <Setter Property="Background" Value="#007BFF"/>
+                                                        <Setter Property="Foreground" Value="White"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
 
+                                    <Button Content="📄 Export TXT"
+                                    FontSize="16"
+                                    Command="{Binding ExportCalibPointsToTxtCommand}"
+                                    Width="130"
+                                    Height="40"
+                                    Style="{StaticResource ModernButton_Blue}"/>
+                                </StackPanel>
 
                             </StackPanel>
                         </Border>
@@ -1277,7 +1299,7 @@
 
                                     <!-- Speed -->
                                     <GroupBox Header="Tốc độ robot"
-          Style="{StaticResource DarkGroupBox}">
+                                     Style="{StaticResource DarkGroupBox}">
                                         <Grid>
                                             <Grid.RowDefinitions>
                                                 <RowDefinition/>

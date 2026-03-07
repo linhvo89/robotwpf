@@ -2237,13 +2237,17 @@ namespace WpfCompanyApp.Services
                         _data.RobotPositionList.Add(new RobotPositionItem
                         {
                             PositionId = i,
-                            PositionName = $"Position {i}"
+                            PositionName = $"Position {i}",
+                            IsStatus = false
                         });
                     }
 
                     AddMachineLog($"[TRIGGER] (UI) Created {_data.RobotPositionList.Count} Save buttons");
                 });
-
+                Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    _data.IsSaveAllSuccess = true;
+                });
                 AutoCloseToast.ShowSuccess($"Trigger Success: {count} positions ✔", 1000);
             }
             catch (Exception ex)
@@ -2327,6 +2331,14 @@ namespace WpfCompanyApp.Services
                     },
                     IsStatus = true // đã save
                 };
+
+                Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    var uiItem = _data.RobotPositionList.FirstOrDefault(x => x.PositionId == positionId);
+                    if (uiItem != null)
+                        uiItem.IsStatus = true;
+                });
+
                 //// BƯỚC 3: Lưu vào Database
                 //_db.UpdateTrajectory(trajectory);
 
@@ -2370,7 +2382,10 @@ namespace WpfCompanyApp.Services
             
             _db.SaveCalibPointsToDb(robotPointCalib, selectedTool);
             _data.RequestSaveAllPositionsTrigger = false;
-            
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                _data.IsSaveAllSuccess = true;
+            });
             AddMachineLog($"[CALIB] Đã lưu tất cả {listRobot.Length} điểm calibration vào '{selectedTool}' thành công");
             AutoCloseToast.ShowSuccess($"Saved all {listRobot.Length} calibration points to {selectedTool} ✔", 2000);
         }

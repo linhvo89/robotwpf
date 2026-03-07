@@ -267,5 +267,7 @@ namespace WpfCompanyApp.Services
         public Affine2D? _affine1;
         public Affine2D? _affine2;
         public Affine2D? _affine3;
+        [ObservableProperty]
+        private bool isSaveAllSuccess;
     }
 }

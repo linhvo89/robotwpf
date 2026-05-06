@@ -271,7 +271,7 @@ namespace WpfCompanyApp.Services
                                     vmProcedure = (VmProcedure)VmSolution.Instance[vmProcessInfoList.astProcessInfo[0].strProcessName];
                                     if (vmProcedure == null) return;
                                     List<VmDynamicIODefine.IoNameInfo> ioNameInfos = vmProcedure.ModuResult.GetAllOutputNameInfo();
-                                 }
+                                }
                                 catch (Exception ex)
                                 {
                                     StackTrace stackTrace = new StackTrace(true);
@@ -293,7 +293,7 @@ namespace WpfCompanyApp.Services
                                         {
                                             //cycletime 	string vmResult = vmProcedure.ModuResult.GetOutputString("time").astStringVal[0].strValue;
                                             string vmResult = vmProcedure.ModuResult.GetOutputString("ketqua").astStringVal[0].strValue;
-                                             xpixel = vmProcedure.ModuResult.GetOutputFloat("outX").pFloatVal;
+                                            xpixel = vmProcedure.ModuResult.GetOutputFloat("outX").pFloatVal;
                                             ypixel = vmProcedure.ModuResult.GetOutputFloat("outY").pFloatVal;
                                             if(_state == AppState.Running)
                                             {
@@ -317,7 +317,6 @@ namespace WpfCompanyApp.Services
                                         {
 
                                         }
-                                       
                                         Task.Run(() =>
                                         {
                                             try
@@ -366,9 +365,6 @@ namespace WpfCompanyApp.Services
 
                                         //	//}
                                         //}
-
-                                 
-
                                         //	wLogs.WriteToFile(Messebox, NameMode, DCSInfo.pathimage, 1);
                                     });
                                     vmResult2 = "";

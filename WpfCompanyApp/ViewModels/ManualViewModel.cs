@@ -13,7 +13,5 @@ namespace WpfCompanyApp.ViewModels
         {
             Data = data;
         }
-      
-
     }
 }

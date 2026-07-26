@@ -322,7 +322,7 @@ namespace WpfCompanyApp.Services
                                     vmProcedure = (VmProcedure)VmSolution.Instance[vmProcessInfoList.astProcessInfo[0].strProcessName];
                                     if (vmProcedure == null) return;
                                     List<VmDynamicIODefine.IoNameInfo> ioNameInfos = vmProcedure.ModuResult.GetAllOutputNameInfo();
-                                }
+                                 }
                                 catch (Exception ex)
                                 {
                                     StackTrace stackTrace = new StackTrace(true);
@@ -367,6 +367,7 @@ namespace WpfCompanyApp.Services
                                             AddMachineLog(
                                                 $"[READY] Không đọc được kết quả Vision Basket1: {ex.Message}");
                                         }
+                                       
                                         Task.Run(() =>
                                         {
                                             try
@@ -398,28 +399,8 @@ namespace WpfCompanyApp.Services
                                 {
                                     Task.Run(() =>
                                     {
-<<<<<<< HEAD
-                                        //int monthNumber = DateTime.Now.Month;
-                                        //string monthAbbreviation = CultureInfo.CurrentCulture.DateTimeFormat.AbbreviatedMonthNames[monthNumber - 1];
-                                        //string path = DCSInfo.pathimage + "\\Logs\\" + monthAbbreviation + DateTime.Now.Day + DateTime.Now.Year+"\\" + NameMode + "\\"  + NameMode + "_" + monthAbbreviation + DateTime.Now.Day + DateTime.Now.Year + ".csv";
-                                        //if (!File.Exists(path))
-                                        //{
-                                        //	indexTotal = 1;
-                                        //	//try
-                                        //	//{
-                                        //	//	GlobalVariableModuleTool tool = new GlobalVariableModuleTool();
-                                        //	//	tool.SetGlobalVar("serial", "1");
-                                        //	//	tool.SetGlobalVar("namesolution", NameMode);
-                                        //	//}
-                                        //	//catch
-                                        //	//{
-
-                                        //	//}
-                                        //}
-=======
                                       
 
->>>>>>> 04688cd (Refactor application workflows and update UI components)
                                         //	wLogs.WriteToFile(Messebox, NameMode, DCSInfo.pathimage, 1);
                                     });
                                     vmResult2 = "";

@@ -86,64 +86,10 @@ namespace WpfCompanyApp.ViewModels
         {
             _data = data;
             LoadJobs();
-<<<<<<< HEAD
-            
-=======
             LoadInitialValues();
             _data.PropertyChanged += Data_PropertyChanged;
->>>>>>> 04688cd (Refactor application workflows and update UI components)
             MoveTypes.CollectionChanged += MoveTypes_CollectionChanged;
             ReturnMoveTypes.CollectionChanged += ReturnMoveTypes_CollectionChanged;
-            ForwardPoints = new ObservableCollection<ForwardPoint>();
-
-            // Load dữ liệu asynchronously để không chặn UI thread
-            // Chạy trên background thread
-            Task.Run(async () => await InitializeAsync());
-        }
-
-        // Method để load tất cả dữ liệu không đồng bộ
-        private async Task InitializeAsync()
-        {
-            // Load Forward Points trước (nhanh hơn)
-            await LoadForwardPointsAsync();
-
-            // Load Initial Values sau (có thể chậm - database query)
-            await Task.Run(() => LoadInitialValues());
-        }
-
-        // Method để load dữ liệu không đồng bộ
-        private async Task LoadForwardPointsAsync()
-        {
-            // Tạo danh sách các điểm trước
-            var points = new List<ForwardPoint>();
-            for (int i = 1; i <= 100; i++)
-            {
-                points.Add(new ForwardPoint
-                {
-                    Index = i,
-                    Velocity = 0.1,
-                    MoveType = RobotTrajectory.MoveTypeEnum.moveL,
-                    IdCam = 0,
-                    Enable = true,
-                    EnableCam = false,
-                    Note = ""
-                });
-            }
-
-            // Thêm toàn bộ vào UI thread cùng một lúc (nhanh hơn)
-            await Application.Current.Dispatcher.InvokeAsync(() =>
-            {
-                foreach (var point in points)
-                {
-                    ForwardPoints.Add(point);
-                }
-            });
-        }
-        private ObservableCollection<ForwardPoint> forwardPoints;
-        public ObservableCollection<ForwardPoint> ForwardPoints
-        {
-            get => forwardPoints;
-            set => SetProperty(ref forwardPoints, value);
         }
 
         private void Data_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -264,9 +210,34 @@ namespace WpfCompanyApp.ViewModels
                     return;
                 }
              
-         
+                //VmSolutionInfo vmSolutionInfo = new VmSolutionInfo();
+                //string path111 = AppDomain.CurrentDomain.BaseDirectory + "Solution\\" + _data.JobName + ".sol";
+                //vmSolutionInfo.vmSolutionPath = path111;
+                //try
+                //{
+                //    //   if(nameSolution !=  nameSolutionClear) 
+                //    {
+                //        Task task = Task.Run(() =>
+                //        {
+                //            if (VmSolution.Instance.SolutionPath != null)
+                //            {
+                //                VmSolution.Save();
+                //                VmSolution.Instance.CloseSolution();
+                //            }
+                //        });
+                //        task.Wait();  // Chờ task hoàn thành trước khi tiếp tục
+                //    }
+                //}
+                //catch
+                //{
+
+                //}
+                //vmSolutionInfo.vmSolutionPath = path111;
+                //VmSolution.Load(vmSolutionInfo.vmSolutionPath, "196370");
+                //vmProcessInfoList = VmSolution.Instance.GetAllProcedureList();//Obtain all processes in the solution
                 _data.JobName = value.JobName;
                 _data.LoadJob = true;
+                //AutoCloseToast.ShowSuccess("Load Solution successfulg ✔", 1000);
 
             }
             catch
@@ -432,7 +403,7 @@ namespace WpfCompanyApp.ViewModels
             if (result == MessageBoxResult.Yes)
             {
 
-                if (param is int pointIndex)
+                if (param is string str && int.TryParse(str, out int pointIndex))
                 {
                     //MessageBox.Show($"Save Forward Point {pointIndex}");
                     // TODO: Gọi model lưu dữ liệu
@@ -458,7 +429,7 @@ namespace WpfCompanyApp.ViewModels
 
             if (result == MessageBoxResult.Yes)
             {
-                if (param is int pointIndex)
+                if (param is string str && int.TryParse(str, out int pointIndex))
                 {
                     int idx = pointIndex - 1;                      // 1→0, 2→1, ...
 
@@ -490,7 +461,7 @@ namespace WpfCompanyApp.ViewModels
 
             if (result == MessageBoxResult.Yes)
             {
-                if (param is int pointIndex)
+                if (param is string str && int.TryParse(str, out int pointIndex))
                 {
                     //MessageBox.Show($"Save Return Point {pointIndex}");
                     // TODO: Gọi model lưu dữ liệu
@@ -517,7 +488,7 @@ namespace WpfCompanyApp.ViewModels
 
             if (result == MessageBoxResult.Yes)
             {
-                if (param is int pointIndex)
+                if (param is string str && int.TryParse(str, out int pointIndex))
                 {
                     int idx = pointIndex - 1;
 

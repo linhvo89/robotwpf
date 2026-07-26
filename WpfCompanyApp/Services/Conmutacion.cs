@@ -18,6 +18,7 @@ namespace WpfCompanyApp.Services
         private string ip;
         int port;
         int readtimeout;
+        public string LastReceiveDiagnostic { get; private set; } = "";
         //private string ip_camera;
         //int port_camera;
         public  bool tcpConnect(string Address, int port_, int read_timeout)
@@ -148,6 +149,19 @@ namespace WpfCompanyApp.Services
                 return CODE.ERR_Fail;
             }
         }
+
+        protected void SetReceiveTimeout(int timeoutMs)
+        {
+            if (client != null)
+                client.ReceiveTimeout = timeoutMs;
+        }
+
+        protected void RestoreReceiveTimeout()
+        {
+            if (client != null)
+                client.ReceiveTimeout = readtimeout;
+        }
+
         public string subReciveCmdJaka(string cmd)
         {
             string barcoderv = "";
@@ -185,8 +199,8 @@ namespace WpfCompanyApp.Services
         }
         public string subReciveCmd(string cmd)
         {
-
-            string barcoderv = "";
+            string pending = "";
+            string lastResponse = "";
             try
             {
                 if (!client.Connected || !IsSocketConnected(client.Client))
@@ -199,22 +213,47 @@ namespace WpfCompanyApp.Services
                 {
                     char[] _buf = new char[1024];
                     int receive1 = str_read.Read(_buf, 0, _buf.Length);
-                    barcoderv = new string(_buf).TrimEnd('\x0');
-                    string[] arr = barcoderv.Split(',');
-                    if (arr[0] == cmd.Trim())
+                    if (receive1 <= 0)
+                        break;
+
+                    pending += new string(_buf, 0, receive1);
+                    string[] messages = pending.Split(';');
+
+                    // Phần tử cuối có thể là một bản tin TCP chưa nhận đủ.
+                    pending = messages[messages.Length - 1];
+
+                    for (int messageIndex = 0; messageIndex < messages.Length - 1; messageIndex++)
                     {
-                        return barcoderv;
+                        string message = messages[messageIndex].Trim('\0', '\r', '\n', ' ');
+                        if (string.IsNullOrWhiteSpace(message))
+                            continue;
+
+                        lastResponse = message;
+                        string[] fields = message.Split(',');
+                        if (fields.Length > 0 &&
+                            string.Equals(fields[0].Trim(), cmd.Trim(), StringComparison.Ordinal))
+                        {
+                            LastReceiveDiagnostic = message + ";";
+                            return message + ";";
+                        }
                     }
+
                     i++;
                 }
-                return barcoderv = "Fail";
+
+                if (!string.IsNullOrWhiteSpace(pending))
+                    lastResponse = pending.Trim('\0', '\r', '\n', ' ');
+
+                LastReceiveDiagnostic = lastResponse;
+                return "Fail";
             }
-            catch
+            catch (Exception ex)
             {
                 if (client.Connected == false)
                 {
                     bool st = tcpConnect(ip, port, readtimeout);
                 }
+                LastReceiveDiagnostic = ex.Message;
                 return "";
             }
         }

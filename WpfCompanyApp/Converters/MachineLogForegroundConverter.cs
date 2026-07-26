@@ -13,6 +13,9 @@ namespace WpfCompanyApp.Converters
         private static readonly Brush ConnectionErrorBrush =
             new SolidColorBrush(Color.FromRgb(0xFF, 0x4D, 0x4D));
 
+        private static readonly Brush WarningBrush =
+            new SolidColorBrush(Color.FromRgb(0xFF, 0xD5, 0x4F));
+
         public object Convert(
             object value,
             Type targetType,
@@ -20,6 +23,12 @@ namespace WpfCompanyApp.Converters
             CultureInfo culture)
         {
             string message = value as string ?? string.Empty;
+
+            if (message.IndexOf("[INTERLOCK]", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("[WARNING]", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return WarningBrush;
+            }
 
             if (message.IndexOf("[ERROR]", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 message.IndexOf("không thể kết nối", StringComparison.OrdinalIgnoreCase) >= 0 ||

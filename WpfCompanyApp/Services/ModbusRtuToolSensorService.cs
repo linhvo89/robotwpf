@@ -9,8 +9,8 @@ using System.Threading.Tasks;
 namespace WpfCompanyApp.Services
 {
     /// <summary>
-    /// Continuously reads the PLC ready and vacuum sensor registers over Modbus RTU.
-    /// Register values are cached so the robot cycle never blocks on a COM read.
+    /// Continuously reads the PLC ready and vacuum sensor coils over Modbus RTU.
+    /// Coil values are cached so the robot cycle never blocks on a COM read.
     /// </summary>
     public sealed class ModbusRtuToolSensorService : IDisposable
     {
@@ -100,17 +100,17 @@ namespace WpfCompanyApp.Services
                     EnsureConnected();
 
                     byte slaveId = ReadByte("SlaveId", 1);
-                    ushort[] values = _master!.ReadHoldingRegisters(
+                    bool[] values = _master!.ReadCoils(
                         slaveId,
                         Basket1ReadyAddress,
                         Tool3Address - Basket1ReadyAddress + 1);
 
-                    _basket1Ready = values[0] == 1;
-                    _basket2Ready = values[1] == 1;
-                    _airPressureReady = values[2] == 1;
-                    _tool1Holding = values[3] == 1; // 20485 / X5 / Tool1
-                    _tool2Holding = values[4] == 1; // 20486 / X6 / Tool2
-                    _tool3Holding = values[5] == 1; // 20487 / X7 / Tool3
+                    _basket1Ready = values[0];
+                    _basket2Ready = values[1];
+                    _airPressureReady = values[2];
+                    _tool1Holding = values[3]; // 20485 / X5 / Tool1
+                    _tool2Holding = values[4]; // 20486 / X6 / Tool2
+                    _tool3Holding = values[5]; // 20487 / X7 / Tool3
                     _communicationHealthy = true;
 
                     NotifyCommunicationRestored();
@@ -207,7 +207,7 @@ namespace WpfCompanyApp.Services
             _master.Transport.Retries = 0;
 
             Log.Information(
-                "[MODBUS RTU] Connected {Port}, {BaudRate},{DataBits},{Parity},{StopBits}; SlaveId={SlaveId}; registers={Start}-{End}.",
+                "[MODBUS RTU] Connected {Port}, {BaudRate},{DataBits},{Parity},{StopBits}; SlaveId={SlaveId}; coils={Start}-{End}; function=01.",
                 portName, baudRate, dataBits, evenParity ? "E" : "N", stopBitsValue,
                 ReadByte("SlaveId", 1), Basket1ReadyAddress, Tool3Address);
         }

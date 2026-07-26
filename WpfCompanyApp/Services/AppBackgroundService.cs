@@ -134,12 +134,22 @@ namespace WpfCompanyApp.Services
         private bool _isRobotConnected = false;
         private bool _robotConnectAttemptLogged = false;
         private bool _robotConnectFailureLogged = false;
+        private const string DropForwardPathName = "ABGO";
+        private const string DropReturnPathName = "ABGOBACK";
+        private const double DropPathDefaultVelocity = 0.05;
+        private const double DropPathBlendRadius = 0.05;
+        private PosMoveJ? _forwardPose1Joint;
+        private PosMoveJ? _forwardPose5Joint;
+        private PosMoveJ? _returnPose5Joint;
 
         // ✅ đã kẹp sản phẩm sau bước CompleteSP hay chưa
         private bool _productLoaded = false;
 
         // ✅ có yêu cầu dừng sau khi chạy hết chu trình hiện tại không
         private bool _stopAfterCycle = false;
+        private bool _stopPendingPickResult = false;
+        private bool _startupRecoveryDrop = false;
+        private bool _pausedByDoorInterlock = false;
 
         // Cycle time is measured only while the machine is actually Running.
         // One sample represents one successfully released product.
@@ -333,12 +343,18 @@ namespace WpfCompanyApp.Services
                                         try
                                         {
                                             //cycletime 	string vmResult = vmProcedure.ModuResult.GetOutputString("time").astStringVal[0].strValue;
-                                            string vmResult = vmProcedure.ModuResult.GetOutputString("ketqua").astStringVal[0].strValue;
-                                            xpixel = vmProcedure.ModuResult.GetOutputFloat("outX").pFloatVal;
-                                            ypixel = vmProcedure.ModuResult.GetOutputFloat("outY").pFloatVal;
+                                            // VisionMaster có thể trả pFloatVal = null khi ảnh
+                                            // không phát hiện sản phẩm. Đây là kết quả rỗng hợp lệ,
+                                            // không phải lỗi/timeout camera.
+                                            xpixel = vmProcedure.ModuResult.GetOutputFloat("outX").pFloatVal
+                                                ?? Array.Empty<float>();
+                                            ypixel = vmProcedure.ModuResult.GetOutputFloat("outY").pFloatVal
+                                                ?? Array.Empty<float>();
                                             HandleVisionTriggerResult(xpixel.Length);
                                             try
                                             {
+                                                string vmResult = vmProcedure.ModuResult
+                                                    .GetOutputString("ketqua").astStringVal[0].strValue;
                                                 AddMachineLog(vmResult);
                                             }
                                             catch (Exception ex)
@@ -346,9 +362,10 @@ namespace WpfCompanyApp.Services
 
                                             }
                                         }
-                                        catch
+                                        catch (Exception ex)
                                         {
-
+                                            AddMachineLog(
+                                                $"[READY] Không đọc được kết quả Vision Basket1: {ex.Message}");
                                         }
                                         Task.Run(() =>
                                         {
@@ -453,12 +470,18 @@ namespace WpfCompanyApp.Services
                                         try
                                         {
                                             //cycletime 	string vmResult = vmProcedure.ModuResult.GetOutputString("time").astStringVal[0].strValue;
-                                            string vmResult = vmProcedure.ModuResult.GetOutputString("ketqua").astStringVal[0].strValue;
-                                            xpixel = vmProcedure.ModuResult.GetOutputFloat("outX").pFloatVal;
-                                            ypixel = vmProcedure.ModuResult.GetOutputFloat("outY").pFloatVal;
+                                            // VisionMaster có thể trả pFloatVal = null khi ảnh
+                                            // không phát hiện sản phẩm. Chuẩn hóa thành mảng rỗng
+                                            // để state machine đếm đúng 5 ảnh kiểm tra.
+                                            xpixel = vmProcedure.ModuResult.GetOutputFloat("outX").pFloatVal
+                                                ?? Array.Empty<float>();
+                                            ypixel = vmProcedure.ModuResult.GetOutputFloat("outY").pFloatVal
+                                                ?? Array.Empty<float>();
                                             HandleVisionTriggerResult(xpixel.Length);
                                             try
                                             {
+                                                string vmResult = vmProcedure.ModuResult
+                                                    .GetOutputString("ketqua").astStringVal[0].strValue;
                                                 AddMachineLog(vmResult);
                                             }
                                             catch (Exception ex)
@@ -466,9 +489,10 @@ namespace WpfCompanyApp.Services
 
                                             }
                                         }
-                                        catch
+                                        catch (Exception ex)
                                         {
-
+                                            AddMachineLog(
+                                                $"[READY] Không đọc được kết quả Vision Basket2: {ex.Message}");
                                         }
 
                                         Task.Run(() =>
@@ -717,6 +741,21 @@ namespace WpfCompanyApp.Services
             {
                 _data.HasError = false;
                 _data.ErrorMessage = "";
+            });
+        }
+
+        private void ReportRecoverableInterlock(string message)
+        {
+            // Basket/áp suất là điều kiện vận hành có thể tự phục hồi, không phải
+            // lỗi robot bắt buộc Reset. Vẫn hiển thị nguyên nhân nhưng giữ máy ở Idle.
+            _hasError = false;
+            _lastError = message;
+            AddMachineLog("[INTERLOCK] " + message);
+
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                _data.HasError = true;
+                _data.ErrorMessage = message;
             });
         }
 
@@ -979,19 +1018,60 @@ namespace WpfCompanyApp.Services
 
                 if (!TryValidateStartInterlocks(out string startInterlockError))
                 {
-                    RaiseError($"[START] Không cho phép chạy máy: {startInterlockError}");
+                    ReportRecoverableInterlock(
+                        $"[START] Chưa thể chạy máy: {startInterlockError} " +
+                        "Khi tín hiệu sẵn sàng, nhấn Start lại; không cần Reset.");
+                    return;
+                }
+
+                // Xóa thông báo liên động cũ ngay khi tất cả điều kiện Start đã đạt.
+                ClearErrorStatus();
+                _pausedByDoorInterlock = false;
+
+                // Mỗi lần nhấn Start, xóa và tạo lại hai quỹ đạo thả/quay về
+                // từ các giá trị J1..J6 mới nhất đã lưu trong database.
+                if (!TryCreateDropMovePaths(out string movePathError))
+                {
+                    RaiseError($"[START] Không tạo được quỹ đạo robot: {movePathError}");
                     return;
                 }
 
                 AddMachineLog("[STATE] Start requested -> RUNNING");
-           
-                _readyState = ReadySubState.CheckStatus;
+
+                ResetReadyCycle();
+                var holdingToolsAtStart = new List<string>();
+                for (int tool = 1; tool <= 3; tool++)
+                {
+                    bool isHolding = IsToolHolding(tool);
+                    _readyToolHolding[tool] = isHolding;
+                    if (isHolding)
+                        holdingToolsAtStart.Add(GetToolName(tool));
+                }
+
+                if (holdingToolsAtStart.Count > 0)
+                {
+                    // Robot đã ở Home và các liên động Start đều OK. Ưu tiên
+                    // thả sản phẩm còn trên đầu hút, quay về rồi tiếp tục chu trình Basket.
+                    _productLoaded = true;
+                    _stopAfterCycle = true;
+                    _startupRecoveryDrop = true;
+                    ResetDropToolSubTree();
+                    _readyState = ReadySubState.DropPickedProducts;
+                    AddMachineLog(
+                        $"[START] Phát hiện {string.Join(", ", holdingToolsAtStart)} đang giữ sản phẩm tại HomePose. " +
+                        "Ưu tiên đi thả sản phẩm, sau đó tiếp tục chụp ảnh và chạy chu trình.");
+                }
+                else
+                {
+                    _readyState = ReadySubState.CheckStatus;
+                    _stopAfterCycle = false;
+                    _productLoaded = false;
+                    _startupRecoveryDrop = false;
+                }
+
                 _state = AppState.Running;
                 StartCycleStatistics();
 
-                // reset cờ
-                _stopAfterCycle = false;
-                _productLoaded = false;
                 // ⭐ Nếu trước đó có nhấn STOP → reset lại index
                 if (_stopPressedBeforeStart)
                 {
@@ -1072,6 +1152,29 @@ namespace WpfCompanyApp.Services
         // RUNNING: chạy chu trình 10 điểm
         private void HandleRunning()
         {
+            // Cửa mở khi đang chạy: Pause tại trạng thái hiện tại, không tự ý
+            // chạy về Home. Người vận hành đóng cửa và nhấn Start để Resume.
+            if (!TryValidateDoorsClosed(out string runningDoorError, logSuccess: false))
+            {
+                _cycleActiveTime.Stop();
+                _machineRunTime.Stop();
+                _pausedByDoorInterlock = true;
+                _state = AppState.Paused;
+                ReportRecoverableInterlock(
+                    $"[PAUSE] {runningDoorError} Robot đã tạm dừng tại chỗ. " +
+                    "Đóng cửa và nhấn Start để tiếp tục.");
+                return;
+            }
+
+            // Giám sát liên tục các liên động PLC trong toàn bộ thời gian RUNNING,
+            // không chỉ lúc nhấn Start hoặc ngay trước khi gắp. Đọc lại 3 lần để
+            // tránh dừng máy bởi một mẫu Modbus nhiễu ngắn.
+            if (!ConfirmPlcReadyBeforePick(out string runningInterlockError))
+            {
+                StopAndHomeForRunningInterlock(runningInterlockError);
+                return;
+            }
+
             // ❌ Không cho Reset khi RUNNING
             if (_data.ResetRequested)
             {
@@ -1089,10 +1192,21 @@ namespace WpfCompanyApp.Services
                 _cycleActiveTime.Stop();
                 _machineRunTime.Stop();
                 index = 0;
-                if (_productLoaded)
+
+                if (_readyState == ReadySubState.PickByTools ||
+                    _readyState == ReadySubState.LiftSafeAfterPick)
+                {
+                    _stopPendingPickResult = true;
+                    AddMachineLog(
+                        "[STATE] Stop requested while picking -> chờ hoàn tất hút, nâng xi lanh và kiểm tra sản phẩm.");
+                    return;
+                }
+
+                if (HasAnyHoldingTool())
                 {
                     // ĐÃ kẹp sản phẩm (sau CompleteSP):
                     // -> phải chạy hết chu trình rồi về Home
+                    _productLoaded = true;
                     _stopAfterCycle = true;
                     AddMachineLog("[STATE] Stop requested AFTER product clamped -> sẽ chạy hết chu trình rồi về HOME");
                     // vẫn giữ _state = Running để tiếp tục HandleReady()
@@ -1124,6 +1238,7 @@ namespace WpfCompanyApp.Services
                 // _robot.Pause();
                 _cycleActiveTime.Stop();
                 _machineRunTime.Stop();
+                _pausedByDoorInterlock = false;
                 _state = AppState.Paused;
                 return;
             }
@@ -1138,6 +1253,51 @@ namespace WpfCompanyApp.Services
             HandleReady(); // vẫn chạy chu trình 10 điểm
         }
 
+        private void StopAndHomeForRunningInterlock(string interlockError)
+        {
+            _data.StopRequested = false;
+            _data.PauseRequested = false;
+            _data.HomeRequested = false;
+            _cycleActiveTime.Stop();
+            _machineRunTime.Stop();
+
+            AddMachineLog(
+                $"[SAFETY] Điều kiện chạy không đạt: {interlockError}. " +
+                "Dừng chu trình và đưa robot về HomePose.");
+
+            // Giữ nguyên trạng thái các đầu hút trong lúc về Home để tránh làm
+            // rơi sản phẩm nếu lỗi xuất hiện sau khi robot đã gắp.
+            bool homeOk = MoveNamedPose("HomePose");
+
+            triggerRun = false;
+            _readyCameraPending = false;
+            _readyCameraResultReady = false;
+            _stopAfterCycle = false;
+            _stopPendingPickResult = false;
+            _readyState = ReadySubState.CheckStatus;
+
+            string homeResult = homeOk
+                ? "Robot đã về HomePose."
+                : "Robot không thể về HomePose an toàn; kiểm tra cảm biến xi lanh và robot.";
+
+            if (homeOk)
+            {
+                _state = AppState.Idle;
+                _productLoaded = HasAnyHoldingTool();
+                ReportRecoverableInterlock(
+                    $"Điều kiện chạy máy không đạt: {interlockError}. Máy đã dừng. " +
+                    $"{homeResult} Khi tín hiệu sẵn sàng, nhấn Start lại; không cần Reset.");
+            }
+            else
+            {
+                // Không về Home được là lỗi chuyển động/an toàn thật sự nên vẫn
+                // yêu cầu người vận hành kiểm tra và Reset.
+                RaiseError(
+                    $"Điều kiện chạy máy không đạt: {interlockError}. " +
+                    $"Máy đã dừng. {homeResult}");
+            }
+        }
+
         private void HandlePaused()
         {
             // Stop trong PAUSED cũng giống Running:
@@ -1147,8 +1307,9 @@ namespace WpfCompanyApp.Services
                 _cycleActiveTime.Stop();
                 _machineRunTime.Stop();
 
-                if (_productLoaded)
+                if (HasAnyHoldingTool())
                 {
+                    _productLoaded = true;
                     _stopAfterCycle = true;
                     AddMachineLog("[STATE] Stop while PAUSED AFTER product clamped -> sẽ chạy hết chu trình rồi về HOME khi Resume");
                 }
@@ -1172,6 +1333,18 @@ namespace WpfCompanyApp.Services
             if (_data.StartRequested)
             {
                 _data.StartRequested = false;
+
+                if (_pausedByDoorInterlock &&
+                    !TryValidateResumeInterlocks(out string resumeInterlockError))
+                {
+                    ReportRecoverableInterlock(
+                        $"[PAUSE] Chưa thể tiếp tục: {resumeInterlockError} " +
+                        "Đóng cửa/khôi phục tín hiệu rồi nhấn Start lại; không cần Reset.");
+                    return;
+                }
+
+                ClearErrorStatus();
+                _pausedByDoorInterlock = false;
                 AddMachineLog("[STATE] Resume from paused -> RUNNING");
 
                 // TODO: gửi lệnh Resume cho robot
@@ -1497,11 +1670,21 @@ namespace WpfCompanyApp.Services
         private int _readyEmptyConfirmCount = 0;
         // Dùng cho chế độ Both: chỉ kết thúc khi hai Basket khác nhau được xác nhận
         // rỗng liên tiếp. Nếu Basket kế tiếp còn sản phẩm thì chuỗi xác nhận bị xóa.
-        private int _readyLastEmptyBasket = 0;
+        // Sau khi xử lý hết hai Basket lần đầu, kiểm tra luân phiên
+        // Basket1 -> Basket2. Chỉ kết thúc khi đủ 3 vòng liên tiếp không có sản phẩm.
+        private int _readyEmptyBasketMask = 0;
+        private int _readyEmptyVerificationRounds = 0;
+        private bool _readyEmptyVerificationStarted = false;
         private int _readyProductIndex = 0;
         private readonly bool[] _readyToolHolding = new bool[4];
         private readonly bool[] _readyToolSuspended = new bool[4];
         private readonly int[] _readyToolMissCount = new int[4];
+        private const int MaxPickAttemptsPerToolPerImage = 3;
+        private const int MinimumFailedCapturePickCycles = 5;
+        private const int EmptyConfirmShotsPerBasket = 5;
+        private const int RequiredEmptyBasketVerificationRounds = 3;
+        private int _readyFailedCapturePickCycles = 0;
+        private readonly int[] _pickAttemptsPerTool = new int[4];
         private PickToolSubState _pickToolState = PickToolSubState.Idle;
         private readonly List<int> _pickActiveTools = new();
         private int _pickToolListIndex = 0;
@@ -1527,11 +1710,16 @@ namespace WpfCompanyApp.Services
             _readyCameraTriggeredAtUtc = DateTime.MinValue;
             _readyCameraTimeoutCount = 0;
             _readyEmptyConfirmCount = 0;
-            _readyLastEmptyBasket = 0;
+            _readyEmptyBasketMask = 0;
+            _readyEmptyVerificationRounds = 0;
+            _readyEmptyVerificationStarted = false;
             _readyProductIndex = 0;
             Array.Clear(_readyToolHolding, 0, _readyToolHolding.Length);
             Array.Clear(_readyToolSuspended, 0, _readyToolSuspended.Length);
             Array.Clear(_readyToolMissCount, 0, _readyToolMissCount.Length);
+            _readyFailedCapturePickCycles = 0;
+            _stopPendingPickResult = false;
+            _startupRecoveryDrop = false;
             ResetPickToolSubTree();
             ResetDropToolSubTree();
         }
@@ -1547,6 +1735,7 @@ namespace WpfCompanyApp.Services
             _pickRobotY = 0;
             _pickCurrentOk = false;
             _pickCylinderConfirmStartedAtUtc = DateTime.MinValue;
+            Array.Clear(_pickAttemptsPerTool, 0, _pickAttemptsPerTool.Length);
         }
 
         private void ResetDropToolSubTree()
@@ -1554,6 +1743,234 @@ namespace WpfCompanyApp.Services
             _dropToolState = DropToolSubState.Idle;
             _dropForwardPoseIndex = 1;
             _dropReturnPoseIndex = 1;
+        }
+
+        private bool TryCreateDropMovePaths(out string error)
+        {
+            var forwardPoints = new List<RobotTrajectory>(5);
+            var returnPoints = new List<RobotTrajectory>(5);
+            _forwardPose1Joint = null;
+            _forwardPose5Joint = null;
+            _returnPose5Joint = null;
+
+            for (int i = 1; i <= 5; i++)
+            {
+                RobotTrajectory forwardPoint = _db.GetRobotTrajectoryByNamePoses($"ForwardPose{i}");
+                RobotTrajectory returnPoint = _db.GetRobotTrajectoryByNamePoses($"ReturnPose{i}");
+
+                if (forwardPoint == null)
+                {
+                    error = $"không tìm thấy ForwardPose{i} trong database.";
+                    return false;
+                }
+
+                if (returnPoint == null)
+                {
+                    error = $"không tìm thấy ReturnPose{i} trong database.";
+                    return false;
+                }
+
+                forwardPoints.Add(forwardPoint);
+                returnPoints.Add(returnPoint);
+            }
+
+            if (!TryCreateJointMovePath(
+                    DropForwardPathName,
+                    forwardPoints,
+                    GetDropPathVelocity(forwardPoints),
+                    out error))
+            {
+                return false;
+            }
+
+            // Khi bắt đầu ABGOBACK, robot đang ở ForwardPose5. Thêm chính điểm này
+            // làm điểm đầu để vị trí khớp hiện tại khớp với điểm đầu của PathJ.
+            var returnPathPoints = new List<RobotTrajectory>(6) { forwardPoints[4] };
+            returnPathPoints.AddRange(returnPoints);
+
+            if (!TryCreateJointMovePath(
+                    DropReturnPathName,
+                    returnPathPoints,
+                    GetDropPathVelocity(returnPoints),
+                    out error))
+            {
+                return false;
+            }
+
+            _forwardPose1Joint = ToJointPosition(forwardPoints[0]);
+            _forwardPose5Joint = ToJointPosition(forwardPoints[4]);
+            _returnPose5Joint = ToJointPosition(returnPoints[4]);
+
+            AddRobotHistory(
+                $"[START] Đã tạo quỹ đạo {DropForwardPathName}: ForwardPose1..5 và " +
+                $"{DropReturnPathName}: ForwardPose5 -> ReturnPose1..5.");
+            error = string.Empty;
+            return true;
+        }
+
+        private static double GetDropPathVelocity(IReadOnlyList<RobotTrajectory> points)
+        {
+            RobotTrajectory configuredPoint = points.FirstOrDefault(point => point.v > 0);
+            return configuredPoint?.v ?? DropPathDefaultVelocity;
+        }
+
+        private static PosMoveJ ToJointPosition(RobotTrajectory point)
+        {
+            return new PosMoveJ
+            {
+                J1 = point.J1,
+                J2 = point.J2,
+                J3 = point.J3,
+                J4 = point.J4,
+                J5 = point.J5,
+                J6 = point.J6
+            };
+        }
+
+        private bool TryCreateJointMovePath(
+            string pathName,
+            IReadOnlyList<RobotTrajectory> points,
+            double velocity,
+            out string error)
+        {
+            // V6.3.3: InitPath tự xóa quỹ đạo cũ nếu trùng tên.
+            string result = _robot.InitPathJ(0, pathName, velocity, DropPathBlendRadius);
+            if (result != "OK")
+            {
+                error = $"InitPath {pathName} lỗi: {result}";
+                return false;
+            }
+
+            for (int i = 0; i < points.Count; i++)
+            {
+                PosMoveJ jointPosition = ToJointPosition(points[i]);
+
+                result = _robot.PushPathPointJ(0, pathName, jointPosition);
+                if (result != "OK")
+                {
+                    error = $"PushPathPoints {pathName}, điểm {i + 1} lỗi: {result}";
+                    return false;
+                }
+            }
+
+            result = _robot.EndPushPathPoints(0, pathName);
+            if (result != "OK")
+            {
+                error = $"EndPushPathPoints {pathName} lỗi: {result}";
+                return false;
+            }
+
+            result = _robot.WaitPathJReady(0, pathName, 1000, out int pathState);
+            if (result != "OK")
+            {
+                error = $"ReadPathState {pathName} lỗi: {result}; stateJ={pathState}";
+                return false;
+            }
+
+            error = string.Empty;
+            return true;
+        }
+
+        private bool TryRunForwardDropMovePath(out string error)
+        {
+            int moveStatus = _robot.CheckStatusMove(0, 100);
+            if (moveStatus != 0)
+            {
+                error = $"robot chưa sẵn sàng chạy quỹ đạo. CheckStatusMove={moveStatus}.";
+                return false;
+            }
+
+            if (_forwardPose5Joint == null)
+            {
+                error = "ForwardPose5 chưa được nạp khi nhấn Start.";
+                return false;
+            }
+
+            string result = _robot.WaitPathJReady(
+                0,
+                DropForwardPathName,
+                20,
+                out int pathState);
+            if (result != "OK")
+            {
+                error = $"ReadPathState {DropForwardPathName} lỗi: {result}; stateJ={pathState}";
+                return false;
+            }
+
+            result = _robot.MovePathJ(0, DropForwardPathName, _forwardPose5Joint);
+            if (result != "OK")
+            {
+                error = result == "1"
+                    ? $"robot không hoàn thành vị trí cuối ForwardPose5 của {DropForwardPathName}."
+                    : $"MovePath {DropForwardPathName} lỗi: {result}";
+                return false;
+            }
+
+            AddRobotHistory(
+                $"[READY] MovePath {DropForwardPathName} OK: ForwardPose1 -> ForwardPose5.");
+            error = string.Empty;
+            return true;
+        }
+
+        private bool MoveToForwardPathStart()
+        {
+            if (_forwardPose1Joint == null)
+            {
+                AddMachineLog("[READY] ForwardPose1 J1..J6 chưa được nạp khi nhấn Start.");
+                return false;
+            }
+
+            string result = _robot.MoveJ(0, _forwardPose1Joint);
+            if (result != "OK")
+            {
+                AddMachineLog($"[READY] MoveJ tới điểm đầu ForwardPose1 lỗi: {result}");
+                return false;
+            }
+
+            AddRobotHistory(
+                "[READY] MoveJ ForwardPose1 OK; vị trí khớp đã khớp điểm đầu ABGO.");
+            return true;
+        }
+
+        private bool TryRunReturnDropMovePath(out string error)
+        {
+            int moveStatus = _robot.CheckStatusMove(0, 100);
+            if (moveStatus != 0)
+            {
+                error = $"robot chưa sẵn sàng chạy quỹ đạo quay về. CheckStatusMove={moveStatus}.";
+                return false;
+            }
+
+            if (_returnPose5Joint == null)
+            {
+                error = "ReturnPose5 chưa được nạp khi nhấn Start.";
+                return false;
+            }
+
+            string result = _robot.WaitPathJReady(
+                0,
+                DropReturnPathName,
+                20,
+                out int pathState);
+            if (result != "OK")
+            {
+                error = $"ReadPathState {DropReturnPathName} lỗi: {result}; stateJ={pathState}";
+                return false;
+            }
+
+            result = _robot.MovePathJ(0, DropReturnPathName, _returnPose5Joint);
+            if (result != "OK")
+            {
+                error = result == "1"
+                    ? $"robot không hoàn thành vị trí cuối ReturnPose5 của {DropReturnPathName}."
+                    : $"MovePath {DropReturnPathName} lỗi: {result}";
+                return false;
+            }
+
+            AddRobotHistory(
+                $"[READY] MovePath {DropReturnPathName} OK: ReturnPose1 -> ReturnPose5.");
+            error = string.Empty;
+            return true;
         }
 
         private void BuildBasketQueue()
@@ -1808,7 +2225,12 @@ namespace WpfCompanyApp.Services
             }
 
             SetToolVacuum(tool, true);
-            return WaitForToolHolding(tool);
+            if (WaitForToolHolding(tool))
+                return true;
+
+            SetToolVacuum(tool, false);
+            AddMachineLog($"[READY] {GetToolName(tool)} hút lần 2 trượt, đã tắt đầu hút.");
+            return false;
         }
 
         private bool TryReadPickCylinderSensors(out int di0, out int di2, out int di4)
@@ -1859,6 +2281,12 @@ namespace WpfCompanyApp.Services
 
         private bool TryValidateStartInterlocks(out string error)
         {
+            if (!TryValidateDoorsClosed(out string doorError))
+            {
+                error = doorError;
+                return false;
+            }
+
             if (!_toolSensorRtu.IsCommunicationHealthy)
             {
                 error = "chưa có kết nối Modbus RTU với PLC.";
@@ -1931,6 +2359,66 @@ namespace WpfCompanyApp.Services
             }
 
             AddRobotHistory("[START] Điều kiện chạy máy OK: TCP1, robot ở HomePose, DI0=1, DI2=1, DI4=1.");
+            error = string.Empty;
+            return true;
+        }
+
+        private bool TryValidateDoorsClosed(out string error, bool logSuccess = true)
+        {
+            string readResult = _robot.ReadBoxCI_01234567(out int[] ci);
+            if (readResult != "OK" || ci == null || ci.Length < 4)
+            {
+                error =
+                    $"không đọc được cảm biến cửa CI0..CI3 từ robot ({readResult}).";
+                return false;
+            }
+
+            var openDoors = new List<string>();
+
+            // Mức 1 = cửa đã đóng; mức 0 = cửa đang mở.
+            if (ci[0] != 1)
+                openDoors.Add("Cửa 1 (CI0=0)");
+
+            if (ci[1] != 1)
+                openDoors.Add("Cửa 2 (CI1=0)");
+
+            if (ci[2] != 1)
+                openDoors.Add("Cửa 3 (CI2=0)");
+
+            if (ci[3] != 1)
+                openDoors.Add("Cửa 4 (CI3=0)");
+
+            if (openDoors.Count > 0)
+            {
+                error =
+                    $"{string.Join("; ", openDoors)} đang mở. " +
+                    "Vui lòng đóng tất cả cửa an toàn.";
+                return false;
+            }
+
+            if (logSuccess)
+            {
+                AddMachineLog(
+                    "[START] Cửa an toàn OK: CI0=1, CI1=1, CI2=1, CI3=1.");
+            }
+            error = string.Empty;
+            return true;
+        }
+
+        private bool TryValidateResumeInterlocks(out string error)
+        {
+            if (!TryValidateDoorsClosed(out string doorError, logSuccess: false))
+            {
+                error = doorError;
+                return false;
+            }
+
+            if (!ConfirmPlcReadyBeforePick(out string plcError))
+            {
+                error = plcError;
+                return false;
+            }
+
             error = string.Empty;
             return true;
         }
@@ -2049,20 +2537,64 @@ namespace WpfCompanyApp.Services
                 FailReadyCycle("[READY] Robot không về được HomePose sau khi không hút được sản phẩm. Dừng máy, cần Reset lỗi.");
                 return;
             }
-            _data.StopRequested = true;
+
+            _data.StopRequested = false;
+            _cycleActiveTime.Stop();
+            _machineRunTime.Stop();
+            _state = AppState.Idle;
+            _productLoaded = false;
+            _stopAfterCycle = false;
+            _stopPendingPickResult = false;
             _readyState = ReadySubState.CheckStatus;
+            AddMachineLog("[READY] Không đầu hút nào có sản phẩm, robot đã về Home và máy đã dừng.");
         }
 
-        private void FailReadyCycle(string message)
+        private void RetryCaptureAfterFailedPickCycle()
         {
-            SetToolVacuum(1, false);
-            SetToolVacuum(2, false);
-            SetToolVacuum(3, false);
+            _readyFailedCapturePickCycles++;
+            AddMachineLog(
+                $"[READY] Lượt chụp-hút không lấy được sản phẩm " +
+                $"{_readyFailedCapturePickCycles}/{MinimumFailedCapturePickCycles}.");
+
+            if (_readyFailedCapturePickCycles >= MinimumFailedCapturePickCycles)
+            {
+                AddMachineLog(
+                    $"[READY] Đã đủ {MinimumFailedCapturePickCycles} lượt chụp-hút liên tiếp thất bại, robot sẽ về Home.");
+                StopBecauseNoProductPicked();
+                return;
+            }
+
+            _productLoaded = false;
+            ResetPickToolSubTree();
+            _readyState = ReadySubState.MoveClearCamera;
+        }
+
+        private void FailReadyCycle(string message, bool releaseVacuum = true)
+        {
+            if (releaseVacuum)
+            {
+                SetToolVacuum(1, false);
+                SetToolVacuum(2, false);
+                SetToolVacuum(3, false);
+            }
+            else
+            {
+                AddMachineLog(
+                    "[SAFETY] Robot chưa hoàn thành quỹ đạo tới điểm thả; " +
+                    "giữ nguyên van hút để không làm rơi sản phẩm.");
+            }
+
             triggerRun = false;
             _readyCameraPending = false;
             _readyCameraResultReady = false;
-            ResetReadyCycle();
+
+            // Khi vẫn đang giữ sản phẩm, không xóa trạng thái Tool đang hút.
+            // Trạng thái này chỉ được reset sau khi người vận hành xử lý và nhấn Reset.
+            if (releaseVacuum)
+                ResetReadyCycle();
+
             _readyState = ReadySubState.CheckStatus;
+            _stopPendingPickResult = false;
             RaiseError(message);
         }
 
@@ -2181,7 +2713,10 @@ namespace WpfCompanyApp.Services
                         if (_pickCurrentOk)
                         {
                             _readyToolHolding[_pickCurrentTool] = true;
+                            _productLoaded = true;
                             _readyToolMissCount[_pickCurrentTool] = 0;
+                            _readyFailedCapturePickCycles = 0;
+                            _pickAttemptsPerTool[_pickCurrentTool] = 0;
                             AddRobotHistory($"[READY] {_pickCurrentToolName} hút OK Basket{_readyCurrentBasket} sản phẩm {_readyProductIndex + 1}.");
                             _readyProductIndex++;
                             _pickToolState = PickToolSubState.SelectTool;
@@ -2189,14 +2724,30 @@ namespace WpfCompanyApp.Services
                         }
 
                         _readyToolMissCount[_pickCurrentTool]++;
-                        AddMachineLog($"[READY] {_pickCurrentToolName} hút trượt {_readyToolMissCount[_pickCurrentTool]}/{_data.MaxToolMissCount}.");
-                        if (_readyToolMissCount[_pickCurrentTool] >= _data.MaxToolMissCount)
+                        _pickAttemptsPerTool[_pickCurrentTool]++;
+                        AddMachineLog(
+                            $"[READY] {_pickCurrentToolName} hút trượt sản phẩm {_readyProductIndex + 1}, " +
+                            $"lần {_pickAttemptsPerTool[_pickCurrentTool]}/{MaxPickAttemptsPerToolPerImage} trong ảnh hiện tại.");
+                        _readyProductIndex++;
+
+                        bool canRetrySameTool =
+                            _pickAttemptsPerTool[_pickCurrentTool] < MaxPickAttemptsPerToolPerImage &&
+                            _readyProductIndex < xpixel.Length;
+
+                        if (canRetrySameTool)
                         {
-                            _readyToolSuspended[_pickCurrentTool] = true;
-                            AddMachineLog($"[READY] Tạm ngừng {_pickCurrentToolName} do trượt liên tiếp.");
+                            // SelectTool đã tăng index; giảm lại để lần kế tiếp vẫn chọn đúng Tool hiện tại.
+                            _pickToolListIndex--;
+                            _pickToolState = PickToolSubState.SelectTool;
+                            return false;
                         }
 
-                        _readyProductIndex++;
+                        AddMachineLog(
+                            $"[READY] {_pickCurrentToolName} không hút được sau " +
+                            $"{_pickAttemptsPerTool[_pickCurrentTool]} lần thử, chuyển sang Tool active kế tiếp.");
+
+                        // Không quay lại các tọa độ đã hút trượt trong ảnh hiện tại.
+                        // Tool kế tiếp tiếp tục từ sản phẩm chưa được thử tiếp theo.
                         _pickToolState = PickToolSubState.SelectTool;
                         return false;
                     }
@@ -2233,7 +2784,9 @@ namespace WpfCompanyApp.Services
                     int setDropTcpResult = _robot.SetTCPByNameHans(0, "TCP1");
                     if (setDropTcpResult != 0)
                     {
-                        FailReadyCycle($"[READY] Không thể chọn TCP1 trước khi đi tới điểm thả đầu tiên. Mã lỗi: {setDropTcpResult}. Dừng máy, cần Reset lỗi.");
+                        FailReadyCycle(
+                            $"[READY] Không thể chọn TCP1 trước khi đi tới điểm thả đầu tiên. Mã lỗi: {setDropTcpResult}. Dừng máy, cần Reset lỗi.",
+                            releaseVacuum: false);
                         _dropToolState = DropToolSubState.Complete;
                         return true;
                     }
@@ -2244,15 +2797,19 @@ namespace WpfCompanyApp.Services
                     _dropToolState = DropToolSubState.MoveForwardPose;
                     return false;
 
-                // Cây con bước 2: Robot đi tuần tự ForwardPose1..ForwardPose5 một lần.
-                // Mỗi lần move xong trả quyền về HandleRunning để nút Pause có thể dừng trước vị trí tiếp theo.
+                // Cây con bước 2:
+                // - MoveL riêng tới ForwardPose1 để chụp camera đúng tại điểm 1.
+                // - Sau đó kiểm tra robot và chạy ABGO tới ForwardPose5.
+                // Không chạy MoveL riêng cho ForwardPose2..ForwardPose5.
                 case DropToolSubState.MoveForwardPose:
-                    if (_dropForwardPoseIndex <= 5)
+                    if (_dropForwardPoseIndex == 1)
                     {
-                        string poseName = $"ForwardPose{_dropForwardPoseIndex}";
-                        if (!MoveNamedPose(poseName))
+                        const string poseName = "ForwardPose1";
+                        if (!MoveToForwardPathStart())
                         {
-                            FailReadyCycle($"[READY] Robot không di chuyển được tới {poseName}. Dừng máy, cần Reset lỗi.");
+                            FailReadyCycle(
+                                $"[READY] Robot không di chuyển được tới {poseName}. Dừng máy, cần Reset lỗi.",
+                                releaseVacuum: false);
                             _dropToolState = DropToolSubState.Complete;
                             return true;
                         }
@@ -2269,7 +2826,9 @@ namespace WpfCompanyApp.Services
                             }
                             else if (!TriggerCurrentBasketCamera())
                             {
-                                FailReadyCycle($"[READY] Không trigger được camera tại {poseName} cho Basket{_readyCurrentBasket}. Dừng máy, cần Reset lỗi.");
+                                FailReadyCycle(
+                                    $"[READY] Không trigger được camera tại {poseName} cho Basket{_readyCurrentBasket}. Dừng máy, cần Reset lỗi.",
+                                    releaseVacuum: false);
                                 _dropToolState = DropToolSubState.Complete;
                                 return true;
                             }
@@ -2279,7 +2838,23 @@ namespace WpfCompanyApp.Services
                             }
                         }
 
-                        _dropForwardPoseIndex++;
+                        _dropForwardPoseIndex = 2;
+                        return false;
+                    }
+
+                    if (_dropForwardPoseIndex == 2)
+                    {
+                        if (!TryRunForwardDropMovePath(out string movePathError))
+                        {
+                            FailReadyCycle(
+                                $"[READY] Robot không chạy được quỹ đạo {DropForwardPathName}: " +
+                                $"{movePathError} Dừng máy, cần Reset lỗi.",
+                                releaseVacuum: false);
+                            _dropToolState = DropToolSubState.Complete;
+                            return true;
+                        }
+
+                        _dropForwardPoseIndex = 6;
                         return false;
                     }
 
@@ -2300,27 +2875,28 @@ namespace WpfCompanyApp.Services
                     }
 
                     Thread.Sleep(200);
-                    RecordReleasedProducts(releasedTools.Count);
+                    if (!_startupRecoveryDrop)
+                        RecordReleasedProducts(releasedTools.Count);
                     AddRobotHistory($"[READY] Thả đồng thời sản phẩm của {string.Join(", ", releasedTools)} tại điểm thả.");
                     _dropReturnPoseIndex = 1;
                     _dropToolState = DropToolSubState.MoveReturnPose;
                     return false;
 
-                // Cây con bước 4: Sau khi thả tất cả sản phẩm, robot đi đường về ReturnPose1..ReturnPose5 một lần.
-                // Mỗi lần move xong cũng trả quyền để Pause có thể dừng tại từng điểm ReturnPose.
+                // Cây con bước 4: Sau khi thả tất cả sản phẩm, chạy một lần quỹ đạo
+                // ABGOBACK tới ReturnPose5. Không chạy MoveL riêng ReturnPose1..ReturnPose5.
                 case DropToolSubState.MoveReturnPose:
-                    if (_dropReturnPoseIndex <= 5)
+                    if (_dropReturnPoseIndex == 1)
                     {
-                        string poseName = $"ReturnPose{_dropReturnPoseIndex}";
-                        if (!MoveNamedPose(poseName))
+                        if (!TryRunReturnDropMovePath(out string movePathError))
                         {
-                            FailReadyCycle($"[READY] Robot không di chuyển được tới {poseName}. Dừng máy, cần Reset lỗi.");
+                            FailReadyCycle(
+                                $"[READY] Robot không chạy được quỹ đạo {DropReturnPathName}: " +
+                                $"{movePathError} Dừng máy, cần Reset lỗi.");
                             _dropToolState = DropToolSubState.Complete;
                             return true;
                         }
 
-                        AddRobotHistory($"[READY] Robot đi qua {poseName} sau khi thả tất cả sản phẩm.");
-                        _dropReturnPoseIndex++;
+                        _dropReturnPoseIndex = 6;
                         return false;
                     }
 
@@ -2514,7 +3090,7 @@ namespace WpfCompanyApp.Services
                                 _readyCameraPending = false;
                                 _readyCameraTriggeredAtUtc = DateTime.MinValue;
                                 _readyCameraTimeoutCount++;
-                                int maxTimeouts = Math.Max(1, _data.EmptyConfirmShots);
+                                int maxTimeouts = Math.Max(MinimumFailedCapturePickCycles, _data.EmptyConfirmShots);
 
                                 if (_readyCameraTimeoutCount >= maxTimeouts)
                                 {
@@ -2550,21 +3126,24 @@ namespace WpfCompanyApp.Services
                         AddMachineLog($"[READY] Basket{_readyCurrentBasket} có {_readyCameraResultCount} sản phẩm.");
                         // Basket hiện tại còn sản phẩm nên không thể dùng lần xác nhận rỗng
                         // của Basket trước để kết luận cả hai Basket đã hết.
-                        _readyLastEmptyBasket = 0;
+                        _readyEmptyBasketMask = 0;
+                        _readyEmptyVerificationRounds = 0;
+                        _readyEmptyVerificationStarted = false;
                         _readyProductIndex = 0;
-                        // Từ thời điểm này robot đã bắt đầu chu trình gắp. Nếu người vận hành
-                        // nhấn Stop thì phải hoàn tất gắp và thả trước khi về Home.
-                        _productLoaded = true;
+                        // Camera thấy sản phẩm chưa có nghĩa là đầu hút đang giữ sản phẩm.
+                        // Chỉ đặt _productLoaded=true sau khi cảm biến hút xác nhận thành công.
+                        _productLoaded = false;
                         ResetPickToolSubTree();
                         _readyState = ReadySubState.PickByTools;
                         break;
 
-                    // Bước 6: Chụp lại 2-3 lần để xác nhận Basket thật sự hết sản phẩm.
+                    // Bước 6: Chụp đủ 5 lần để xác nhận Basket thật sự hết sản phẩm.
                     // Nếu vẫn không thấy sản phẩm thì kết luận Basket hiện tại đã hết.
                     case ReadySubState.ConfirmBasketEmpty:
                         _readyEmptyConfirmCount++;
-                        AddMachineLog($"[READY] Basket{_readyCurrentBasket} không thấy sản phẩm, xác nhận {_readyEmptyConfirmCount}/{_data.EmptyConfirmShots}.");
-                        if (_readyEmptyConfirmCount < _data.EmptyConfirmShots)
+                        int requiredEmptyConfirmShots = EmptyConfirmShotsPerBasket;
+                        AddMachineLog($"[READY] Basket{_readyCurrentBasket} không thấy sản phẩm, xác nhận {_readyEmptyConfirmCount}/{requiredEmptyConfirmShots}.");
+                        if (_readyEmptyConfirmCount < requiredEmptyConfirmShots)
                         {
                             _readyState = ReadySubState.MoveClearCamera;
                             break;
@@ -2574,17 +3153,45 @@ namespace WpfCompanyApp.Services
 
                         if (IsBothBasketMode())
                         {
-                            // Chỉ dừng khi Basket còn lại cũng vừa được xác nhận rỗng mà
-                            // giữa hai lần xác nhận không hề phát hiện thêm sản phẩm.
-                            if (_readyLastEmptyBasket != 0 &&
-                                _readyLastEmptyBasket != _readyCurrentBasket)
+                            _readyEmptyBasketMask |= 1 << (_readyCurrentBasket - 1);
+
+                            // Lượt Basket1 -> Basket2 đầu tiên là lượt xử lý chính.
+                            // Sau khi cả hai rỗng mới bắt đầu 3 vòng kiểm tra lại.
+                            if (_readyEmptyBasketMask == 0b11)
                             {
-                                AddMachineLog($"[READY] Basket1 và Basket2 đều rỗng liên tiếp. Kết thúc chương trình.");
-                                _readyState = ReadySubState.FinishAllBaskets;
+                                if (!_readyEmptyVerificationStarted)
+                                {
+                                    _readyEmptyVerificationStarted = true;
+                                    _readyEmptyVerificationRounds = 0;
+                                    AddMachineLog(
+                                        $"[READY] Basket1 và Basket2 đã hết. Bắt đầu kiểm tra lại " +
+                                        $"{RequiredEmptyBasketVerificationRounds} vòng, mỗi Basket {requiredEmptyConfirmShots} lần chụp.");
+                                }
+                                else
+                                {
+                                    _readyEmptyVerificationRounds++;
+                                    AddMachineLog(
+                                        $"[READY] Hoàn tất vòng kiểm tra rỗng " +
+                                        $"{_readyEmptyVerificationRounds}/{RequiredEmptyBasketVerificationRounds}.");
+
+                                    if (_readyEmptyVerificationRounds >= RequiredEmptyBasketVerificationRounds)
+                                    {
+                                        AddMachineLog(
+                                            $"[READY] Basket1 và Basket2 không có sản phẩm sau " +
+                                            $"{RequiredEmptyBasketVerificationRounds} vòng kiểm tra. Kết thúc chương trình.");
+                                        _readyState = ReadySubState.FinishAllBaskets;
+                                        break;
+                                    }
+                                }
+
+                                _readyEmptyBasketMask = 0;
+                                _readyBasketQueue.Clear();
+                                _readyBasketQueue.Add(1);
+                                AddMachineLog("[READY] Quay lại Basket1 để bắt đầu vòng kiểm tra tiếp theo.");
+                                _readyState = ReadySubState.SelectNextBasket;
                                 break;
                             }
 
-                            _readyLastEmptyBasket = _readyCurrentBasket;
                             QueueOtherBasket();
                             AddMachineLog($"[READY] Chuyển sang Basket{_readyBasketQueue[0]} để tiếp tục kiểm tra và gắp.");
                         }
@@ -2634,9 +3241,28 @@ namespace WpfCompanyApp.Services
                     case ReadySubState.CheckHoldingProducts:
                         if (!HasAnyHoldingTool())
                         {
-                            StopBecauseNoProductPicked();
+                            if (_stopPendingPickResult)
+                            {
+                                _stopPendingPickResult = false;
+                                AddMachineLog(
+                                    "[STATE] Đã hoàn tất hút sau yêu cầu Stop; không Tool nào có sản phẩm -> về Home.");
+                                StopBecauseNoProductPicked();
+                            }
+                            else
+                            {
+                                RetryCaptureAfterFailedPickCycle();
+                            }
                             break;
                         }
+
+                        if (_stopPendingPickResult)
+                        {
+                            _stopPendingPickResult = false;
+                            _stopAfterCycle = true;
+                            AddMachineLog(
+                                "[STATE] Đã hoàn tất hút sau yêu cầu Stop; có sản phẩm -> thả xong rồi về Home.");
+                        }
+
                         ResetDropToolSubTree();
                         _readyState = ReadySubState.DropPickedProducts;
                         break;
@@ -2652,6 +3278,23 @@ namespace WpfCompanyApp.Services
                             break;
 
                         _productLoaded = false;
+
+                        if (_startupRecoveryDrop)
+                        {
+                            // Sản phẩm tồn tại thời điểm nhấn Start đã được thả và robot
+                            // đã chạy hết đường quay về. Khởi tạo chu trình Basket ngay,
+                            // không dừng ở Idle và không dùng kết quả camera chụp cũ.
+                            _readyCameraPending = false;
+                            _readyCameraResultReady = false;
+                            _readyCameraTriggeredAtUtc = DateTime.MinValue;
+                            _startupRecoveryDrop = false;
+                            _stopAfterCycle = false;
+                            AddMachineLog(
+                                "[START] Đã thả sản phẩm tồn và robot đã quay về. " +
+                                "Tiếp tục chu trình Basket: chuẩn bị chụp ảnh.");
+                            _readyState = ReadySubState.CheckStatus;
+                            break;
+                        }
 
                         if (_stopAfterCycle)
                         {
@@ -2685,6 +3328,7 @@ namespace WpfCompanyApp.Services
                         _state = AppState.Idle;
                         _productLoaded = false;
                         _stopAfterCycle = false;
+                        _startupRecoveryDrop = false;
                         _readyState = ReadySubState.CheckStatus;
                         break;
                             

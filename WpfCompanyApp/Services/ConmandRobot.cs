@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using WpfCompanyApp.Models;
 using Newtonsoft.Json;
 using System.Threading;
+using System.Globalization;
 
 namespace WpfCompanyApp.Services
 {
@@ -2583,6 +2584,148 @@ namespace WpfCompanyApp.Services
             }
         }
 
+        public string InitPathJ(int rbtID, string trajectory, double speedRatio, double radius)
+        {
+            string command =
+                $"InitPath,{rbtID},0,{trajectory}," +
+                $"{speedRatio.ToString(CultureInfo.InvariantCulture)}," +
+                $"{radius.ToString(CultureInfo.InvariantCulture)},;";
+
+            int sends = tcpsent(command);
+            if (sends != 0)
+                return CODE.CONNECT_FAIL;
+
+            string response = subReciveCmd("InitPath");
+            if (string.IsNullOrEmpty(response))
+                return CODE.SUBRECIVE_FAIL;
+
+            string[] fields = response.Split(',');
+            if (fields.Length > 1 && fields[1] == "OK")
+                return CODE.OK;
+
+            return fields.Length > 2 ? fields[2] : CODE.FAIL;
+        }
+
+        public string PushPathPointJ(int rbtID, string trajectory, PosMoveJ point)
+        {
+            string command =
+                $"PushPathPoints,{rbtID},{trajectory}," +
+                $"{point.J1.ToString(CultureInfo.InvariantCulture)}," +
+                $"{point.J2.ToString(CultureInfo.InvariantCulture)}," +
+                $"{point.J3.ToString(CultureInfo.InvariantCulture)}," +
+                $"{point.J4.ToString(CultureInfo.InvariantCulture)}," +
+                $"{point.J5.ToString(CultureInfo.InvariantCulture)}," +
+                $"{point.J6.ToString(CultureInfo.InvariantCulture)},;";
+
+            int sends = tcpsent(command);
+            if (sends != 0)
+                return CODE.CONNECT_FAIL;
+
+            string response = subReciveCmd("PushPathPoints");
+            if (string.IsNullOrEmpty(response))
+                return CODE.SUBRECIVE_FAIL;
+
+            string[] fields = response.Split(',');
+            if (fields.Length > 1 && fields[1] == "OK")
+                return CODE.OK;
+
+            return fields.Length > 2 ? fields[2] : CODE.FAIL;
+        }
+
+        public string EndPushPathPoints(int rbtID, string trajectory)
+        {
+            int sends = tcpsent($"EndPushPathPoints,{rbtID},{trajectory},;");
+            if (sends != 0)
+                return CODE.CONNECT_FAIL;
+
+            string response = subReciveCmd("EndPushPathPoints");
+            if (string.IsNullOrEmpty(response))
+                return CODE.SUBRECIVE_FAIL;
+
+            string[] fields = response.Split(',');
+            if (fields.Length > 1 && fields[1] == "OK")
+                return CODE.OK;
+
+            return fields.Length > 2 ? fields[2] : CODE.FAIL;
+        }
+
+        public string WaitPathJReady(
+            int rbtID,
+            string trajectory,
+            int maxAttempts,
+            out int lastState)
+        {
+            lastState = -1;
+
+            for (int attempt = 0; attempt < maxAttempts; attempt++)
+            {
+                int sends = tcpsent($"ReadPathState,{rbtID},{trajectory},;");
+                if (sends != 0)
+                    return CODE.CONNECT_FAIL;
+
+                string response = subReciveCmd("ReadPathState");
+                if (string.IsNullOrEmpty(response))
+                    return CODE.SUBRECIVE_FAIL;
+
+                string[] fields = response.Split(',');
+                if (fields.Length < 2)
+                    return CODE.FAIL;
+
+                if (fields[1] != "OK")
+                    return fields.Length > 2 ? fields[2] : CODE.FAIL;
+
+                // ReadPathState,OK,stateJ,errorCodeJ,stateL,errorCodeL,;
+                if (fields.Length < 6 ||
+                    !int.TryParse(fields[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out lastState))
+                {
+                    return CODE.FAIL;
+                }
+
+                if (lastState == 3)
+                    return CODE.OK;
+
+                if (lastState == 5)
+                {
+                    string pathErrorCode = fields[3];
+                    return $"PathJ calculation error {pathErrorCode}";
+                }
+
+                Thread.Sleep(50);
+            }
+
+            return $"PathJ state timeout, last state={lastState}";
+        }
+
+        public string MovePathJ(int rbtID, string trajectory, PosMoveJ endPosition)
+        {
+            int sends = tcpsent($"MovePathJ,{rbtID},{trajectory},;");
+            if (sends != 0)
+                return CODE.CONNECT_FAIL;
+
+            // Timeout chung của kết nối chỉ là 500 ms. Controller có thể cần lâu hơn
+            // để tiếp nhận và phản hồi lệnh bắt đầu chạy quỹ đạo.
+            SetReceiveTimeout(10000);
+            try
+            {
+                string response = subReciveCmd("MovePathJ");
+                if (string.IsNullOrEmpty(response))
+                    return $"{CODE.SUBRECIVE_FAIL}; received={LastReceiveDiagnostic}";
+
+                if (response == "Fail")
+                    return $"Fail; received={LastReceiveDiagnostic}";
+
+                string[] fields = response.Split(',');
+                if (fields.Length <= 1 || fields[1] != "OK")
+                    return fields.Length > 2 ? fields[2] : CODE.FAIL;
+
+                return CompleteMoveJ(endPosition) == 0 ? CODE.OK : "1";
+            }
+            finally
+            {
+                RestoreReceiveTimeout();
+            }
+        }
+
         public string PushMovePaths(int rbtID, string Trajectory, PosMoveL pla)
         {
             string Pos = "";
@@ -3065,7 +3208,7 @@ namespace WpfCompanyApp.Services
                     }
                     else
                     {
-                        flag06 = false;
+                        flag06 = true;
                     }
                 }
                 else

@@ -255,6 +255,27 @@ namespace WpfCompanyApp.Data
             return list;
         }
 
+        public void UpdateJobHomeValue(int jobId, string columnName, double value)
+        {
+            string column = columnName switch
+            {
+                "H1" => "H1",
+                "H2" => "H2",
+                "H3" => "H3",
+                "R" => "R",
+                _ => throw new ArgumentException("Cột không hợp lệ.", nameof(columnName))
+            };
+
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            var cmd = conn.CreateCommand();
+            cmd.CommandText = $"UPDATE JobsName SET {column} = $value WHERE Id = $id;";
+            cmd.Parameters.AddWithValue("$value", value);
+            cmd.Parameters.AddWithValue("$id", jobId);
+            cmd.ExecuteNonQuery();
+        }
+
 
         public void DeleteJobModelByName(string jobName)
         {
@@ -383,9 +404,86 @@ namespace WpfCompanyApp.Data
                 int rows = cmd.ExecuteNonQuery();
                 if (rows == 0)
                 {
-                    // Không có bản ghi nào được update – có thể NamePoses không tồn tại
+                    InsertTrajectory(data);
                 }
             }
+        }
+
+        private void InsertTrajectory(RobotTrajectory data)
+        {
+            string sql = @"
+            INSERT INTO RobotTRAJECTORY
+            (
+                JobId,
+                Name,
+                MoveType,
+                NamePoses,
+                X,
+                Y,
+                Z,
+                Rx,
+                Ry,
+                Rz,
+                J1,
+                J2,
+                J3,
+                J4,
+                J5,
+                J6,
+                v,
+                a,
+                IsEnabled,
+                CreatedAt
+            )
+            VALUES
+            (
+                @JobId,
+                @Name,
+                @MoveType,
+                @NamePoses,
+                @X,
+                @Y,
+                @Z,
+                @Rx,
+                @Ry,
+                @Rz,
+                @J1,
+                @J2,
+                @J3,
+                @J4,
+                @J5,
+                @J6,
+                @v,
+                @a,
+                @IsEnabled,
+                @CreatedAt
+            );
+            ";
+
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+            using var cmd = new SqliteCommand(sql, conn);
+            cmd.Parameters.AddWithValue("@JobId", data.JobId);
+            cmd.Parameters.AddWithValue("@Name", data.Name ?? data.NamePoses);
+            cmd.Parameters.AddWithValue("@MoveType", data.MoveType.ToString());
+            cmd.Parameters.AddWithValue("@NamePoses", data.NamePoses);
+            cmd.Parameters.AddWithValue("@X", data.X);
+            cmd.Parameters.AddWithValue("@Y", data.Y);
+            cmd.Parameters.AddWithValue("@Z", data.Z);
+            cmd.Parameters.AddWithValue("@Rx", data.Rx);
+            cmd.Parameters.AddWithValue("@Ry", data.Ry);
+            cmd.Parameters.AddWithValue("@Rz", data.Rz);
+            cmd.Parameters.AddWithValue("@J1", data.J1);
+            cmd.Parameters.AddWithValue("@J2", data.J2);
+            cmd.Parameters.AddWithValue("@J3", data.J3);
+            cmd.Parameters.AddWithValue("@J4", data.J4);
+            cmd.Parameters.AddWithValue("@J5", data.J5);
+            cmd.Parameters.AddWithValue("@J6", data.J6);
+            cmd.Parameters.AddWithValue("@v", data.v);
+            cmd.Parameters.AddWithValue("@a", data.a);
+            cmd.Parameters.AddWithValue("@IsEnabled", data.IsEnabled);
+            cmd.Parameters.AddWithValue("@CreatedAt", DateTime.Now.ToString());
+            cmd.ExecuteNonQuery();
         }
         public void UpdateVel(RobotTrajectory data)
         {

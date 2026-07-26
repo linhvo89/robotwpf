@@ -3,6 +3,7 @@ using Microsoft.Extensions.Hosting;
 using Serilog;
 using System;
 using System.IO;
+using System.Reflection;
 using System.Windows;
 using WpfCompanyApp.Logging;
 using WpfCompanyApp.Services;
@@ -13,10 +14,12 @@ namespace WpfCompanyApp
     public partial class App : Application
     {
         private IHost _host;
+        private static Assembly? _visionMasterXmlUiAssembly;
         // ⭐ Cho phép chỗ khác lấy ServiceProvider
         public static IServiceProvider Services { get; private set; }
         public App()
         {
+            LoadVisionMasterXmlUiIntoSingleContext();
             System.Globalization.CultureInfo.DefaultThreadCurrentCulture = System.Globalization.CultureInfo.InvariantCulture;
             System.Globalization.CultureInfo.DefaultThreadCurrentUICulture = System.Globalization.CultureInfo.InvariantCulture;
             _host = Host.CreateDefaultBuilder()
@@ -40,6 +43,7 @@ namespace WpfCompanyApp
                     services.AddTransient<SettingsViewModel>();
                     services.AddTransient<ManualViewModel>();
                     services.AddSingleton<AppDataService>();
+                    services.AddSingleton<ModbusRtuToolSensorService>();
                     services.AddSingleton<AppBackgroundService>();
                     services.AddSingleton<FileLogger>();
 
@@ -50,6 +54,27 @@ namespace WpfCompanyApp
 
             // gán cho static Services
             Services = _host.Services;
+        }
+
+        private static void LoadVisionMasterXmlUiIntoSingleContext()
+        {
+            // GlobalCameraDlg is created dynamically by VisionMaster. If Apps.XmlUI
+            // is first loaded from the application output and later loaded again
+            // from the VisionMaster SDK directory, CLR treats its identical types
+            // as different types and the camera window fails with InvalidCastException.
+            // Preload the SDK copy before any VisionMaster WPF control is created so
+            // all subsequent binds reuse one Assembly instance/load context.
+            string xmlUiPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles),
+                "VisionMaster4.3.0",
+                "Development",
+                "V4.x",
+                "ComControls",
+                "Assembly",
+                "Apps.XmlUI.dll");
+
+            if (File.Exists(xmlUiPath))
+                _visionMasterXmlUiAssembly = Assembly.LoadFrom(xmlUiPath);
         }
 
         protected override void OnStartup(StartupEventArgs e)

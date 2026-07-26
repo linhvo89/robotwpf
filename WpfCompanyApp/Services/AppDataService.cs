@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using WpfCompanyApp.CalibRobot;
@@ -38,7 +39,17 @@ namespace WpfCompanyApp.Services
         [ObservableProperty] private double basket1Count;
         [ObservableProperty] private double basket2Count;
         [ObservableProperty] private double cycleTime;
+        [ObservableProperty] private string cycleTimeDisplay = "00:00:00";
         [ObservableProperty] private double cycleCount;
+        [ObservableProperty] private string selectedBasketMode = "Both";
+        [ObservableProperty] private bool runTool1 = true;
+        [ObservableProperty] private bool runTool2 = true;
+        [ObservableProperty] private bool runTool3 = true;
+        [ObservableProperty] private double retryZ = 5;
+        [ObservableProperty] private double safeH = 50;
+        [ObservableProperty] private int vacuumWaitMs = 500;
+        [ObservableProperty] private int emptyConfirmShots = 3;
+        [ObservableProperty] private int maxToolMissCount = 3;
         private object? _moduleSource;
         public object? ModuleSource
         {
@@ -50,6 +61,9 @@ namespace WpfCompanyApp.Services
         public bool ResetRequested { get; set; }  // nút Reset trên UI
         public bool LoadJob { get; set; }  // nút Reset trên UI
         public string JobName{ get; set; }  // tên job cần load
+        public double JobH1 { get; set; }
+        public double JobH2 { get; set; }
+        public double JobH3 { get; set; }
        
         public bool RequestSavePositionTrigger { get; set; }
         public int IndexTrigger { get; set; }
@@ -80,6 +94,7 @@ namespace WpfCompanyApp.Services
         public bool StartRequested { get; set; }
         public bool StopRequested { get; set; }
         public bool PauseRequested { get; set; }
+        public bool ClearCycleRequested { get; set; }
         public bool HomeRequested { get; set; }
         public bool ShutdownReq { get; set; }
         public bool RestartReq { get; set; }
@@ -252,7 +267,9 @@ namespace WpfCompanyApp.Services
         //  Trigger Camera Data
         // =====================================================================
         [ObservableProperty] private bool requestTriggerCamera = false;
+        [ObservableProperty] private string selectedTriggerCamera = "Camera1";
         public ObservableCollection<RobotPositionItem> RobotPositionList { get; } = new();
+        [ObservableProperty] private bool showTriggerPositions = false;
 
         [ObservableProperty]
         private int numTriggerCamera=0;
@@ -264,9 +281,42 @@ namespace WpfCompanyApp.Services
         public ObservableCollection<RobotPointCalib> CalibPointsTool1 { get; } = new();
         public ObservableCollection<RobotPointCalib> CalibPointsTool2 { get; } = new();
         public ObservableCollection<RobotPointCalib> CalibPointsTool3 { get; } = new();
+        public ObservableCollection<RobotPointCalib> CalibPointsCamera1 { get; } = new();
+        public ObservableCollection<RobotPointCalib> CalibPointsCamera2 { get; } = new();
         public Affine2D? _affine1;
         public Affine2D? _affine2;
         public Affine2D? _affine3;
+        public Affine2D? AffineCamera1 { get; set; }
+        public Affine2D? AffineCamera2 { get; set; }
+        public Dictionary<string, Affine2D?> CalibAffines { get; } = new();
+
+        public string GetCalibName(string? tool = null, string? camera = null)
+        {
+            string toolName = string.IsNullOrWhiteSpace(tool) ? SelectedCalibTool : tool;
+            string cameraName = string.IsNullOrWhiteSpace(camera) ? SelectedTriggerCamera : camera;
+
+            return $"{toolName}_{cameraName}";
+        }
+
+        public void SetCalibAffine(string? tool, string? camera, Affine2D? affine)
+        {
+            CalibAffines[GetCalibName(tool, camera)] = affine;
+        }
+
+        public Affine2D? GetCalibAffine(string? tool = null, string? camera = null)
+        {
+            CalibAffines.TryGetValue(GetCalibName(tool, camera), out var affine);
+            return affine;
+        }
+
+        public void ResetTriggerSaveStatus()
+        {
+            IsSaveAllSuccess = false;
+
+            foreach (var item in RobotPositionList)
+                item.IsStatus = false;
+        }
+
         [ObservableProperty]
         private bool isSaveAllSuccess;
     }

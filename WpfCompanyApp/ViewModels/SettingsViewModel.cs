@@ -86,7 +86,12 @@ namespace WpfCompanyApp.ViewModels
         {
             _data = data;
             LoadJobs();
+<<<<<<< HEAD
             
+=======
+            LoadInitialValues();
+            _data.PropertyChanged += Data_PropertyChanged;
+>>>>>>> 04688cd (Refactor application workflows and update UI components)
             MoveTypes.CollectionChanged += MoveTypes_CollectionChanged;
             ReturnMoveTypes.CollectionChanged += ReturnMoveTypes_CollectionChanged;
             ForwardPoints = new ObservableCollection<ForwardPoint>();
@@ -139,6 +144,15 @@ namespace WpfCompanyApp.ViewModels
         {
             get => forwardPoints;
             set => SetProperty(ref forwardPoints, value);
+        }
+
+        private void Data_PropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+        {
+            if (e.PropertyName == nameof(AppDataService.SelectedCalibTool) ||
+                e.PropertyName == nameof(AppDataService.SelectedTriggerCamera))
+            {
+                _data.ResetTriggerSaveStatus();
+            }
         }
         public int SelectedJobIndex { get; set; }
         bool isFirstLoad = false;
@@ -565,6 +579,48 @@ namespace WpfCompanyApp.ViewModels
                 return;
             }
         }
+
+        [RelayCommand]
+        public void SavePickProduct()
+        {
+            var result = MessageBox.Show(
+          "Bạn có chắc muốn thực hiện Lưu vị trí nhặt sản phẩm không?",
+          "Xác nhận",
+          MessageBoxButton.YesNo,
+          MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                _data.FUpdatePose = true;
+                _data.NamePose = "PickProductPose";
+            }
+            else
+            {
+                // Nhấn NO: bỏ qua
+                return;
+            }
+        }
+
+        [RelayCommand]
+        public void MovePickProduct()
+        {
+            var result = MessageBox.Show(
+            "Bạn có chắc muốn thực hiện dịch chuyển robot tới vị trí nhặt sản phẩm không?",
+            "Xác nhận",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Question);
+
+            if (result == MessageBoxResult.Yes)
+            {
+                _data.MovePoseName = "PickProductPose";
+                _data.RequestMovePose = true;
+            }
+            else
+            {
+                // Nhấn NO: bỏ qua
+                return;
+            }
+        }
         // Velocity collection cho Return
         [ObservableProperty]
         private ObservableCollection<double> returnVelocities = new ObservableCollection<double> { 0, 0, 0, 0, 0 };
@@ -710,10 +766,10 @@ namespace WpfCompanyApp.ViewModels
             
         }
 
-        // ================== WORKSPACE POINTS (P1..P4) ==================
+        // ================== WORKSPACE POINTS (P1..P10) ==================
 
         /// <summary>
-        /// Lưu 4 điểm workspace (P1..P4). CommandParameter trong XAML là 1..4.
+        /// Lưu 10 điểm workspace (P1..P10). CommandParameter trong XAML là 1..10.
         /// </summary>
         [RelayCommand]
         private void SaveWorkspacePoint(object? param)
@@ -732,7 +788,7 @@ namespace WpfCompanyApp.ViewModels
                 if (!int.TryParse(param.ToString(), out int index))
                     return;
 
-                if (index < 1 || index > 6)
+                if (index < 1 || index > 10)
                     return;
 
                 _data.FUpdatePose = true;
@@ -747,7 +803,7 @@ namespace WpfCompanyApp.ViewModels
         }
 
         /// <summary>
-        /// Move robot tới từng điểm workspace P1..P4.
+        /// Move robot tới từng điểm workspace P1..P10.
         /// </summary>
         [RelayCommand]
         private void MoveWorkspacePoint(object? param)
@@ -766,7 +822,7 @@ namespace WpfCompanyApp.ViewModels
                 if (!int.TryParse(param.ToString(), out int index))
                     return;
 
-                if (index < 1 || index > 4)
+                if (index < 1 || index > 10)
                     return;
                 _data.MovePoseName = $"WorkP{index}";
                 _data.RequestMovePose = true;
@@ -792,6 +848,13 @@ namespace WpfCompanyApp.ViewModels
         [ObservableProperty]
         private ObservableCollection<string> calibToolList = new(new[] { "Tool1", "Tool2", "Tool3" });
 
+        // ✅ Danh sách camera dùng cho trigger VisionMaster Flow1/Flow2
+        [ObservableProperty]
+        private ObservableCollection<string> triggerCameraList = new(new[] { "Camera1", "Camera2" });
+
+        [ObservableProperty]
+        private ObservableCollection<string> basketRunModeList = new(new[] { "Basket1", "Basket2", "Both" });
+
         // ✅ Tool được chọn (mặc định Tool1)
         [ObservableProperty]
         private string selectedCalibTool = "Tool1";
@@ -803,6 +866,10 @@ namespace WpfCompanyApp.ViewModels
         [RelayCommand]
         private void TriggerCameraReq()
         {
+            _data.NumTriggerCamera = 0;
+            _data.RobotPositionList.Clear();
+            _data.IsSaveAllSuccess = false;
+            _data.ShowTriggerPositions = false;
             _data.RequestTriggerCamera = true;
         }
 
@@ -832,20 +899,20 @@ namespace WpfCompanyApp.ViewModels
         {
             try
             {
-                string selectedTool = _data.SelectedCalibTool ?? "Tool1";
-                var points = _db.GetCalibPoints(selectedTool);
+                string selectedCalibName = _data.GetCalibName();
+                var points = _db.GetCalibPoints(selectedCalibName);
 
                 if (points == null || points.Count == 0)
                 {
-                    AutoCloseToast.ShowError($"Không có dữ liệu calib_points cho {selectedTool}", 1200);
+                    AutoCloseToast.ShowError($"Không có dữ liệu calib_points cho {selectedCalibName}", 1200);
                     return;
                 }
 
                 var dialog = new SaveFileDialog
                 {
-                    Title = $"Xuất calib_points - {selectedTool}",
+                    Title = $"Xuất calib_points - {selectedCalibName}",
                     Filter = "Text files (*.txt)|*.txt|All files (*.*)|*.*",
-                    FileName = $"{selectedTool}_calib_points.txt"
+                    FileName = $"{selectedCalibName}_calib_points.txt"
                 };
 
                 bool? result = dialog.ShowDialog();

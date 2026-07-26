@@ -25,6 +25,9 @@
   <ItemGroup>
     <None Remove="Views\backgroudXYZ.png" />
     <None Remove="Views\backgroudXYZ2.png" />
+    <None Update="Config\HMRobotV3.ini">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>

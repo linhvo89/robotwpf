@@ -92,6 +92,15 @@ namespace WpfCompanyApp.ViewModels
             {
                 if (e.PropertyName == nameof(AppDataService.ModuleSource))
                     OnPropertyChanged(nameof(ModuleSource));
+
+                if (e.PropertyName == nameof(AppDataService.CurrentState))
+                {
+                    var dispatcher = Application.Current?.Dispatcher;
+                    if (dispatcher == null || dispatcher.CheckAccess())
+                        HomeCommand.NotifyCanExecuteChanged();
+                    else
+                        dispatcher.BeginInvoke(new Action(HomeCommand.NotifyCanExecuteChanged));
+                }
             };
 
             // Load 15 ô từ DB 1 lần khi tạo VM
@@ -113,15 +122,13 @@ namespace WpfCompanyApp.ViewModels
         [RelayCommand]
         private void ClearCycle()
         {
-            _data.CycleTime = 1;
-            _data.CycleCount = 0;
+            _data.ClearCycleRequested = true;
         }
 
         [RelayCommand]
         private void Start()
         {
             _data.Ketqua++;
-            _data.StartRequested = true;
             // Load poses của Job này vào _data.RobotPoses
             var posesFromDb = _db.GetRobotPoses(idJob);
             _data.RobotPoses.Clear();
@@ -131,28 +138,73 @@ namespace WpfCompanyApp.ViewModels
             _data.RobotTrajectories.Clear();
             foreach (var t in trajFromDb)
                 _data.RobotTrajectories.Add(t);
-            // ✅ Load calib points cho 3 tool mỗi lần Start
-            var t1 = _db.GetCalibPoints("Tool1");
-            var t2 = _db.GetCalibPoints("Tool2");
-            var t3 = _db.GetCalibPoints("Tool3");
-
-            _data.CalibPointsTool1.Clear();
-            foreach (var p in t1) _data.CalibPointsTool1.Add(p);
-
-            _data.CalibPointsTool2.Clear();
-            foreach (var p in t2) _data.CalibPointsTool2.Add(p);
-
-            _data.CalibPointsTool3.Clear();
-            foreach (var p in t3) _data.CalibPointsTool3.Add(p);
-            _data._affine1 = Affine2D.FitFromCalibPoints(_data.CalibPointsTool1);
-            _data._affine2 =Affine2D.FitFromCalibPoints(_data.CalibPointsTool2);
-            _data._affine3 =Affine2D.FitFromCalibPoints(_data.CalibPointsTool3);
+            // ✅ Load đủ 6 bộ calib: Tool1/2/3 x Camera1/2 để khi chạy chọn linh hoạt.
+            LoadCalibAffines();
+            _data.StartRequested = true;
 
         }
-        [RelayCommand]
+
+        private void LoadCalibAffines()
+        {
+            string[] tools = { "Tool1", "Tool2", "Tool3" };
+            string[] cameras = { "Camera1", "Camera2" };
+
+            _data.CalibAffines.Clear();
+
+            foreach (string tool in tools)
+            {
+                foreach (string camera in cameras)
+                {
+                    var points = _db.GetCalibPoints(_data.GetCalibName(tool, camera));
+                    _data.SetCalibAffine(tool, camera, TryFitAffine(points));
+                }
+            }
+
+            LoadSelectedToolPreviewPoints();
+
+            // Giữ lại field cũ để các đoạn code cũ không bị mất dữ liệu mặc định.
+            _data.AffineCamera1 = _data.GetCalibAffine(camera: "Camera1");
+            _data.AffineCamera2 = _data.GetCalibAffine(camera: "Camera2");
+            _data._affine1 = _data.AffineCamera1;
+            _data._affine2 = _data.AffineCamera2;
+        }
+
+        private void LoadSelectedToolPreviewPoints()
+        {
+            var camera1Points = _db.GetCalibPoints(_data.GetCalibName(camera: "Camera1"));
+            var camera2Points = _db.GetCalibPoints(_data.GetCalibName(camera: "Camera2"));
+
+            _data.CalibPointsCamera1.Clear();
+            foreach (var p in camera1Points) _data.CalibPointsCamera1.Add(p);
+
+            _data.CalibPointsCamera2.Clear();
+            foreach (var p in camera2Points) _data.CalibPointsCamera2.Add(p);
+        }
+
+        private static Affine2D? TryFitAffine(IReadOnlyList<RobotPointCalib> points)
+        {
+            if (points == null || points.Count < 3)
+                return null;
+
+            try
+            {
+                return Affine2D.FitFromCalibPoints(points);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+        private bool CanHome() => _data.CurrentState == AppState.Idle;
+
+        [RelayCommand(CanExecute = nameof(CanHome))]
         private void Home()
         {
-           
+            // Chỉ trạng thái Stop/Idle mới được phép về Home. Khi Error,
+            // người vận hành phải Reset thành công và chờ máy trở lại Idle.
+            if (!CanHome())
+                return;
+
             _data.HomeRequested = true;
         }
         [RelayCommand]
@@ -242,6 +294,7 @@ namespace WpfCompanyApp.ViewModels
                 value.IsActiveJob = true;
 
                 _data.JobName = value.JobName;
+                UpdateSelectedJobHeightData(value);
                 _data.LoadJob = true;
 
                 SaveSelectedJob();
@@ -260,6 +313,41 @@ namespace WpfCompanyApp.ViewModels
             var jobs = _db.GetJobsName();
             foreach (var job in jobs)
                 ActiveJobs.Add(job);
+        }
+
+        public void UpdateJobHomeValue(JobModelHome job, string columnName, double value)
+        {
+            if (job == null) return;
+
+            _db.UpdateJobHomeValue(job.Id, columnName, value);
+
+            switch (columnName)
+            {
+                case "H1":
+                    job.H1 = value;
+                    break;
+                case "H2":
+                    job.H2 = value;
+                    break;
+                case "H3":
+                    job.H3 = value;
+                    break;
+                case "R":
+                    job.R = value;
+                    break;
+                default:
+                    throw new ArgumentException("Cột không hợp lệ.", nameof(columnName));
+            }
+
+            if (SelectedJob?.Id == job.Id)
+                UpdateSelectedJobHeightData(job);
+        }
+
+        private void UpdateSelectedJobHeightData(JobModelHome job)
+        {
+            _data.JobH1 = job.H1;
+            _data.JobH2 = job.H2;
+            _data.JobH3 = job.H3;
         }
 
         // ✅ Lưu Job được chọn
@@ -297,6 +385,7 @@ namespace WpfCompanyApp.ViewModels
                         _previousJob = match;
 
                         _data.JobName = match.JobName;
+                        UpdateSelectedJobHeightData(match);
                         _data.LoadJob = true;
 
                         _isInternalChange = false;

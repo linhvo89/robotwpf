@@ -299,6 +299,42 @@ namespace WpfCompanyApp.Services
             }
 
         }
+        public int SetTCPByNameHans(int id, string tcpName)
+        {
+            // Cú pháp: SetTCPByName,nRbtID,sTcpName,;
+            string command = "SetTCPByName," + id + "," + tcpName + ",;";
+
+            int sends = tcpsent(command);
+
+            if (sends == 0)
+            {
+                string bufdata = subReciveCmd("SetTCPByName");
+
+                if (!string.IsNullOrEmpty(bufdata) &&
+                    bufdata.Contains("SetTCPByName"))
+                {
+                    string[] arraybuf = bufdata.Split(',');
+
+                    if (arraybuf.Length >= 2 &&
+                        arraybuf[1] == "OK")
+                    {
+                        return 0;
+                    }
+
+                    if (arraybuf.Length >= 3 &&
+                        int.TryParse(arraybuf[2], out int errorCode))
+                    {
+                        return errorCode;
+                    }
+
+                    return CODE.ERR_NotRecive;
+                }
+
+                return CODE.ERR_NotRecive;
+            }
+
+            return CODE.ERR_Connect;
+        }
         public int SetCurTCPHans(int id, string data)
         {
             int sends = tcpsent("SetCurTCP," + id + "," + data + ";");
@@ -2983,7 +3019,7 @@ namespace WpfCompanyApp.Services
                 string[] arr = str.Split(',');
                 if (arr[0] == "OK")
                 {
-                    if ((double.Parse(arr[1], System.Globalization.CultureInfo.InvariantCulture) > (pla.X - 0.03)) && (double.Parse(arr[1]) < (pla.X + 0.03)))
+                    if ((double.Parse(arr[1], System.Globalization.CultureInfo.InvariantCulture) > (pla.X - 0.05)) && (double.Parse(arr[1]) < (pla.X + 0.05)))
                     {
                         flag01 = true;
                     }
@@ -2991,7 +3027,7 @@ namespace WpfCompanyApp.Services
                     {
                         flag01 = false;
                     }
-                    if ((double.Parse(arr[2], System.Globalization.CultureInfo.InvariantCulture) > (pla.Y - 0.03)) && ((double.Parse(arr[2]) < (pla.Y + 0.03))))
+                    if ((double.Parse(arr[2], System.Globalization.CultureInfo.InvariantCulture) > (pla.Y - 0.05)) && ((double.Parse(arr[2]) < (pla.Y + 0.05))))
                     {
                         flag02 = true;
                     }
@@ -2999,7 +3035,7 @@ namespace WpfCompanyApp.Services
                     {
                         flag02 = false;
                     }
-                    if ((double.Parse(arr[3], System.Globalization.CultureInfo.InvariantCulture) > (pla.Z - 0.03)) && (double.Parse(arr[3]) < (pla.Z + 0.03)))
+                    if ((double.Parse(arr[3], System.Globalization.CultureInfo.InvariantCulture) > (pla.Z - 0.05)) && (double.Parse(arr[3]) < (pla.Z + 0.05)))
                     {
                         flag03 = true;
                     }
@@ -3023,7 +3059,7 @@ namespace WpfCompanyApp.Services
                     //{
                     //	flag05 = false;
                     //}
-                    if ((double.Parse(arr[6], System.Globalization.CultureInfo.InvariantCulture) > (pla.RZ - 0.03)) && (double.Parse(arr[6]) < (pla.RZ + 0.03)))
+                    if ((double.Parse(arr[6], System.Globalization.CultureInfo.InvariantCulture) > (pla.RZ - 0.05)) && (double.Parse(arr[6]) < (pla.RZ + 0.05)))
                     {
                         flag06 = true;
                     }

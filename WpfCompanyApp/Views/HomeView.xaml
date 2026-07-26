@@ -70,7 +70,7 @@
             </Style.Triggers>
         </Style>
 
-        <!-- HOME: xanh dương chuẩn, không phụ thuộc state -->
+        <!-- HOME: command chỉ cho phép nhấn khi máy đang Stop/Idle -->
         <Style x:Key="HomeButtonStyle" TargetType="Button"
                BasedOn="{StaticResource CommandButtonBaseStyle}">
             <Setter Property="Background" Value="#1E88E5"/>
@@ -129,6 +129,7 @@
         </Style>
         <conv:BoolToVisibilityConverter x:Key="BoolToVisibility"/>
         <conv:BoolToOpacityConverter x:Key="BoolToOpacity"/>
+        <conv:MachineLogForegroundConverter x:Key="MachineLogForeground"/>
         <!-- STYLE CHO NÚT CHỌN JOB / CAMERA -->
         <Style x:Key="SwitchViewButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="130"/>
@@ -249,32 +250,21 @@
     <Border Background="#20232A">
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="70"/>
                 <RowDefinition Height="*"/>
-                <RowDefinition Height="300"/>
+                <RowDefinition Height="230"/>
             </Grid.RowDefinitions>
-
-            <!-- 🟦 HEADER -->
-            <Border Grid.Row="0" Background="#1976D2" Margin="0,0,0,15" CornerRadius="0,0,10,10" >
-                <TextBlock Text="Home"
-                           FontSize="34"
-                           FontWeight="Bold"
-                           Foreground="White"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center">
-                    <TextBlock.Effect>
-                        <DropShadowEffect BlurRadius="6" ShadowDepth="1" Opacity="0.3"/>
-                    </TextBlock.Effect>
-                </TextBlock>
-            </Border>
 
             <!-- 🟩 MAIN AREA -->
             <!-- ============= MAIN CONTENT ============= -->
-            <Grid Grid.Row="1" Margin="10,0,10,10">
+            <Grid Grid.Row="0" Margin="10,0,10,10">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="44*"/>
+                    <RowDefinition Height="215*"/>
+                </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="1.5*"/>
                     <!-- Nhóm 1: Vận hành -->
-                   
+
                     <!-- Nhóm 2: Khu vực phôi -->
                     <ColumnDefinition Width="3*"/>
                     <!-- Nhóm 3: Chọn Job -->
@@ -282,11 +272,11 @@
 
                 <!-- ========== NHÓM 1: VẬN HÀNH ========== -->
                 <Border Grid.Column="0"
-        Margin="10"
+        Margin="10,10,10,10"
         CornerRadius="10"
         Background="#252830"
         BorderBrush="#3C3F46"
-        BorderThickness="1">
+        BorderThickness="1" Grid.RowSpan="2">
                     <StackPanel Margin="15">
 
                         <Grid Margin="0,0,0,15">
@@ -360,11 +350,11 @@
                 <!-- ========== NHÓM 2: CHỌN JOB ========== -->
                 <!-- ========== NHÓM 3: CHỌN JOB ========== -->
                 <Border Grid.Column="1"
-                    Margin="10"
+                    Margin="10,10,10,10"
                     CornerRadius="10"
                     Background="#252830"
                     BorderBrush="#3C3F46"
-                    BorderThickness="1">
+                    BorderThickness="1" Grid.RowSpan="2">
 
                     <Grid Margin="10">
                         <Grid.RowDefinitions>
@@ -406,7 +396,7 @@
                        Foreground="#CCCCCC"
                        Margin="0,0,5,0"/>
                                     <Border Background="#FFE0B2" Padding="6,2" CornerRadius="4">
-                                        <TextBlock Text="{Binding Data.InstantCycleTime}"
+                                        <TextBlock Text="{Binding Data.InstantCycleTime, StringFormat={}{0:0.##} s}"
                            Foreground="#000"
                            FontWeight="Bold"/>
                                     </Border>
@@ -416,17 +406,7 @@
                        Foreground="#CCCCCC"
                        Margin="15,0,5,0"/>
                                     <Border Background="#FFE0B2" Padding="6,2" CornerRadius="4">
-                                        <TextBlock Text="{Binding Data.AverageCycleTime}"
-                           Foreground="#000"
-                           FontWeight="Bold"/>
-                                    </Border>
-
-                                    <!-- Zone -->
-                                    <TextBlock Text="  Zone:"
-                       Foreground="#CCCCCC"
-                       Margin="15,0,5,0"/>
-                                    <Border Background="#FFE0B2" Padding="6,2" CornerRadius="4">
-                                        <TextBlock Text="{Binding Data.CurrentZone}"
+                                        <TextBlock Text="{Binding Data.AverageCycleTime, StringFormat={}{0:0.##} s}"
                            Foreground="#000"
                            FontWeight="Bold"/>
                                     </Border>
@@ -436,7 +416,7 @@
                        Foreground="#CCCCCC"
                        Margin="15,0,5,0"/>
                                     <Border Background="#FFE0B2" Padding="6,2" CornerRadius="4">
-                                        <TextBlock Text="{Binding Data.Basket1Count}"
+                                        <TextBlock Text="{Binding Data.Basket1Count, StringFormat={}{0:0}}"
                            Foreground="#000"
                            FontWeight="Bold"/>
                                     </Border>
@@ -446,51 +426,51 @@
                        Foreground="#CCCCCC"
                        Margin="15,0,5,0"/>
                                     <Border Background="#FFE0B2" Padding="6,2" CornerRadius="4">
-                                        <TextBlock Text="{Binding Data.Basket2Count}"
+                                        <TextBlock Text="{Binding Data.Basket2Count, StringFormat={}{0:0}}"
                            Foreground="#000"
                            FontWeight="Bold"/>
                                     </Border>
 
 
                                     <!-- ===== TIME + COUNT + CLEAR (NEW) ===== -->
-                                   
 
-                                        <!-- Time -->
-                                        <TextBlock Grid.Row="0"
+
+                                    <!-- Time -->
+                                    <TextBlock Grid.Row="0"
                    Grid.Column="0"
                    Text="Time:"
                    Foreground="#CCCCCC"
                    Margin="0,0,5,5"/>
 
-                                        <Border 
+                                    <Border 
                             Grid.Column="1"
                             Background="#FFE0B2"
                             Padding="6,2"
                             CornerRadius="4"
                            >
-                                        <TextBlock Text="{Binding Data.CycleTime}"
+                                        <TextBlock Text="{Binding Data.CycleTimeDisplay}"
                        Foreground="#000"
                        FontWeight="Bold"/>
-                                        </Border>
+                                    </Border>
 
-                                        <!-- Count -->
-                                        <TextBlock 
+                                    <!-- Count -->
+                                    <TextBlock 
                                        Grid.Column="0"
                                        Text="Count:"
                                        Foreground="#CCCCCC"
                                        Margin="0,0,5,0"/>
 
-                                        <Border 
+                                    <Border 
                                         Grid.Column="1"
                                         Background="#FFE0B2"
                                         Padding="6,2"
                                         CornerRadius="4">
-                                        <TextBlock Text="{Binding Data.CycleCount}"
+                                        <TextBlock Text="{Binding Data.CycleCount, StringFormat={}{0:0}}"
                                            Foreground="#000"
                                            FontWeight="Bold"/>
-                                        </Border>
+                                    </Border>
 
-                                        <!-- Clear -->
+                                    <!-- Clear -->
                                     <Button Grid.Row="0"
                                     Grid.RowSpan="2"
                                     Grid.Column="3"
@@ -512,6 +492,7 @@
                             <DataGrid x:Name="JobsGrid"
           ItemsSource="{Binding ActiveJobs}"
           SelectedItem="{Binding SelectedJob, Mode=TwoWay}"
+          PreviewMouseLeftButtonDown="JobsGrid_PreviewMouseLeftButtonDown"
           AutoGenerateColumns="False"
           IsReadOnly="True"
           SelectionMode="Single"
@@ -593,7 +574,7 @@
             </Grid>
 
             <!-- 🟨 LOG AREA (giữ nguyên) -->
-            <Grid Grid.Row="2">
+            <Grid Grid.Row="1">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>
@@ -603,11 +584,18 @@
                     <TextBlock Text="Machine Log" FontWeight="Bold" FontSize="16" Foreground="#E0E0E0" Margin="0,0,0,5"/>
                     <Border Background="#0E1117" CornerRadius="6" Padding="5">
                         <ListBox ItemsSource="{Binding MachineLog}"
-                                 Height="240"
+                                 Height="180"
                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                                  FontFamily="Consolas"
                                  Background="#0E1117"
-                                 Foreground="#00FF88"/>
+                                 Foreground="#00FF88">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}"
+                                               Foreground="{Binding Converter={StaticResource MachineLogForeground}}"/>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
                     </Border>
                 </StackPanel>
 
@@ -619,8 +607,8 @@
                                  FontSize="13"
                                  Background="#0E1117"
                                  Foreground="#00FF88"
-                                 MaxHeight="240"
-                                 Height="240"
+                                 MaxHeight="180"
+                                 Height="180"
                                  ScrollViewer.VerticalScrollBarVisibility="Auto"/>
                     </Border>
                 </StackPanel>

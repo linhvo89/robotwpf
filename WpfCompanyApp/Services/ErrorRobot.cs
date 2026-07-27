@@ -36,6 +36,7 @@ namespace WpfCompanyApp.Services
                 case 20006: return "Robot enable time out";
                 case 20007: return "Robot not electrify";
                 case 20008: return "Starting master station error";
+                case 20151: return "Robot is in Emergency Stopped state";
 
                 case 30000: return "Collision shutdown";
                 case 30001: return "Robot collide with body";

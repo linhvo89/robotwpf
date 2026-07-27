@@ -1,0 +1,1747 @@
+﻿PAGES 44
+修订记录
+A-Additions M -Modifications D-
+Deletions
+Version Number Version Date Supported Versions Update Description
+Controller
+V1.0.0.0 2022.05.12 20220314.180 ACreating Documents
+V1.0.0.1 2022.07.07 20220624.203 ANew interfaces added
+V1.0.0.2 2022.08.05 20220720.207 ANew interfaces added
+V1.0.0.3 2022.08.28 20220825.214 ASetToolMotioninterface added
+V1.0.0.4 2023.02.13 20220825.214 AReadOverride interface added
+V1.0.0.5 2023.02.14 HR5.50.3 AReadPointByName interface
+added
+DMoveJ interface deleted
+V1.0.0.6 2023.02.15 DMoveL interface deleted
+V1.0.1.0 2023.02.23 HR5.50.3 AGetErrorCodeStrinterface
+added
+A5new position-following
+commands added:
+V1.0.2.0 2023.02.27 HR5.50.3 SetPoseTrackingMaxMotionLimit
+SetPoseTrackingPIDParams
+SetPoseTrackingTargetPos
+SetPoseTrackingState
+SetUpdateTrackingPose
+V1.0.2.1 2023.06.12 All M ReadSoftMotionProcess is
+misspelled, itshould bechanged
+to
+ReadSoftMotionProgress
+M ReadHoldingRegisters and
+V1.0.2.2 2023.08.26 HR5.50.5 WriteHoldingregisters
+The valuerange oftheparameter
+nSlaveID for
+ReadHoldingRegisters and
+WriteHoldingregisters has been
+changed to 1~255.
+A3new commands added:
+V1.0.2.3 2023.10.24 All SetFTFreeDriveState 、
+SetFTFreeFactor、
+SetTangentForceBounds
+ANew commands for Trail
+interface added:
+InitPath
+V1.0.3.0 2023.12.27 HR6.3.3 PushPathPoints
+EndPushPoints
+DelPath
+ReadPath
+UpdatePathName
+ReadPathState
+MovePathJ
+M Modify theinstructions forthe
+MovePathL command
+V1.0.3.1 2024.01.13 HR6.3.3 M ReadBoxInfo 12Voutput
+voltage and current values data
+www.hansrobot.com II
+修订记录
+added
+V1.0.3.2 2024.01.18 HR6.3.4 M HRSetForceDataLimit modify
+force limitrangeinterface
+AAddReadDefaultScript
+V1.0.3.3 2024.01.29 HR6.3.5 command to readthename ofthe
+current application's script
+program.
+AAddSwitchScript command to
+apply thespecified script program
+V1.0.3.4 2024.02.18 HR6.3.5 M Modify theparameter
+definition ofInitPath
+AChanging interfaces with
+V1.0.3.5 2024.03.01 HR6.3.6 incorrect trajectory correlation
+ANew interfaces added:
+ConfigTCP、ConfigUCS、
+SetCollideLeve、
+SetPoseTrackingStopTimeOut
+AcdsSetIO, EnterSafetyGuard,
+V1.0.4.0 2024.03.07 HR6.2.17 PackageVersion Interface
+Descriptions added
+ANew Interfaces added:
+ShortJogJ,ShortJogL, LongJogJ,
+LongJogL, LongMoveEvent
+www.hansrobot.com III
+修订记录
+Table ofContents
+SetToolMotion............................................................................................................................5
+ReadOverride..............................................................................................................................5
+ReadPointByName.....................................................................................................................6
+GetErrorCodeStr.........................................................................................................................8
+SetPoseTrackingMaxMotionLimit.............................................................................................8
+SetPoseTrackingPIDParams.......................................................................................................9
+SetPoseTrackingTargetPos.......................................................................................................10
+SetPoseTrackingState...............................................................................................................11
+SetUpdateTrackingPose...........................................................................................................12
+SetFTFreeDriveState................................................................................................................13
+SetFTFreeFactor.......................................................................................................................14
+SetTangentForceBounds..........................................................................................................15
+Continuoustrajectorymotiontypecontrolcommands:...........................................................16
+InitPath.....................................................................................................................17
+PushPathPoints.........................................................................................................20
+EndPushPathPoints...................................................................................................21
+DelPath.....................................................................................................................22
+ReadPath...................................................................................................................23
+UpdatePathName......................................................................................................26
+ReadPathState...........................................................................................................26
+MovePathJ................................................................................................................28
+ReadBoxInfo............................................................................................................................29
+HRSetForceDataLimit..............................................................................................................31
+ReadDefaultScript....................................................................................................................32
+SwitchScript.............................................................................................................................33
+ConfigTCP................................................................................................................................33
+ConfigUCS...............................................................................................................................34
+SetCollideLevel........................................................................................................................35
+SetPoseTrackingStopTimeOut.................................................................................................36
+cdsSetIO...................................................................................................................................37
+EnterSafetyGuard.....................................................................................................................39
+PackageVersion........................................................................................................................40
+ShortJogJ..................................................................................................................................41
+ShortJogL.................................................................................................................................42
+LongJogJ..................................................................................................................................43
+LongJogL..................................................................................................................................44
+LongMoveEvent.......................................................................................................................45
+www.hansrobot.com IV
+修订记录
+SetToolMotion
+Description:Enables ordisables Tool coordinate system motionmode.
+Sends themessage: SetToolMotion,nRbtID,nState,;
+Parameter Name Data Type Valid
+Range Content
+Robot id Machine ID number, default = 0
+nRbtID unsigned 0~5
+int
+0：Off
+nState Status int 0/1
+1：On
+Send successful return message: SetToolMotion,OK,;
+Send Failure return message: SetToolMotion,Fail,ErrorCode,;
+Return Name Data Type Valid
+Value Range Content
+Error Code Integer Returns theerror code ofafailed call
+ErrorCode int
+value>0
+Examples:
+//Set theTool coordinate motion modeon
+SetToolMotion,0,1,;
+//Successful return
+SetToolMotion,0,1,;
+//Failure return
+SetToolMotion,Fail,20018,;
+ReadOverride
+Description:read speed ratio.
+Send message: ReadOverride,nRbtID,;
+Parameter Name Data Type Valid
+Range Content
+Robot id Machine ID number, default = 0
+nRbtID unsigned 0~5
+int
+www.hansrobot.com V
+修订记录
+Successfully sent return message: ReadOverride,OK, dOverride;
+Return Name Data Type Valid Content
+Value Range
+Speed Speed ratio ofcurrent system
+dOverride double 0.01~1
+Ratio (0.01~1)
+Send Failure return message: ReadOverride,Fail,ErrorCode,;
+Return Name Data Type Valid
+Value Range Content
+Error Code Integer Returns theerror code ofafailed call
+ErrorCode int
+value>0
+Examples:
+//Read thecurrent speed ratio
+ReadOverride,0,;
+//Successful return
+ReadOverride,OK,0.600,;
+//Failure return
+ReadOverride,Fail,20018,;
+ReadPointByName
+Description:reads point information based onthepoint name.
+Sends themessage: ReadPointByName,nRbtID,sPointName,;
+Parameter Name Data Type Valid Content
+Range
+nRbtID Robot ID int 0~5 Machine ID number, default = 0
+Point PointName
+sPointName string -
+Name
+Successfully sent return message:
+ReadPointByName,OK,dJ1,dJ2,dJ3,dJ4,dJ5,dJ6,dX,dY,dZ,dRx,dRy,dRz, dTcp_X,
+dTcp_Y, dTcp_Z,
+dTcp_Rx,dTcp_Ry,dTcp_Rz ,dUcs_X,dUcs_Y,dUcs_Z,dUcs_Rx,dUcs_Ry,dUcs_Rz,
+.
+Return Name Data Type Valid Content
+Value Range
+dJ1-dJ6 joint double - dJ1: Coordinate of joint 1 in [°]
+www.hansrobot.com VI
+修订记录
+coordinate dJ2: Coordinates of joint 2 in [°].
+dJ3: joint 3 coordinates in [°].
+dJ4: Joint 4 coordinate in [°].
+dJ5: joint 5 coordinates in [°].
+dJ6: Joint 6 coordinate in [°].
+Cartesian dX: X-coordinate in[mm].
+dX-dRz double -
+coordinate dY: Ycoordinate in[mm].
+dZ: Zcoordinate in [mm].
+dRx:Rx coordinate in [°]
+dRy: Ry coordinate in [°].
+dRz:Rzcoordinate in [°].
+Current dTcp_X: X-coordinatein [mm].
+dTcp_X-dTc double -
+p_Rz tool dTcp_Y: Ycoordinate in[mm].
+coordinate dTcp_Z: Z coordinatein [mm].
+dTcp_Rx:Rxcoordinate in[°]
+dTcp_Ry: Rycoordinate in[°]
+dTcp_Rz:Rz coordinatein [°].
+Current dUcs_X: X-coordinatein [mm]
+dUcs_X-dU double -
+cs_Rz user dUcs_Y: Ycoordinate, in [mm].
+coordinate dUcs_Z: Z coordinatein [mm].
+dUcs_Rx:Rx coordinate in[°]
+dUcs_Ry: Ry coordinate in[°]
+dUcs_Rz:Rz coordinatein [°]
+Send Failure Return Message: ReadPointByName,Fail,ErrorCode,;
+Return Name Data Type Valid Content
+Value Range
+nRet=0: Returns the success of the
+ErrorCode Error Code int Integer function call
+value>=0
+nRet>0: Returns the error code ofa
+failed call
+//Read thejointposition, spatial position, toolcoordinates, and user coordinates of
+thepointbased onthepoint name.
+ReadPointByName,0,Point_3,;
+//Successfully return
+ReadPointByName,OK,0.000000,0.000000,45.000000,0.000000,90.000000,0.000000,
+406.586000,0.000000,787.383000,180.000000,.
+45.000000,180.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.000000,0.
+000
+000,0.000000,0.000000,0.000000,0.000000,0.000000,;
+//Failure return
+www.hansrobot.com VII
+修订记录
+ReadPointByName,Fail,20016,.
+GetErrorCodeStr
+Description:Get an explanation ofthe error code.
+Sends themessage: GetErrorCodeStr,nErrorCode,;
+Input Name Data Valid Content
+Variable Type Range
+nErrorCode Error int - Error code
+Code
+Send asuccess return message (this command willonly return success):
+GetErrorCodeStr,OK,strErrorMsg,;
+Output Name Data Valid Content
+Variable Type Range
+Error Code Specificdescriptive notes forerror
+strErrorMsg string -
+Description codes
+Example:
+//Get theexplanationof thespecified error code
+GetErrorCodeStr,10000;
+GetErrorCodeStr,100;
+//Successful return
+GetErrorCodeStr,OK,Short circuit error,;
+GetErrorCodeStr,OK,unkown error,;
+SetPoseTrackingMaxMotionLimit
+Description:Settingthe maximumfollowing speed forpositionfollowing.
+Sends themessage:
+SetPoseTrackingMaxMotionLimit,nRbtID,dMaxLineVel,dMaxOriVel,;
+Parameter Name Data Type Valid Content
+Range
+robotid
+nRbtID int 0~5
+robotid，default=0
+www.hansrobot.com VIII
+修订记录
+Maximum
+Maximumfollowingspeedofthe
+dMaxLineV linearspeed double >0
+position-followingstraightline,in
+el
+[mm/s]
+Attitude
+Maximumfollowing speed ofthe
+dMaxOriVel Maximum double >0
+position-followingattitude, in [°/s]
+Velocity
+Send successful return message: SetPoseTrackingMaxMotionLimit,OK,;
+Send Failure Return Message: SetPoseTrackingMaxMotionLimit,Fail,ErrorCode,;
+Return Name DataType Valid Content
+Value Range
+ErrorCode Integer Returns theerror codeof afailed call
+ErrorCode int
+Value>0
+Example:
+//Set thepositiontracking maximum motionparameter
+SetPoseTrackingMaxMotionLimit,0,100,90,;
+//Successful return
+SetPoseTrackingMaxMotionLimit,0,100,90,;
+//Failure return
+SetPoseTrackingMaxMotionLimit,Fail,20018,;
+SetPoseTrackingPIDParams
+Description:Set PID parameters.
+Sends themessage:
+SetPoseTrackingPIDParams,nRbtID,dPosPID1,dPosPID2,dPosPID3,dOriPID1,
+dOriPID2, dOriPID3,;
+Parameter Name Data Type Valid Content
+Range
+robotid
+nRbtID int 0~5
+机器人 id，默认=0
+dPosPID1 Position double - PositionfollowingPID,default=5
+following
+PID
+dPosPID2 Position double - PositionfollowingPID,default=0.1
+following
+PID
+www.hansrobot.com IX
+修订记录
+dPosPID3 Position double - PositionfollowingPID,default=0
+following
+PID
+dOriPID1 Position double - AttitudefollowingPID,default=5
+following
+PID
+dOriPID2 Position double - AttitudefollowingPID,default=0.1
+following
+PID
+dOriPID3 Position double - AttitudefollowingPID,default=0
+following
+PID
+Send successful return message: SetPoseTrackingPIDParams,OK,;
+Send Failure Return Message: SetPoseTrackingPIDParams,Fail,ErrorCode,;
+Return Name Data Type Valid Content
+Value Range
+ErrorCode Integer Returns theerror codeof afailed call
+ErrorCode int
+Value >0
+Example
+//Set thePID parameters
+SetPoseTrackingPIDParams,0,5,0.1,0,5,0.1,0,;
+//Successful return
+SetPoseTrackingPIDParams,OK,;
+//Failure return
+SetPoseTrackingPIDParams,Fail,20018,;
+SetPoseTrackingTargetPos
+Description:Settingthe target position forpositionfollowing.
+Sends themessage: SetPoseTrackingTargetPos,nRbtID,dX,dY,dZ,dRx,dRy,dRz,;
+Parameter Name Data Type Valid Content
+Range
+robotid Robotid,default=0
+nRbtID int 0~5
+www.hansrobot.com X
+修订记录
+Distance
+Distance tobe maintained in the
+dX heldin double -
+X-direction, in[mm].
+X-directio
+n
+Distance
+Distance tobe maintained in the
+dY heldin double -
+Y-direction, in[mm].
+Y-directio
+n
+Distance
+Distance tobe maintained in the
+dZ heldin double -
+Z-direction, in[mm].
+Z-direction
+Distance
+Distance maintained in theRx
+dRx held in Rx double -
+direction in[°].
+direction
+Distance
+Distance maintained in thedirection
+dRy held in Ry double -
+Ry in[°]
+direction
+Distance
+Distance maintained in direction Rz
+dRz held inRz double -
+in[°].
+direction
+Send successful return message: SetPoseTrackingTargetPos,OK,;
+Send Failure Return Message: SetPoseTrackingTargetPos,Fail,ErrorCode,;
+Return Name Data Type Valid Content
+Value Range
+Error Code Integer Returns theerror codeof afailed call
+ErrorCode int
+Value>0
+Example
+//Set theZdirection to 100mm.
+SetPoseTrackingTargetPos,0,0,0,100,0,0,0,0,;
+//Successful return
+SetPoseTrackingTargetPos,OK,;
+//Failure return
+SetPoseTrackingTargetPos,Fail,20018,;
+SetPoseTrackingState
+Description:Settingthe position following state.
+Sends themessage: SetPoseTrackingState,nRbtID,nState,;
+www.hansrobot.com XI
+修订记录
+Parameter Name Data Type Valid Content
+Range
+robotid Robotid,default=0
+nRbtID int 0~5
+position-foll 0:Turn off position following
+nState owing state int 0/1 1:Turn onpositionfollowing
+Send successful return message: SetPoseTrackingState,OK,;
+Failed tosend return message: SetPoseTrackingState,Fail,ErrorCode,;
+Return Name Data Type Valid Content
+Value Range
+Error Code Integer Returnsthe error code ofafailed call
+ErrorCode int
+Value >0
+Example
+//Enable positionfollowing
+SetPoseTrackingState,0,1,;
+//Successful return
+SetPoseTrackingState,OK,;
+//Failure return
+SetPoseTrackingState,Fail,20018,;
+SetUpdateTrackingPose
+Description:Settingupreal-timeupdating sensor positioninformation.
+Sends themessage: SetUpdateTrackingPose,nRbtID,dX,dY,dZ,dRx,dRy,dRz,;
+Parameter Name Data Type Valid Content
+Range
+robotid Robotid,default=0
+nRbtID int 0~5
+Detected
+DistancedetectedintheXdirection,
+dX distancein double -
+in[mm]
+Xdirection
+Detected
+DistancedetectedintheYdirection,
+dY distancein double -
+in[mm]
+Ydirection
+www.hansrobot.com XII
+修订记录
+Detected
+DistancedetectedintheZdirection,
+dZ distance in double -
+in[mm]
+Z direction
+Detected
+Detecteddistanceinthedirectionof
+dRx distancein double -
+Rxin[°]
+Rx
+direction
+Detected
+Detecteddistanceinthedirectionof
+dRy distancein double -
+Ryin[°]
+Ry
+direction
+Detected
+Detecteddistanceinthedirectionof
+dRz distancein double -
+Rzin[°]
+Rz
+direction
+Successful sending returns themessage: SetUpdateTrackingPose,OK,;
+Send failure return message: SetUpdateTrackingPose,Fail,ErrorCode,;
+Return Name Data Type Valid Content
+Value Range
+ErrorCode Integer Returns theerror codeof afailed call
+ErrorCode int
+Value>0
+Example
+//Update thedetection information.
+SetUpdateTrackingPose,0,0,0,0,100,0,0,0,;
+//Successful return
+SetUpdateTrackingPose,OK,;
+//Failure return
+SetUpdateTrackingPose,Fail,20018,;
+SetFTFreeDriveState
+Description: Enable/disable force-controlled free drive.
+Sends themessage: SetFTFreeDriveState,nRbtID,nState,;
+Parameter Name Data Valid Content
+Type Range
+www.hansrobot.com XIII
+修订记录
+nRbtID robot id unsigned int 0~5 MachineID number,default =0
+Force control free drivestatus:
+force
+nState int 0/1 0: Turn onforce control free drive
+control
+1: Turn off force control free drive
+state
+Successful send return message: SetFTFreeDriveState,OK,;
+Send failed return message: SetFTFreeDriveState,Fail,ErrorCode,;
+Return Name Data Type Valid Content
+Value Range
+Error Code Integer Returns theerror codeof afailed call
+ErrorCode int
+value >0
+Example
+//Enable theforce control free drive
+SetFTFreeDriveState,0,1,;
+//Successful return
+SetFTFreeDriveState,OK,;
+//Failure return
+SetFTFreeDriveState,Fail,40020,;
+SetFTFreeFactor
+Description:SettingPanning Flexibility and Rotation Flexibility
+Sends themessage: SetFTFreeFactor,nRbtID,dLinear,dAngular,;
+Parameter Name Data Type ValidRange Content
+Robot id Machine ID number, default = 0
+nRbtID unsigned 0~5
+int
+Panning Force-controlled free drive panning
+dLinear double 0~100
+flexibility flexibility
+Rotation Force-controlled freewheeling
+dAngular double 0~100
+flexibility rotational flexibility
+Sentsuccessfully return message: SetFTFreeFactor,OK,;
+Failure to send return message: SetFTFreeFactor,Fail,ErrorCode,;
+www.hansrobot.com XIV
+修订记录
+Return Name Data Type Valid Content
+Value Range
+Error Code Integer Returnsthe error code ofafailed call
+ErrorCode int
+Value >0
+Example
+//Set theforce-controlled free actuator translational and rotational softness.
+SetFTFreeFactor,0,50,50,;
+//Successful return
+SetFTFreeFactor,0,50,50,;
+//Failure return
+SetFTFreeFactor,Fail,40020,;
+SetTangentForceBounds
+Description:Sets themaximum& minimumtangential force and themaximum uplift
+speed in theX/Y direction.
+Sends themessage: SetTangentForceBounds,nRbtID,dMax,dMin,dVel,;
+Parameter Name Data Type Valid Content
+Range
+Robot Machine ID number, default = 0
+nRbtID unsigned 0~5
+id
+int
+Maximu Maximumtangential force in X/Y
+dMax double 0~1000
+m Value direction, inN
+Minimu Minimumtangential force inX/Y
+dMin double 0~1000
+m Value direction, inN
+Lifting Maximumliftingspeedinmm/s
+dVel double 0~50
+speed
+Successfully sent return message: SetTangentForceBounds,OK,;
+Failed tosend return message: SetTangentForceBounds,Fail,ErrorCode,;
+Return Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror code ofa failed call
+ErrorCode int
+Value >0
+www.hansrobot.com XV
+修订记录
+Example
+//Set themaximum and minimumtangential force in theX/Ydirection and the
+maximumlift velocity.
+SetTangentForceBounds,0,25,15,30,;
+//Successful return
+SetTangentForceBounds,OK,;
+//Failure return
+SetTangentForceBounds,Fail,40020,;
+Continuous trajectory motion type control
+commands:
+Startingwith HR version 6.3.3,the trajectory functionality has been optimized and
+integrated. Somebasic conceptsare as follows:
+Thecoordinate type oftheoriginal point dataofa trajectory: there are two types: joint
+coordinates (0)and spatial coordinates (1). When acertain trajectory iscreated, the
+coordinate type ofits original pointdata must bedetermined. Once atrajectory is
+created, this attributecannot be changed.
+MovePathJ and MovePathL: Atrajectory canberun in eitherMovePathJ or
+MovePathL mode. The premiseis that thecorresponding target pointcan be
+calculated.
+Calculation oftarget pointposition ofatrajectory: after theoriginal pointposition
+datais collected, thesystem will automatically start thecalculation oftarget point
+position,becausethere are two kinds ofmovement methods, so there are two groups
+oftarget pointposition calculation, and theresults ofthetwo groups of calculation are
+saved in thedatabase respectively.
+Import and export oftrajectory: In the front-end interface, you can exportthe
+trajectory to afileor importthetrajectory fileintothe system. 6.3.3version only
+supports theimportand exportof thetrajectory with thejointcoordinates as the
+original pointposition.
+Thestatus oftrajectory: there are 8kinds ofstatus values: not teaching (0), teaching
+(1), teaching finished (4), calculating (2), calculation error (5), calculation completed
+(3), imported (9), post-import processing (10), among which, teaching finished,
+calculating, imported, post-importprocessing are temporary statuses, thesystem will
+automatically process them andswitch them to theother statuses; imported and
+www.hansrobot.com XVI
+修订记录
+post-importprocessing are thenew statuses added in6.3.3.6.3.3Newly Added States.
+Thestateof each trace is divided intotwo categories: stateJ and stateL, corresponding
+toMovePathJ and MovePathL. The statevalues of "computation in progress",
+"computationerror", and "computation complete" may be different forstateJ and
+stateL. The otherstatevalues are basically valid for stateJ and stateL at thesametime.
+Path-related instruction set isredesigned:centering ona path, adding the
+corresponding action in front of it,and adding therelated attributes at the end to form
+thenameof thepath instruction. HR 6.3.3Theredesigned instruction set is as
+follows:
+Command Brief
+Description
+Initializing thetrajectory
+InitPath
+Adding theoriginal point listto atrack
+PushPathPoi
+nts
+End addingoriginal points to atrack
+EndPushPoin
+ts
+Deletes atrack with a specified name
+DelPath
+Reads a listoftrack names, ordetails ofa specified track
+ReadPath
+Modify track name
+UpdatePathN
+ame
+ThestateJ,ErrorCodeJ,stateL,andErrorCodeLofatrackcanberead.
+ReadPathStat
+e
+Run trajectories in jointcoordinates
+MovePathJ
+Runningtrajectories in spatialcoordinates
+MovePathL
+InitPath
+Description:initialize(new) trajectory.
+Send message: InitPath,nRbtID,nRawDataType,sPathName,dSpeedRatio,dRadius,;or
+InitPath,nRbtID,nRawDataType,sPathName,dSpeedRatio,dRadius,dVelocity,dAcc,dJ
+erk,sUcsName,sTcpName,;
+Parameter Name Data Type Valid Content
+Range
+nRbtID Robotid unsigned int 0~5 Machine ID number, default =0
+nRawDataTyp Theoriginal 0:Originalpointpositionisjoint
+e pointtype of unsignedint 0,1 coordinate
+www.hansrobot.com XVII
+修订记录
+the trajectory 1:Originalpointpositioninspatial
+coordinates
+Thenameofthetrack,consistingof
+Track name
+sPathName string - anunderscore,lettersornumbers,up
+to29characters.
+Trajectorymotionvelocityratio.
+Trajectory
+dSpeedRatio double 0.01~1. Thisparameterisrequiredforthe
+motion
+00 calculationofPathJ.
+velocity ratio
+Transitionradius in [mm]. This
+transition
+dRadius double >0 parameteris required forthe
+radius
+calculation ofPathJ.
+Thespeedofthetrajectory
+movementin[mm/s].This
+parameterisneededwhen
+trajectory
+dVelocity double - calculatingPathL. When
+speed
+nRawDataTypeis1,thisparameter
+mustbegiven;when
+nRawDataTypeis0,thisparameter
+isnotneeded,thesystem
+automaticallyusesthemaximum
+valuetocalculatePathL.
+Trajectorymotionaccelerationin
+[mm/s2].Thisparameterisneeded
+whencalculatingPathL.When
+trajectory
+dAc double -
+nRawDataTypeis1,thisparameter
+acceleration
+c
+mustbegiven;whennRawDataType
+is0,thisparameterisnotneeded,the
+systemautomaticallyusesthe
+maximumvaluetocalculatePathL.
+Trajectory motion plusacceleration
+in[mm/s3]. This parameter is
+Trajectory neededto calculate PathL. When
+dJerk motionplus double - nRawDataTypeis 1,thisparameter
+acceleration mustbe given; when nRawDataType
+is 0,thisparameter isnot needed,the
+system automatically uses the
+maximumvalue to calculate PathL.
+www.hansrobot.com XVIII
+修订记录
+Thenameoftheusercoordinate
+systeminwhichthetargetspatial
+coordinatesarelocated,
+Nameofuser
+correspondingtothenameofthe
+sUcsName coordinates string -
+Teacherpage-thedefaultname
+"Base"canbeused.Thisparameter
+isneededtocalculatePathL.When
+nRawDataTypeis1,thisparameter
+isrequired;whennRawDataTypeis
+0,thisparameterisnotrequired,and
+thesystemautomaticallyuses
+"Base"tocalculatePathL.
+Thenameofthetoolcoordinate
+systeminwhichthetargetspatial
+coordinatesarelocated,
+Tool
+correspondingtothenameofthe
+sTcpName Coordinate string -
+Teacherspage,thedefaultname
+Name
+"TCP"canbeused.Thisparameter
+isneededtocalculatePathL.When
+nRawDataTypeis1,thisparameter
+isrequired;whennRawDataTypeis
+0,thisparameterisnotrequired,the
+systemautomaticallyuses"TCP"to
+calculatePathL.
+*Note:
+1. When thiscommand is executed, thesystem will first check whether thetrack with
+thesamename already exists, ifitdoes, thesystem will deleteit first.
+2. Thestatus ofthenewly created path is"Teaching".
+3. Thisinstruction can replaceStartPushMovePath and InitMovePathL.
+Send successful return message: InitPath,OK,;
+Failed tosend return message: InitPath,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+Range
+ErrorCode Integer Returns theerror codeof afailed call
+ErrorCode int
+Value>0
+Example
+//Initialize thepath with thename aaa, withthe original pointsinspatial coordinates.
+www.hansrobot.com XIX
+修订记录
+InitPath,0,1,aaa,0.3,20,100,200,300,Base,TCP,;
+//Initialize thetrajectory with nameccc,original pointpositionsare joint coordinates.
+InitPath,0,0,ccc,0.5,20,;
+//Successful return
+InitPath,OK,;
+//Failure return
+InitPath,Fail,20018,;
+PushPathPoints
+Description:pushraw pointsinto thetrajectory in bulk.
+Sends themessage:
+PushPathPoints,nRbtID,sPathName,dValue1,dValue2,dValue3,dValue4,dValue5,dVa
+lue6,;
+Parameter Name Data Type Valid Content
+Range
+robot id Machine ID number, default = 0
+nRbtID unsignedint 0~5
+Trajectory Trajectory name
+sPathName string -
+name
+Pointdata,eachseparatedbya
+sPoints Pointdata string - comma.Eachpointhas6
+coordinatevalues,sothenumberof
+valuesinthisfieldmustbea
+multipleof6.Thesystem
+automaticallycalculatesthenumber
+ofpoints.
+*Note:
+1.Thisinstruction can becalled repeatedly.
+2.Thisinstruction can also be usedfor thetrajectory withthe statusof Teach Out,
+Calculation Completed, CalculationError, and Not Teach Out.
+3.Themaximum numberof original points is 10000.If thenumber ofpoints to be
+pushedand the numberofexisting points exceeds 10000,then all thepushed pointsin
+thisbatch willnot be added to thepoint queue.
+4.After usingthis instruction, thetrack status willchange to "Teaching".
+5.Thisinstruction can replacePushMovePaths.
+www.hansrobot.com XX
+修订记录
+Successfully sent return message: PushPathPoints,OK,;.
+Failed tosend return message: PushPathPoints,Fail,ErrorCode,;.
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror code ofafailed call
+ErrorCode int
+Value >0
+Example
+//Push down motionpath points
+PushPathPoints,0,aaa,420,0,445,180,0,180,420,10,445,180,0,180,420,20,445,180,0,18
+0,420,30,445,180,0,180,420,40,445,180,0,180,420,50,445,180,0,180,;
+//Successful return
+PushPathPoints,OK,;
+//Failure return
+PushPathPoints,Fail,20018,;
+EndPushPathPoints
+Description:endpush points intothe trajectory.
+Send message: EndPushPathPoints,nRbtID,sPathName,;
+Parameter Name Data Type Valid Content
+Range
+robot id Machine ID number, default = 0
+nRbtID unsignedint 0~5
+Trajectory Trajectory name
+sPathName string -
+name
+*Note.
+1.If the current status ofthetrajectory is not"Teaching", calling this instructionis
+invalidand willreport thetrajectory statuserror. 2.
+2.After theexecution ofthis instruction,thestatus ofthetrajectory willchange to
+"Teach-in". After that,the system will automatically start tocalculatethe target point
+positionand set the statusof thetrajectory to "Calculating", and thetarget point
+positionofMovePathL and MovePathJ willbe calculated separately.
+3.Thisinstruction can replaceEndPushMovePath.
+Successfully sent return message: EndPushPathPoints,OK,;.
+Send Failure return message: EndPushPathPoints,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+www.hansrobot.com XXI
+修订记录
+Range
+Error Code Integer Returns theerror code ofafailed call
+ErrorCode int
+Value >0
+Example
+//End pushingpointsinto thetrajectory and start calculating thetrajectory target point
+data
+EndPushPathPoints,0,aaa,;
+//Successful return
+EndPushPathPoints,OK,;
+//Failure return
+EndPushPathPoints,Fail,20018,;
+DelPath
+Description:Delete thespecified trajectory.
+Sends themessage: DelPath,nRbtID,sPathName,;
+Parameter Name Data Type Valid Content
+Range
+robot id Machine ID number, default = 0
+nRbtID unsignedint 0~5
+Original Trajectory name
+sPathName string -
+name oftrack
+*Note:
+1. Thiscommand replaces DelMovePath.
+2. Trajectories that are calculating thetarget pointposition,or that are undergoing
+post-importprocessing cannot bedeleted.
+Successfully sent return message: DelPath,OK,;.
+Failed tosend return message: DelPath,Fail,ErrorCode,;.
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror code ofafailed call
+ErrorCode int
+Value >0
+Example
+//Delete thepath drag_1
+DelPath,0,drag_1,.
+//Successful return
+www.hansrobot.com XXII
+修订记录
+DelPath,0,drag_1,;
+//Failure return
+DelPath,Fail,20018,;
+ReadPath
+Description:Read thetrack listordetails of thespecified path.
+Sends themessage: ReadPath,nRbtID,sPathName,;
+Parameter Name Data Type Valid Content
+Range
+nRbtID Robotid unsigned int 0~5 Machine ID number, default= 0
+sPathName Trajectory string - Trajectory name, this parameter is
+name selectable.
+Send Successful Return Message Scenario 1:
+ReadPath,OK,Pathname1,Pathname2,Pathname3,;
+Return Name Data Valid Content
+Value Type Range
+Pathname List of
+1, names of String All track names in thesystem are listed.
+Pathname tracks
+2,
+Pathname
+3,
+......
+*Note: When thesPathNameof thecommand argument isnot given, the report is
+returned in thisway.
+Send Successful Return Message Scenario 2:
+ReadPath,OK,nRawDataType,stateJ,ErrorCodeJ,stateL,ErrorCodeL,dbOverride,dbRa
+dius,dbLinearVel,dbL inearAcc,
+dbLinearJerk,dUcp_X-dUcp_Rz,dTcp_X-dTcp_Rz,nRawPointCount,HeadPoint[],;
+Return Value Name Data Valid Content
+Type Range
+unsigned 0,1
+nRawDataType int
+Statusof 0/1/2/
+MovePath J unsigned 3/4/5/ See thedescription of thisparameter inthe
+stateJ int 9/10 ReadPathStatecommand.
+www.hansrobot.com XXIII
+修订记录
+unsigned See thedescription of thisparameter inthe
+ErrorCodeJ int ReadPathStatecommand.
+Status of 0/1/2/
+MovePathL unsigned 3/4/5/ See thedescription of thisparameter inthe
+stateL int 9/10 ReadPathStatecommand.
+unsigned See thedescription of thisparameter inthe
+ErrorCodeL int ReadPathStatecommand.
+trajectory Trajectory movement speedratio. This
+dbOverride velocity ratio double parameter is only meaningful forMovePathJ.
+dbRadius blend radius double Blend radius in[mm].This parameter is only
+relevant for MovePathJ.
+dbLinearVel trajectory double Trajectory movement speedin [mm/s]. This
+velocity parameter is only meaningful forMovePathL.
+dbLinearAcc trajectory double Acceleration ofthe trajectory movement in
+acceleration [mm/s2]. This parameter isonlymeaningful for
+MovePathL.
+dbLinearJerk therate of double Trajectory motionplus acceleration in
+change of [mm/s3]. This parameter isonlymeaningful for
+trajectory MovePathL.
+acceleration
+dUcs_X-dUcs_Rz user double Calculates theusercoordinates used by
+coordinates MovePathL:
+dUcs_X: Xcoordinate in [mm]
+dUcs_Y: Ycoordinate in [mm]
+dUcs_Z: Zcoordinate in[mm]
+dUcs_Rx:Rx coordinate in [°]
+dUcs_Ry: Ry coordinate in [°]
+dUcs_Rz: Rzcoordinate in[°]
+dTcp_X-dTcp_Rz Tool double Calculates thetool coordinates used by
+coordinates MovePathL:
+dTcp_X: X-coordinatein[mm]
+dTcp_Y: Ycoordinate in [mm].
+dTcp_Z: Zcoordinate in[mm].
+dTcp_Rx:Rx coordinate in [°]
+dTcp_Ry: Ry coordinate in [°]
+dTcp_Rz: Rzcoordinate in[°].
+nRawPointCount Numberof double
+original
+points
+HeadPoin[] Coordinates double Coordinate valuehere ifnRawPointCount> 0
+ofthe first If nRawDataType = 0,here are thecoordinates
+www.hansrobot.com XXIV
+修订记录
+original point ofthe joints:
+J1: units[°]
+J2: unit [°]
+J3: unit [°]
+J4: unit [°]
+J5: Unit [°]
+J6: unit [°].
+If nRawDataType=1, here are thespatial
+coordinates X: units [mm]
+Y: unit [mm]
+Z: unit [mm]
+Rx: unit[°]
+Ry: unit[°]
+Rz:in [°]
+*Note:
+1.Thereport is returned in thismanner when sPathName is given as a command
+parameter.
+2.Theoriginal number ofpoints isan indicationof thenumber ofpointsthat will be
+obtained after the teach is completed.
+3.If the original numberofpoints is not0,the coordinates of theinitial point willbe
+given again.
+Failed tosend return message: ReadPath,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror code ofafailed call
+ErrorCode int
+Value >0
+Example
+//Read thecurrent listof trajectories in thesystem.
+ReadPath,0,;
+//Successful return
+ReadPath,OK,drag_3,drag_4,drag_5,drag_6,ccc,;
+//Read thedetails oftrack aaa
+ReadPath,OK,0,3,0,5,20046,0.500,3.000,1000.000,1250.000,10000000.000,0.000,0.0
+00,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000,0.000,
+0.000,0.000,0.000,10,1.000,2.000,3.000,4.000,5.000,6.000,;
+//Failure return
+ReadPath,Fail,20018,.
+www.hansrobot.com XXV
+修订记录
+UpdatePathName
+Description:Updates thenameof thespecified path.
+Send themessage: UpdatePathName,nRbtID,sPathName,sPathNewName,;
+Parameter Name Data Type Valid Content
+Range
+robot id Machine ID number, default = 0
+nRbtID unsignedint 0~5
+Original Original nameof trajectory
+sPathName string -
+nameof
+trajectory
+Updated Updated trajectory name
+sPathNewNa string -
+trajectory
+me
+name
+*Note: This command functions thesame as UpdateMovePathName.
+Successfully sent return message: UpdatePathName,OK,;
+Failed tosend return message: UpdatePathName,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returnsthe error code ofafailed call
+ErrorCode int
+Value >0
+ReadPathState
+Description:Read thestatus ofthepath.
+Sends themessage: ReadPathState,nRbtID,sPathName,;
+Parameter Name Data Type Valid Content
+Range
+robot id Machine ID number, default = 0
+nRbtID unsignedint 0~5
+Trajectory Trajectory name
+sPathName string -
+name
+Sentsuccessfully return message: ReadPathState,OK,nState,;
+Return Value Name Data Type Valid Content
+Range
+www.hansrobot.com XXVI
+修订记录
+MovePathJ 0/1/2/3/4/5/9 0: thetrajectory has not been taught
+nStateJ int
+state of the /10 yet,after thetrajectory in teaching
+trajectory ends teaching, ifthere is nooriginal
+point position, it enters into this
+state;
+1：Trajectory is being taught, after
+InitPathand PushPathPoints, the
+system will enterthis state;
+2：Trajectory is in theprocess of
+calculating thetarget pointposition,
+after thesystem detects that thestate
+is theend ofteaching, it will
+automatically enter into thisstate.
+The duration ofthisstate depends on
+thelength of thetrajectory lineand
+thespeed ratio, andmay bemore
+than10minutes. When thetrack is
+in thisstate, itcannot bedeleted.
+3：Trajectory target point calculation
+is completed, thesystem
+automatically enters into thisstate
+after thesuccessful completion of
+calculating thetarget trajectory.
+4：Trajectory end tutorial, after
+EndPushPathPoints, itwill enterinto
+thisstate, andit willalso enter into
+thisstate after theendof the
+processing ofthetrajectory fileafter
+importing;
+5：Trajectory target point position
+calculation error, thesystem
+calculates thetarget trajectory after
+theerror automatically enter intothis
+state;
+9: Thetrack has been imported, and
+thefront-end will enter intothis state
+after importing acertain track;
+10：Trajectory imported in
+www.hansrobot.com XXVII
+修订记录
+post-processing, thesystem detects
+that thestateis imported, andthen
+automatically enter into thisstate.
+When thetrack isin this state, it
+cannot be deleted.
+Error code SeetheError CodeSummary Table.
+nErrorCodeJ int
+for This parameteris meaningful when
+MovePathJ nStateJ is 5.
+status
+MovePath 0/1/2/3/4/5 Sameas nStateJ.where theduration
+nStateL int
+L state of /9/10 ofstate2can be tens ofseconds
+the depending onthe length ofthe
+trajectory trajectory lineandthe velocity ratio.
+Error code SeetheError CodeSummary Table.
+nErrorCode int
+for This parameteris meaningful when
+L
+MovePath nStateL is 5.
+Lstatus
+*Note: This directive returns richer content than ReadMovePathStateand can replace
+it.
+Failed tosend return message: ReadPathState,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror codeof afailed call
+ErrorCode int
+Value >0
+Example
+//Read thepath state
+ReadPathState,0,drag_1,
+//Successfully return
+ReadPathState,OK,3,0,5,20046,;
+//Failure return
+ReadPathState,Fail,20018,;
+MovePathJ
+Description:Runs thespecified trajectory as a jointmotion.
+Sends themessage: MovePathJ,nRbtID,sPathName,;
+Parameter Name Data Type Valid Content
+www.hansrobot.com XXVIII
+修订记录
+Range
+robot id Machine ID number, default = 0
+nRbtID unsignedint 0~5
+Trajectory Trajectory name
+sPathName string -
+name
+*Note:
+Thisinstruction can beused to runthePathJ trajectory generated bytheoriginal point
+datatype of jointcoordinates or spatialcoordinates. Before calling this instruction, the
+stateJ ofthetrajectory must be 3,otherwiseastate error is reported.
+Send successful return message: MovePathJ,OK,;
+Failed tosend return message: MovePathJ,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror codeof afailed call
+ErrorCode int
+Value >0
+Example
+//Start theexecution ofthemotion with acontinuous motionpath of thejoint
+MovePathJ,0,drag_1,.
+//Successful return
+MovePathJ,OK,;
+//Failure return
+MovePathJ,Fail,20042,;
+ReadBoxInfo
+Description: read information of theelectrical box.
+Sends themessage: ReadBoxInfo,nRbtID,;
+Parameter Name Data Type Valid Content
+Range
+robot id Machine ID number, default = 0
+nRbtID unsignedint 0~5
+Successfully sent return message:
+ReadBoxInfo,OK,nConnected,n48V_ON,db48OUT_Voltag,db48OUT_Current,
+www.hansrobot.com XXIX
+修订记录
+nRemoteBTN,nThreeStageBTN,db12V_Voltag, db12V_Current,.
+Return Value Name Data Type Valid Content
+Range
+0: Not connected
+Connection
+nConnected int 0/1 1: Connected
+status ofthe
+electrical box
+0: Voltage<36V
+48VVoltage
+n48V_ON int 0/1 1: Voltage>36V
+Status
+48VOutput 48V OutputVoltage Value
+db48OUT_Vo double -
+Voltage Value
+ltag
+48VOutput 48V Outputcurrent value
+db48OUT_Cu double -
+current value
+rrent
+0: nosignal
+Remote
+nRemoteBTN int 0/1 1: have Signal
+shutdown
+buttonstatus
+0: nosignal
+Three-stage
+nThreeStageB int 0/1 1: have Signal
+buttonstatus
+TN
+12VOutput 12V Outputvoltage value
+db12V_Volta double -
+voltage value
+g
+12VOutput 12V Outputcurrent value
+db12V_Curre double -
+current value
+nt
+Failure to send return message: ReadBoxInfo,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror codeof afailed call
+ErrorCode int
+Value >0
+Example
+//Read theboxinformation
+ReadBoxInfo,0,;
+//Successful return
+ReadBoxInfo,OK,1,1,48.000,0.000,0,0,0,12.000,0.000,;
+//Failure return
+ReadBoxInfo,Fail,20018,;
+www.hansrobot.com XXX
+修订记录
+HRSetForceDataLimit
+Description:Sets theforce control limitrange beyond which the controllerpowers
+down theforce sensor.
+Sends themessage:
+HRSetForceDataLimit,nRbtID,dMax_X,dMax_Y,dMax_Z,dMax_Rx,dMax_Ry,dMa
+x_Rz,dMin_X,dMin_Y,dMin_Z,dMin_Rx,dMin_Ry, dMin_Rz,
+Parameter Name Data Valid Content
+Type Range
+robot id Machine ID
+nRbtID unsigned 0~5
+number, default =0
+int
+Maximumthreshold for positive
+direction force:
+dMax_X:X direction in[N]
+dMax_Y:Y direction in[N]
+dMax_Z: Zdirection in [N]
+Positive dMax_Rx: Rxdirection in [NM]
+dMax_X-dMax_ Direction double 0~1000 dMax_Ry: Rydirection in [NM]
+Rz Threshold dMax_Rz:Rzdirection, in [NM]
+Maximumthreshold for negative
+direction force:
+dMin_X: Xdirection, in [N]
+dMin_Y: Ydirection, in [N]
+dMin_Z: Zdirection, in [N]
+Negative dMin_Rx:Rx direction, in [NM]
+Direction dMin_Ry: Ry direction, in [NM]
+dMin_X-dMin_ double 0~1000
+Threshold dMin_Rz: Rzdirection, in [NM]
+Rz
+Send successful return message: HRSetForceDataLimit,OK,;
+Failure to send return message: HRSetForceDataLimit,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror codeof afailed call
+ErrorCode int
+Value >0
+www.hansrobot.com XXXI
+修订记录
+Example
+//Setting theforce control limitrange
+HRSetForceDataLimit,0,500,500,500,500,500,500,300,300,300,300,300,300,;
+//Successful return
+HRSetForceDataLimit,OK,;
+//Failure return
+HRSetForceDataLimit,Fail,20018,;
+ReadDefaultScript
+Description: reads thename ofthescript program currently applied bythesystem.
+Sends themessage: ReadDefaultScript,nRbtID,;
+Parameter Name Data Type Valid Content
+Range
+robot id Machine ID number, default = 0
+nRbtID unsignedint 0~5
+Send successful return message: ReadDefaultScript,OK,sScriptName;
+Return Value Name Data Type Valid Content
+Range
+Thenameof thescript program
+sScriptName Name of string
+currentlybeing applied, with a.json
+thescript
+extension.
+program
+Failed tosend return message: ReadDefaultScript,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror codeof afailed call
+ErrorCode int
+Value >0
+Example
+//Read thename ofthescript program currently applied bythesystem.
+ReadDefaultScript,0,;
+//Successful return
+ReadDefaultScript,OK,abcd.json.
+www.hansrobot.com XXXII
+修订记录
+//Failure return
+ReadDefaultScript,Fail,20018,;
+SwitchScript
+Description:Apply thespecified script program.
+Sends themessage: SwitchScript,nRbtID,sScriptName.
+Parameter Name Data Type Valid Co
+Range nte
+nt
+Robot id Machine ID number, default = 0
+nRbtID int 0~5
+Name ofthe
+Witha .jsonextension.
+sScriptName script string
+program
+Send Successful Return Message:SwitchScript,OK,;
+Send Failure return message: SwitchScript,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror codeof afailed call
+ErrorCode int
+Value >0
+Example
+//Read thename ofthescript program currently applied to thesystem.
+SwitchScript,0,abcd.json,.
+//Successful return
+SwitchScript,OK,;
+//Failure return
+SwitchScript,Fail,20018,;
+ConfigTCP
+Description: New TCPand valuewith specified name.
+Send message:
+ConfigTCP,nRbtID,sTcpName,dTcp_X,dTcp_Y,dTcp_Z,dTcp_Rx,dTcp_Ry,dTcp_R
+z,;
+www.hansrobot.com XXXIII
+修订记录
+Successfully sent return message: ConfigTCP,OK,;
+Parameter Name Data Type Valid Content
+Range
+Robot id Machine ID number, default = 0
+nRbtID unsigned 0~5
+int
+Tool Tool coordinate nameto becreated
+sTcpName string -
+Coordinate
+Name
+Tool coordinates tobeset:
+dTcp_X: Xcoordinate in[mm]
+dTcp_Y: Ycoordinate in[mm]
+dTcp_Z: Zcoordinate in [mm]
+dTcp_Rx:Rx coordinate in [°]
+Tool dTcp_Ry: Ry coordinate in [°]
+dTcp_X-dTc coordinates double -
+dTcp_Rz:Rzcoordinate in [°]
+p_Rz
+Failed tosend return message: ConfigTCP,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror code ofafailed call
+ErrorCode int
+Value >0
+Example
+//Create a newTCP withthe specified nameand value.
+ConfigTCP,0,TCP_A,0,0,0,10,0,0,0,;
+//Successful return
+ConfigTCP,OK,;
+//Failure return
+ConfigTCP,Fail,20018,
+ConfigUCS
+Description: new UCSwith specified nameand value.
+Sends themessage: configUCS,nRbtID,sTcpName,
+www.hansrobot.com XXXIV
+修订记录
+dUcs_X,dUcs_Y,dUcs_Z,dUcs_Rx,dUcs_Ry,dUcs_Rz,;
+Parameter Name Data Type Valid Content
+Range
+Robot id Machine ID number, default = 0
+nRbtID unsigned 0~5
+int
+User
+Coordinatename ofthe userto be
+sUcsName coordinate string -
+created
+name
+User coordinates to beset:
+dUcs_X: Xcoordinate in [mm]
+dUcs_Y: Ycoordinate in [mm]
+user dUcs_Z: Z coordinatein[mm]
+coordinate
+dUcs_X-dUc double -
+dUcs_Rx:Rx coordinate in [°]
+s
+s_Rz
+dUcs_Ry: Ry coordinate in [°]
+dUcs_Rz:Rz coordinatein[°]
+Successfully sent return message: ConfigUCS,OK,;
+Send Failure Return Message: ConfigUCS,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror code ofafailed call
+ErrorCode int
+Value >0
+Example
+//Create a newUCS with thespecified name and value.
+ConfigUCS,0,Point_A,420,0,445,180,0,180,;
+//Successful return
+ConfigUCS,OK,;
+//Failure return
+ConfigUCS,Fail,20018,;
+SetCollideLevel
+Description: set thecollision safety level.
+www.hansrobot.com XXXV
+修订记录
+Sends themessage: SetCollideLevel,nRbtID,nSafeLevel,;
+Parameter Name Data Type Valid Content
+Range
+robot id Machine ID number, default = 0
+nRbtID unsigned 0~5
+int
+Safety level (0-5)
+security 0: high limit, high safety
+nSafeLev level int -
+5: low limits, high risk
+el
+Successfully sent return message: SetCollideLevel,OK,;
+Failed tosend return message: SetCollideLevel,Fail,ErrorCode,;.
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror code ofafailed call
+ErrorCode int
+Value >0
+Example
+//Set thecollision safety level
+SetCollideLevel,0,3,.
+//Successful return
+SetCollideLevel,OK,;
+//Failure return
+SetCollideLevel,Fail,20018,;
+SetPoseTrackingStopTimeOut
+Description: set positiontracking timeout stoptimeout.
+Sends themessage: SetPoseTrackingStopTimeOut,nRbtID,dTime,;
+Parameter Name Data Type Valid Content
+Range
+robot id Machine ID number, default = 0
+nRbtID unsigned 0~5
+int
+Position following timeout stop
+timeout time in seconds [s]
+dTime int -
+www.hansrobot.com XXXVI
+修订记录
+Successful send return message:SetPoseTrackingStopTimeOut,OK,;
+SendFailureReturnMessage:SetPoseTrackingStopTimeOut,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror code ofafailed call
+ErrorCode int
+Value >0
+Example
+//Set thepositionfollowing timeout to stop
+SetPoseTrackingStopTimeOut,0,10,.
+//Successful return
+SetPoseTrackingStopTimeOut,0,10,;
+//Failure return
+SetPoseTrackingStopTimeOut,Fail,20018,;
+cdsSetIO
+Description:set theIO before themotion command reaches thetarget point.
+Sends themessage:
+cdsSetIO,nEndDOMask,nEndDOVal,nBoxDOMask,nBoxDOVal,nBoxCOMask,nBo
+xCOVal,nBoxAOCH0_Mask,nBoxAOCH0_Mode,nBoxAOCH1_Mask,nBoxAOCH
+1_Mode,dbBoxAOCH0_Val,dbBoxAOCH1_Val,;.
+Parameter Name Data Type Valid Content
+Range
+EndDOs to EndDO0~EndDO7 correspond to
+nEndDOMask be changed
+bit0~bit7of nEndDOMask, ifa
+are int -
+bit is 1,thevalueof its
+identified
+corresponding EndDO needs to
+bybit.
+be changed, otherwise, noneed
+to change.
+EndDO0~EndDO7 correspond to
+Target
+bit0~bit7of nEndDOVal.
+state of
+0: lowlevel
+nEndDOVal int -
+each
+1: High level
+EndDO to
+www.hansrobot.com XXXVII
+修订记录
+bechanged
+BoxDOs to BoxDO0~BoxDO7 correspond
+be changed
+to bit0~bit7of nBoxDOMask, if
+nBoxDOMask are int -
+a bitis 1,thevalueof its
+identified
+corresponding BoxDOneeds to
+bybit
+be changed, otherwise noneed to
+change.
+BoxDO0~BoxDO7 corresponds to
+Target
+bit0~bit7of nBoxDOVal.
+state of
+0: LowLevel
+nBoxDOVal int -
+each
+1: High level
+BoxDO
+to be
+changed
+BoxCOto BoxCO~BoxCOcorresponds to
+be changed
+bit0~bit7of nBoxCOMask, ifa
+nBoxCOMask bybit int -
+bit is 1,thevalueof its
+identifier
+corresponding BoxCOneeds to
+be changed, otherwise noneed to
+change.
+BoxCO~BoxCOcorresponds to
+Target
+nBoxCOVal. bit0~bit7.
+status of
+0: lowlevel
+nBoxCOVal int -
+each
+1: High level
+BoxCO to
+bechanged
+BoxAOCH0 0: No change required
+Identificatio 1: change required
+nBoxAOCH0_ int 0/1
+nofwhether
+Mask
+achange is
+required
+1: Voltage mode
+nBoxAOCH0_ Mode int 1/2
+Mode 2: Current mode
+BoxAOCH1 0: No change required
+Identificatio 1: change required
+nBoxAOCH1_ int 0/1
+nofwhether
+Mask
+achange is
+required
+www.hansrobot.com XXXVIII
+修订记录
+1: Voltage mode
+nBoxAOCH1_ Mode int 1/2
+Mode 2:Current mode
+Correspondi
+Current mode: 4-20mA
+dbBoxAOCH0 nganalog double 0~20
+_Val value Voltage mode: 0-10V
+Correspondi
+Current mode: 4-20mA
+dbBoxAOCH1 nganalog double 0~20
+_Val value Voltage mode: 0-10V
+Send Success Return Message: cdsSetIO,OK,;
+Send failed to return themessage: cdsSetIO,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror code ofafailed call
+ErrorCode int
+Value >0
+Example
+//Settheend EndDO1=0 before theendof motionat a waypoint.
+cdsSetIO,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,;
+//Successful return
+cdsSetIO,OK,;
+//Failure return
+cdsSetIO,Fail,20018,;
+EnterSafetyGuard
+Description:Force entry into thesafety light curtain mode(soft emergency stop).
+Sends themessage: EnterSafetyGuard,nRbtID,bFlag.
+Parameter Name Data Type Valid Content
+Range
+robot id Machine ID number, default = 0
+nRbtID unsigned 0~5
+int
+www.hansrobot.com XXXIX
+修订记录
+0: Exit soft stop
+status 1: Enter soft stop
+bFlag identifier int 0/1
+*Note: This instructionenters/exits thesoft stop byforcing thesafety light curtain
+in/out.After entering thesoft stop, thephenomenon seen ontheteach pendant or
+front-end interface isthat thesafety light curtain is entered. After exiting thesoft stop
+withthis instruction, you need toclick "Light Curtain Recovery" ontheteach pendant
+orfront-end interface.
+Successful sending returns themessage: EnterSafetyGuard,OK,;
+Send failed to return themessage: EnterSafetyGuard,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror code ofafailed call
+ErrorCode int
+Value >0
+Example
+//Robot enters soft emergency stop
+EnterSafetyGuard,0,1,;
+//Successful return
+EnterSafetyGuard,OK,;
+//Failure return
+EnterSafetyGuard,Fail,20018,;
+PackageVersion
+Description: read therobot package version number.
+Send message: PackageVersion,;
+Send successful return message: PackageVersion,OK,strPackageVer,;
+Parameter Name Data Type Valid Content
+Range
+Robot RobotModel
+nRbtID string -
+www.hansrobot.com XL
+修订记录
+Model
+Send Failure Return Message: PackageVersion,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror code ofafailed call
+ErrorCode int
+Value >0
+Example
+//Read therobot model
+PackageVersion,;
+//Successful return
+PackageVersion,OK,6.3.6.20240305,;
+ShortJogJ
+Description: short pointingmovement ofthejointwith amovement distance of 2° and
+amaximum speed of nomorethan10°/s.
+Send message: ShortJogJ,nRbtID,nAxisId,nDirection,;
+Parameter Name Data Type Valid Content
+Range
+robot id Machine ID number, default = 0
+nRbtID unsigned 0~5
+int
+joint id Target axis ID of the motion,
+nAxisId int 0~5
+corresponding to joints J1-J6
+0：Negative direction
+nDirection Moveme int 0/1
+nt 1：Positivedirection
+direction
+Send Successful Return Message:ShortJogJ,OK,;
+Send failed to return themessage: ShortJogJ,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+Range
+www.hansrobot.com XLI
+修订记录
+Error Code Integer Returns theerror code ofafailed call
+ErrorCode int
+Value >0
+Example
+//Positive2° movement ofjoint2
+ShortJogJ,0,1,1,;
+//Successful return
+ShortJogJ,OK,;
+//Failure return
+ShortJogJ,Fail,20007,;
+ShortJogL
+Description:short pointwisemotionin spatial coordinates, with amotion distanceof2
+mmor 2° andamaximum speed of not morethan 10mm/s or10°/s.
+Send message: ShortJogL,nRbtID,nAxisId,nDirection,;
+Parameter Name Data Type Valid Content
+Range
+robot id Machine ID number, default = 0
+nRbtID unsigned 0~5
+int
+directio ID of the target direction of
+nAxisId int 0~5
+n id motion, corresponding to the
+coordinates X-Rz
+0: Negativedirection
+nDirection direction int 0/1
+1: Positivedirection
+Send Successful Return Message:ShortJogL,OK,;
+Send failed to return themessage: ShortJogL,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror code ofafailed call
+ErrorCode int
+Value >0
+Example
+//PositiveY-axis movement of 2mm
+ShortJogL,0,1,1,;;
+www.hansrobot.com XLII
+修订记录
+//Successful return
+ShortJogL,OK,;
+//Failure return
+ShortJogL,Fail,20007,;
+LongJogJ
+Description:Long pointing movement ofthejoint witha maximummovement speed
+ofnot morethan10°/s.
+Send message: LongJogJ,nRbtID,nAxisId,nDirection,nState,;
+Parameter Name Data Type Valid Content
+Range
+robot id Machine ID number, default = 0
+nRbtID unsigned 0~5
+int
+axis id Target axis ID of the motion,
+nAxisId int 0~5
+corresponding to joints J1-J6
+0: Negativedirection
+nDirection Directio int 0/1
+n 1: Positivedirection
+0: Off
+nState status int 0/1
+1: On
+*Note: Mustbe used with LongMoveEvent.
+Successful send return message: LongJogJ,OK,;
+Return message forfailed send: LongJogJ,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror code ofafailed call
+ErrorCode int
+Value >0
+Example
+//Joint 2longpositivemotion
+LongJogJ,0,1,1,1,;
+//Successful return
+www.hansrobot.com XLIII
+修订记录
+LongJogJ,OK,;
+//Failure return
+LongJogJ,Fail,20018,;
+LongJogL
+Description:long pointingmotion inspace coordinate,maximum motionspeed not
+exceeding 30mm/s.
+Send message: LongJogL,nRbtID,nAxisId,nDirection,nState,;.
+Parameter Name Data Valid Co
+Type Range nte
+nt
+robot id Machine ID number, default = 0
+nRbtID unsigned 0~5
+int
+axis id ID of the target direction of
+nAxisId int 0~5
+motion, corresponding to the
+spatial coordinates X-Rz
+0: Negativedirection
+nDirection direction int 0/1
+1: Positivedirection
+0：off
+nState status int 0/1
+1：on
+*Note: Mustbe used with LongMoveEvent.
+Successful send return message: LongJogL,OK,;
+Return message forfailed send: LongJogL,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror code ofafailed call
+ErrorCode int
+Value >0
+Example
+//Long jog in thepositivedirection of theY-axis
+LongJogL,0,1,1,1,;
+//Successful return
+www.hansrobot.com XLIV
+修订记录
+LongJogL,OK,;
+//Failure return.
+LongJogL,Fail,20018,;
+LongMoveEvent
+Description:LongMoveEvent, can be called cyclically with a period not exceeding
+200ms, otherwisetheLongMoveEvent is stopped automatically.
+Send message: LongMoveEvent,nRbtID,;
+Parameter Name Data Type Valid Content
+Range
+nRbtID robot id unsigned int 0~5 MachineID number, default =0
+Successful send return message:LongMoveEvent,OK,;
+Send failed to return themessage: LongMoveEvent,Fail,ErrorCode,;
+Return Value Name Data Type Valid Content
+Range
+Error Code Integer Returns theerror code ofafailed call
+ErrorCode int
+Value >0
+Example
+//Long Move Event
+LongMoveEvent,0,;
+//Successful return
+LongMoveEvent,OK,;
+//Failure return
+LongMoveEvent,Fail,20018,;
+www.hansrobot.com XLV

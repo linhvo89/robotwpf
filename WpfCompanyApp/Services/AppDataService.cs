@@ -143,6 +143,7 @@ namespace WpfCompanyApp.Services
         [ObservableProperty] private bool disableOn;
         [ObservableProperty] private bool openOn;
         [ObservableProperty] private bool closeOn;
+        [ObservableProperty] private bool robotPoweredOn;
 
         // Jog settings
         [ObservableProperty] private bool isStepMode;

@@ -609,7 +609,14 @@
                                  Foreground="#00FF88"
                                  MaxHeight="180"
                                  Height="180"
-                                 ScrollViewer.VerticalScrollBarVisibility="Auto"/>
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}"
+                                               Foreground="{Binding Converter={StaticResource MachineLogForeground}}"/>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
                     </Border>
                 </StackPanel>
             </Grid>

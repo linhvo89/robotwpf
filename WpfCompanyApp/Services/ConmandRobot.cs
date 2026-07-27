@@ -611,6 +611,48 @@ namespace WpfCompanyApp.Services
                 return CODE.ERR_Connect;
             }
         }
+
+        public string ReadControllerState(out int started)
+        {
+            started = 0;
+            int sends = tcpsent("ReadControllerState,;");
+            if (sends != 0)
+                return CODE.CONNECT_FAIL;
+
+            string bufdata = subReciveCmd("ReadControllerState");
+            if (string.IsNullOrEmpty(bufdata))
+                return CODE.SUBRECIVE_FAIL;
+
+            string[] arraybuf = bufdata.Split(',');
+            if (arraybuf.Length >= 3
+                && arraybuf[1] == "OK"
+                && int.TryParse(arraybuf[2], out started))
+            {
+                return CODE.OK;
+            }
+
+            return CODE.SUBRECIVE_FAIL;
+        }
+
+        public int GrpEnable(int rbtID)
+        {
+            int sends = tcpsent("GrpEnable," + rbtID + ",;");
+            if (sends != 0)
+                return CODE.ERR_Connect;
+
+            string bufdata = subReciveCmd("GrpEnable");
+            if (string.IsNullOrEmpty(bufdata))
+                return CODE.ERR_NotRecive;
+
+            string[] arraybuf = bufdata.Split(',');
+            if (arraybuf.Length >= 2 && arraybuf[1] == "OK")
+                return 0;
+
+            return arraybuf.Length >= 3 && int.TryParse(arraybuf[2], out int errorCode)
+                ? errorCode
+                : CODE.ERR_NotRecive;
+        }
+
         public int CloseMaster()
         {
             int sends = tcpsent("CloseMaster,;");

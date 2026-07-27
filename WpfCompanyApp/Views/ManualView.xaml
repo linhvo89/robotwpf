@@ -698,23 +698,247 @@
                                         <ComboBox Width="160" Margin="10,0"/>
                                     </StackPanel>
 
+                                    <!-- Robot startup status: Powered on -> Initialized -> Disable -> Standby -->
+                                    <Grid Margin="8,14,8,4" Height="62">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="*"/>
+                                            <ColumnDefinition Width="Auto"/>
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="26"/>
+                                            <RowDefinition Height="30"/>
+                                        </Grid.RowDefinitions>
+
+                                        <!-- Connecting lines -->
+                                        <Border Grid.Row="0" Grid.Column="1" Height="2" VerticalAlignment="Center">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="#AEB4BD"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding RobotPoweredOn}" Value="True">
+                                                            <Setter Property="Background" Value="#43B92C"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                        </Border>
+                                        <Border Grid.Row="0" Grid.Column="3" Height="2" VerticalAlignment="Center">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="#AEB4BD"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding OpenOn}" Value="True">
+                                                            <Setter Property="Background" Value="#43B92C"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                        </Border>
+                                        <Border Grid.Row="0" Grid.Column="5" Height="2" VerticalAlignment="Center">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="#AEB4BD"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding EnableOn}" Value="True">
+                                                            <Setter Property="Background" Value="#43B92C"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                        </Border>
+
+                                        <!-- Step circles -->
+                                        <Grid Grid.Row="0" Grid.Column="0" Width="24" Height="24">
+                                            <Ellipse Fill="White" StrokeThickness="2">
+                                                <Ellipse.Style>
+                                                    <Style TargetType="Ellipse">
+                                                        <Setter Property="Stroke" Value="#AEB4BD"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding RobotPoweredOn}" Value="True">
+                                                                <Setter Property="Stroke" Value="#43B92C"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Ellipse.Style>
+                                            </Ellipse>
+                                            <TextBlock Text="✓" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="#AEB4BD"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding RobotPoweredOn}" Value="True">
+                                                                <Setter Property="Foreground" Value="#43B92C"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
+                                        <Grid Grid.Row="0" Grid.Column="2" Width="24" Height="24">
+                                            <Ellipse Fill="White" StrokeThickness="2">
+                                                <Ellipse.Style>
+                                                    <Style TargetType="Ellipse">
+                                                        <Setter Property="Stroke" Value="#AEB4BD"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding OpenOn}" Value="True">
+                                                                <Setter Property="Stroke" Value="#43B92C"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Ellipse.Style>
+                                            </Ellipse>
+                                            <TextBlock Text="✓" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="#AEB4BD"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding OpenOn}" Value="True">
+                                                                <Setter Property="Foreground" Value="#43B92C"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
+                                        <Grid Grid.Row="0" Grid.Column="4" Width="24" Height="24">
+                                            <Ellipse Fill="White" StrokeThickness="2">
+                                                <Ellipse.Style>
+                                                    <Style TargetType="Ellipse">
+                                                        <Setter Property="Stroke" Value="#AEB4BD"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding OpenOn}" Value="True">
+                                                                <Setter Property="Stroke" Value="#43B92C"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Ellipse.Style>
+                                            </Ellipse>
+                                            <TextBlock Text="✓" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="#AEB4BD"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding OpenOn}" Value="True">
+                                                                <Setter Property="Foreground" Value="#43B92C"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
+                                        <Grid Grid.Row="0" Grid.Column="6" Width="24" Height="24">
+                                            <Ellipse Fill="White" StrokeThickness="2">
+                                                <Ellipse.Style>
+                                                    <Style TargetType="Ellipse">
+                                                        <Setter Property="Stroke" Value="#AEB4BD"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding EnableOn}" Value="True">
+                                                                <Setter Property="Stroke" Value="#43B92C"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Ellipse.Style>
+                                            </Ellipse>
+                                            <TextBlock Text="✓" HorizontalAlignment="Center" VerticalAlignment="Center">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="Foreground" Value="#AEB4BD"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding EnableOn}" Value="True">
+                                                                <Setter Property="Foreground" Value="#43B92C"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
+                                        </Grid>
+
+                                        <!-- Step labels -->
+                                        <TextBlock Grid.Row="1" Grid.Column="0" Text="Powered on" Margin="-25,3,-25,0"
+                                                   HorizontalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#AEB4BD"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding RobotPoweredOn}" Value="True">
+                                                            <Setter Property="Foreground" Value="#43B92C"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Grid.Row="1" Grid.Column="2" Text="Controller initialized" Margin="-65,3,-65,0"
+                                                   HorizontalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#AEB4BD"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding OpenOn}" Value="True">
+                                                            <Setter Property="Foreground" Value="#43B92C"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Grid.Row="1" Grid.Column="4" Text="Disable" Margin="-25,3,-25,0"
+                                                   HorizontalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#AEB4BD"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding OpenOn}" Value="True">
+                                                            <Setter Property="Foreground" Value="#43B92C"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <TextBlock Grid.Row="1" Grid.Column="6" Text="Standby" Margin="-25,3,-25,0"
+                                                   HorizontalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="#AEB4BD"/>
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding EnableOn}" Value="True">
+                                                            <Setter Property="Foreground" Value="#43B92C"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                    </Grid>
+
                                     <UniformGrid Columns="3" Margin="0,10">
 
                                         <Button Width="120" Height="42" FontSize="16" FontWeight="Bold" Foreground="White">
                                             <Button.Style>
                                                 <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                                    <Setter Property="Content" Value="OPEN"/>
-                                                    <Setter Property="Background" Value="#555555"/>
+                                                    <Setter Property="Content" Value="POWER ON"/>
+                                                    <Setter Property="Background" Value="#49BF91"/>
                                                     <Setter Property="Command" Value="{Binding RequestOpenCommand}"/>
 
                                                     <Style.Triggers>
+                                                        <MultiDataTrigger>
+                                                            <MultiDataTrigger.Conditions>
+                                                                <Condition Binding="{Binding RobotPoweredOn}" Value="True"/>
+                                                                <Condition Binding="{Binding OpenOn}" Value="False"/>
+                                                            </MultiDataTrigger.Conditions>
+                                                            <Setter Property="Content" Value="INITIALIZE"/>
+                                                            <Setter Property="Background" Value="#49BF91"/>
+                                                        </MultiDataTrigger>
+
                                                         <MultiDataTrigger>
                                                             <MultiDataTrigger.Conditions>
                                                                 <Condition Binding="{Binding OpenOn}" Value="True"/>
                                                                 <Condition Binding="{Binding EnableOn}" Value="False"/>
                                                             </MultiDataTrigger.Conditions>
                                                             <Setter Property="Content" Value="ENABLE"/>
-                                                            <Setter Property="Background" Value="#FFD600"/>
+                                                            <Setter Property="Background" Value="#49BF91"/>
                                                             <Setter Property="Command" Value="{Binding RequestEnableCommand}"/>
                                                         </MultiDataTrigger>
 
@@ -724,7 +948,7 @@
                                                                 <Condition Binding="{Binding EnableOn}" Value="True"/>
                                                             </MultiDataTrigger.Conditions>
                                                             <Setter Property="Content" Value="DISABLE"/>
-                                                            <Setter Property="Background" Value="#00C853"/>
+                                                            <Setter Property="Background" Value="#F0AD4E"/>
                                                             <Setter Property="Command" Value="{Binding RequestDisableCommand}"/>
                                                         </MultiDataTrigger>
                                                     </Style.Triggers>
@@ -732,12 +956,13 @@
                                             </Button.Style>
                                         </Button>
 
-                                        <Button Content="CLOSE"
+                                        <Button Content="POWER OFF"
             Width="120" Height="42" FontSize="16" FontWeight="Bold" Foreground="White"
             Command="{Binding RequestCloseCommand}">
                                             <Button.Style>
                                                 <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                                    <Setter Property="Background" Value="#555555"/>
+                                                    <Setter Property="Background" Value="#FF3D64"/>
+                                                    <Setter Property="IsEnabled" Value="{Binding RobotPoweredOn}"/>
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding CloseOn}" Value="True">
                                                             <Setter Property="Background" Value="#D32F2F"/>

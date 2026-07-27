@@ -134,6 +134,10 @@ namespace WpfCompanyApp.Services
         private bool _isRobotConnected = false;
         private bool _robotConnectAttemptLogged = false;
         private bool _robotConnectFailureLogged = false;
+        private bool? _lastRobotReadyStatus;
+        private string _lastRobotStatusSignature = "";
+        private DateTime _nextRobotStatusCheckUtc = DateTime.MinValue;
+        private static readonly TimeSpan RobotStatusCheckInterval = TimeSpan.FromSeconds(1);
         private const string DropForwardPathName = "ABGO";
         private const string DropReturnPathName = "ABGOBACK";
         private const double DropPathDefaultVelocity = 0.05;
@@ -959,6 +963,7 @@ namespace WpfCompanyApp.Services
                             ? "[ROBOT TCP] Đã kết nối lại robot thành công."
                             : "[ROBOT TCP] Kết nối robot thành công.");
                     AddRobotHistory("[ROBOT TCP] Connected OK");
+                    UpdateRobotStatusHistory(force: true);
                     _robotConnectFailureLogged = false;
 
                     _state = AppState.Idle;
@@ -990,12 +995,116 @@ namespace WpfCompanyApp.Services
             }
         }
 
+        private void UpdateRobotStatusHistory(bool force = false)
+        {
+            DateTime nowUtc = DateTime.UtcNow;
+            if (!force && nowUtc < _nextRobotStatusCheckUtc)
+                return;
+
+            _nextRobotStatusCheckUtc = nowUtc + RobotStatusCheckInterval;
+
+            string result = _robot.ReadRobotState(0, out int[] state);
+            if (result != "OK" || state == null || state.Length < 11)
+            {
+                string readErrorSignature = $"READ_ERROR:{result}";
+                if (force || _lastRobotStatusSignature != readErrorSignature)
+                {
+                    AddRobotHistory(
+                        $"[WARNING][ROBOT STATUS] Không đọc được trạng thái robot: {result}.");
+                }
+
+                _lastRobotReadyStatus = null;
+                _lastRobotStatusSignature = readErrorSignature;
+                return;
+            }
+
+            // Đồng bộ trang Manual bằng trạng thái robot thực tế, không dựa vào
+            // việc người dùng đã nhấn nút nào trong ứng dụng.
+            bool poweredOn = state[9] == 1;
+            bool servoEnabled = state[1] == 1;
+            bool controllerInitialized = servoEnabled;
+            if (poweredOn && !controllerInitialized)
+            {
+                string controllerResult =
+                    _robot.ReadControllerState(out int controllerStarted);
+                controllerInitialized =
+                    controllerResult == "OK" && controllerStarted == 1;
+            }
+
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                _data.RobotPoweredOn = poweredOn;
+                _data.OpenOn = controllerInitialized;
+                _data.EnableOn = servoEnabled;
+                _data.DisableOn = controllerInitialized && !servoEnabled;
+                if (!servoEnabled)
+                    _data.FreeDriveOn = false;
+            });
+
+            var notReadyReasons = new List<string>();
+
+            if (state[1] == 0)
+                notReadyReasons.Add("servo chưa Enable");
+            if (state[2] != 0)
+                notReadyReasons.Add("robot đang báo lỗi");
+            if (state[3] != 0)
+                notReadyReasons.Add($"mã lỗi={state[3]}");
+            if (state[4] != 0)
+                notReadyReasons.Add($"trục lỗi={state[4]}");
+            if (state[7] != 0)
+                notReadyReasons.Add("Emergency Stop đang tác động");
+            if (state[9] == 0)
+                notReadyReasons.Add("controller chưa Electrify");
+            if (state[10] == 0)
+                notReadyReasons.Add("chưa kết nối control box");
+
+            bool isReady = notReadyReasons.Count == 0;
+            string statusSignature = isReady
+                ? "READY"
+                : string.Join("|", notReadyReasons);
+
+            // Chỉ ghi khi trạng thái thay đổi để không làm đầy Robot History.
+            if (!force &&
+                _lastRobotReadyStatus == isReady &&
+                _lastRobotStatusSignature == statusSignature)
+            {
+                return;
+            }
+
+            _lastRobotReadyStatus = isReady;
+            _lastRobotStatusSignature = statusSignature;
+
+            if (isReady)
+            {
+                AddRobotHistory(
+                    $"[ROBOT STATUS] READY - Moving={state[0]}, Enable={state[1]}, " +
+                    $"Error={state[2]}, ErrorCode={state[3]}, Emergency={state[7]}, " +
+                    $"Electrify={state[9]}, ControlBox={state[10]}.");
+                return;
+            }
+
+            AddRobotHistory(
+                $"[WARNING][ROBOT STATUS] NOT READY - {string.Join("; ", notReadyReasons)}. " +
+                $"Raw: Moving={state[0]}, Enable={state[1]}, Error={state[2]}, " +
+                $"ErrorCode={state[3]}, ErrorAxis={state[4]}, Emergency={state[7]}, " +
+                $"Electrify={state[9]}, ControlBox={state[10]}.");
+        }
+
         // IDLE: chờ Start / Home => coi như trạng thái STOP
         private void HandleIdle()
         {
+            UpdateRobotStatusHistory();
+
             if (_data.StartRequested)
             {
                 _data.StartRequested = false;
+
+                if (!TryPrepareRobotForMotion("START", out string robotPrepareError))
+                {
+                    ReportRecoverableInterlock(
+                        $"[START] Không thể khởi tạo robot: {robotPrepareError}");
+                    return;
+                }
 
                 if (!TryValidateStartInterlocks(out string startInterlockError))
                 {
@@ -1067,6 +1176,14 @@ namespace WpfCompanyApp.Services
             if (_data.HomeRequested)
             {
                 _data.HomeRequested = false;
+
+                if (!TryPrepareRobotForMotion("HOME", out string robotPrepareError))
+                {
+                    ReportRecoverableInterlock(
+                        $"[HOME] Không thể khởi tạo robot: {robotPrepareError}");
+                    return;
+                }
+
                 AddMachineLog("[STATE] Home requested from IDLE -> HOMING");
                 _state = AppState.Homing;
                 _readyState = ReadySubState.CheckStatus;
@@ -1095,16 +1212,16 @@ namespace WpfCompanyApp.Services
                 _data.ResetRequested = false;
                 AddMachineLog("[STATE] Reset requested in IDLE.");
                 index = 0;
-                // Nếu bạn có hàm reset lỗi robot:
-                // bool resetOk = _robot.ResetError();
-                // if (!resetOk)
-                // {
-                //     AddMachineLog("[ERROR] Reset robot thất bại trong IDLE.");
-                // }
-                // else
-                // {
-                //     AddMachineLog("[STATE] Reset robot OK trong IDLE.");
-                // }
+
+                if (!TryResetRobotError(out string resetError))
+                {
+                    AddMachineLog($"[ERROR] Reset robot thất bại: {resetError}");
+                    AddRobotHistory($"[ERROR][ROBOT STATUS] {resetError}");
+                    return;
+                }
+
+                AddMachineLog("[STATE] Reset robot OK trong IDLE.");
+                AddRobotHistory("[RESET][ROBOT STATUS] Đã xóa lỗi robot thành công.");
 
                 // Clear cờ lỗi trên phần mềm (nếu đang còn)
                 _hasError = false;
@@ -2260,6 +2377,265 @@ namespace WpfCompanyApp.Services
             return false;
         }
 
+        private bool TryPrepareRobotForMotion(string context, out string error)
+        {
+            string readResult = _robot.ReadRobotState(0, out int[] state);
+            if (readResult != "OK" || state == null || state.Length < 11)
+            {
+                error = $"không đọc được trạng thái robot ({readResult}).";
+                return false;
+            }
+
+            if (state[7] != 0 || state[2] != 0 || state[3] != 0 || state[4] != 0)
+            {
+                string errorDescription = state[3] != 0
+                    ? new Error_Robot().Ss_Error(state[3])
+                    : "Robot đang ở trạng thái lỗi";
+
+                error =
+                    $"Robot ERROR - ErrorCode={state[3]} ({errorDescription}), " +
+                    $"ErrorAxis={state[4]}, Emergency={state[7]}. " +
+                    "Không gửi lệnh khởi tạo. Hãy nhả Emergency Stop nếu đang tác động, sau đó nhấn nút Reset.";
+                AddRobotHistory($"[ERROR][ROBOT STATUS] {error}");
+                return false;
+            }
+
+            if (state[10] == 0)
+            {
+                error = "robot chưa kết nối control box.";
+                return false;
+            }
+
+            // Bước 1: cấp điện nếu robot chưa Powered on.
+            if (state[9] == 0)
+            {
+                AddRobotHistory($"[{context}][ROBOT INIT] Bước 1/3: Electrify...");
+                int electrifyResult = _robot.Electrify();
+
+                if (electrifyResult == 0)
+                    Thread.Sleep(5000);
+                else
+                    Thread.Sleep(500);
+
+                DateTime electrifyDeadlineUtc = DateTime.UtcNow.AddSeconds(8);
+                do
+                {
+                    readResult = _robot.ReadRobotState(0, out state);
+                    if (readResult == "OK" && state != null && state.Length >= 11 && state[9] == 1)
+                        break;
+
+                    Thread.Sleep(250);
+                }
+                while (DateTime.UtcNow < electrifyDeadlineUtc);
+
+                if (readResult != "OK" || state == null || state.Length < 11 || state[9] != 1)
+                {
+                    error =
+                        $"Electrify chưa thành công (phản hồi {electrifyResult}); " +
+                        "robot vẫn chưa chuyển sang Powered on.";
+                    return false;
+                }
+
+                AddRobotHistory($"[{context}][ROBOT INIT] Bước 1/3: Electrify OK.");
+            }
+            else
+            {
+                AddRobotHistory(
+                    $"[{context}][ROBOT INIT] Bước 1/3: Robot đã Electrify, bỏ qua.");
+            }
+
+            // Bước 2: V6 cung cấp trạng thái riêng cho Controller initialized.
+            // Không suy luận trạng thái này từ Electrify hoặc PowerState.
+            string controllerReadResult = _robot.ReadControllerState(out int controllerStarted);
+            if (controllerReadResult != "OK")
+            {
+                error = $"không đọc được trạng thái Controller initialized ({controllerReadResult}).";
+                return false;
+            }
+
+            int lastMasterResult = 0;
+            if (controllerStarted == 0)
+            {
+                AddRobotHistory(
+                    $"[{context}][ROBOT INIT] Bước 2/3: Controller chưa initialized, gửi StartMaster...");
+
+                // StartMaster có thể trả lỗi khi controller đang chuyển trạng thái.
+                // Thử lại có giới hạn và chỉ thành công khi ReadControllerState=1.
+                for (int attempt = 1; attempt <= 3 && controllerStarted == 0; attempt++)
+                {
+                    lastMasterResult = _robot.StartMaster(0);
+                    AddRobotHistory(
+                        $"[{context}][ROBOT INIT] StartMaster lần {attempt}, phản hồi {lastMasterResult}; " +
+                        "đang chờ Controller initialized...");
+
+                    DateTime controllerDeadlineUtc = DateTime.UtcNow.AddSeconds(20);
+                    do
+                    {
+                        Thread.Sleep(500);
+                        controllerReadResult = _robot.ReadControllerState(out controllerStarted);
+                        if (controllerReadResult == "OK" && controllerStarted == 1)
+                            break;
+                    }
+                    while (DateTime.UtcNow < controllerDeadlineUtc);
+                }
+
+                if (controllerStarted != 1)
+                {
+                    error =
+                        $"không Initialize được controller (StartMaster={lastMasterResult}, " +
+                        $"ReadControllerState={controllerReadResult}, Started={controllerStarted}). " +
+                        "Không gửi lệnh Enable.";
+                    return false;
+                }
+
+                AddRobotHistory(
+                    $"[{context}][ROBOT INIT] Bước 2/3: Controller initialized OK.");
+
+                // ReadControllerState=1 xuất hiện trước khi toàn bộ axis group vào
+                // trạng thái Disable ổn định. Cho controller thêm thời gian hoàn tất
+                // startup trước khi gửi lệnh Servo.
+                AddRobotHistory(
+                    $"[{context}][ROBOT INIT] Chờ axis group vào trạng thái Disable ổn định (5 giây)...");
+                Thread.Sleep(5000);
+            }
+            else
+            {
+                AddRobotHistory(
+                    $"[{context}][ROBOT INIT] Bước 2/3: Controller đã initialized, bỏ qua StartMaster.");
+            }
+
+            // Bước 3: bộ điều khiển này dùng GrpPowerOn để bật Servo.
+            // Chỉ gửi sau khi ReadControllerState xác nhận initialized.
+            readResult = _robot.ReadRobotState(0, out state);
+            if (readResult != "OK" || state == null || state.Length < 11)
+            {
+                error = $"không đọc được trạng thái robot trước khi Enable ({readResult}).";
+                return false;
+            }
+
+            int enableResult = 0;
+            if (state[1] == 0)
+            {
+                // Lệnh có thể được robot thực thi dù TCP trả -1002, nên mỗi lần
+                // gửi đều xác nhận bằng PowerState và chỉ thử lại khi vẫn Disable.
+                for (int enableAttempt = 1; enableAttempt <= 3 && state[1] == 0; enableAttempt++)
+                {
+                    AddRobotHistory(
+                        $"[{context}][ROBOT INIT] Bước 3/3: Enable Servo " +
+                        $"(GrpPowerOn lần {enableAttempt}/3)...");
+                    enableResult = _robot.GrpPowerOn(0);
+
+                    DateTime enableDeadlineUtc = DateTime.UtcNow.AddSeconds(6);
+                    do
+                    {
+                        Thread.Sleep(500);
+                        readResult = _robot.ReadRobotState(0, out int[] polledState);
+                        if (readResult == "OK"
+                            && polledState != null
+                            && polledState.Length >= 11)
+                        {
+                            state = polledState;
+                            if (state[1] == 1)
+                                break;
+                        }
+                    }
+                    while (DateTime.UtcNow < enableDeadlineUtc);
+
+                    if (state[1] == 0 && enableAttempt < 3)
+                    {
+                        AddRobotHistory(
+                            $"[{context}][ROBOT INIT] Servo vẫn Disable " +
+                            $"(phản hồi {enableResult}), chờ 2 giây rồi thử lại...");
+                        Thread.Sleep(2000);
+                    }
+                }
+            }
+
+            if (readResult != "OK" || state == null || state.Length < 11 || state[1] != 1)
+            {
+                error =
+                    $"đã gửi lệnh Enable (phản hồi {enableResult}) nhưng Servo chưa chuyển " +
+                    "sang trạng thái Enable.";
+                return false;
+            }
+
+            AddRobotHistory($"[{context}][ROBOT INIT] Robot READY - Servo đã Enable.");
+            _lastRobotReadyStatus = true;
+            _lastRobotStatusSignature = "READY";
+            error = string.Empty;
+            return true;
+        }
+
+        private bool TryResetRobotError(out string error)
+        {
+            string readResult = _robot.ReadRobotState(0, out int[] state);
+            if (readResult != "OK" || state == null || state.Length < 11)
+            {
+                error = $"Không đọc được trạng thái robot trước khi Reset ({readResult}).";
+                return false;
+            }
+
+            if (state[7] == 0 && state[2] == 0 && state[3] == 0 && state[4] == 0)
+            {
+                error = string.Empty;
+                return true;
+            }
+
+            AddRobotHistory(
+                $"[RESET][ROBOT STATUS] Gửi GrpReset - ErrorCode={state[3]}, " +
+                $"ErrorAxis={state[4]}, Emergency={state[7]}...");
+            int resetResult = _robot.GrpReset(0);
+
+            // GrpReset có thể thực thi thành công nhưng controller không trả
+            // response kịp thời (-1002). Vì vậy kết luận theo trạng thái thực
+            // tế, không kết luận thất bại chỉ dựa vào response của lệnh.
+            DateTime resetDeadlineUtc = DateTime.UtcNow.AddSeconds(8);
+            bool stateReadOk = false;
+            do
+            {
+                Thread.Sleep(500);
+                readResult = _robot.ReadRobotState(0, out state);
+                stateReadOk =
+                    readResult == "OK" &&
+                    state != null &&
+                    state.Length >= 11;
+
+                if (stateReadOk &&
+                    state[7] == 0 &&
+                    state[2] == 0 &&
+                    state[3] == 0 &&
+                    state[4] == 0)
+                {
+                    _lastRobotReadyStatus = null;
+                    _lastRobotStatusSignature = "";
+                    error = string.Empty;
+                    return true;
+                }
+            }
+            while (DateTime.UtcNow < resetDeadlineUtc);
+
+            if (!stateReadOk)
+            {
+                error =
+                    $"Đã gửi GrpReset nhưng không đọc được trạng thái xác nhận " +
+                    $"({readResult}); response lệnh={resetResult}.";
+                return false;
+            }
+
+            if (state[7] != 0 || state[2] != 0 || state[3] != 0 || state[4] != 0)
+            {
+                error =
+                    $"Robot vẫn còn lỗi sau Reset: ErrorCode={state[3]}, " +
+                    $"ErrorAxis={state[4]}, Emergency={state[7]}. " +
+                    $"Response lệnh={resetResult}. Nếu Emergency=1, hãy nhả nút " +
+                    "Emergency Stop rồi nhấn Reset lại.";
+                return false;
+            }
+
+            error = $"Không xác định được kết quả Reset; response lệnh={resetResult}.";
+            return false;
+        }
+
         private bool TryValidateStartInterlocks(out string error)
         {
             if (!TryValidateDoorsClosed(out string doorError))
@@ -3328,37 +3704,56 @@ namespace WpfCompanyApp.Services
                 if (_data.EnableReq)
                 {
                     _data.EnableReq = false;
-                    AddMachineLog("[MANUAL] Đang gửi lệnh Enable Robot (GrpPowerOn)...");
-
-                    int res = _robot.GrpPowerOn(0); //
-
-                    // 0 = Đã nhận lệnh. 20018 = Đã bật sẵn.
-                    if (res == 0 || res == 20018)
+                    string controllerResult = _robot.ReadControllerState(out int controllerStarted);
+                    if (controllerResult != "OK" || controllerStarted != 1)
                     {
-                        AddMachineLog("[MANUAL] Lệnh đã gửi. Đang chờ Servo vật lý đóng phanh (2s)...");
-                        Thread.Sleep(2000); // Thời gian bắt buộc để động cơ nạp dòng
-
-                        // XÁC MINH TRẠNG THÁI THỰC TẾ
-                        int[] rbtState;
-                        string errType = _robot.ReadRobotState(0, out rbtState); //
-
-                        // rbtState[1] là PowerState. Nếu = 1 tức là Servo đã thực sự ON
-                        if (errType == "OK" && rbtState[1] == 1)
-                        {
-                            AddMachineLog("[MANUAL] Enable thành công.");
-                            Application.Current?.Dispatcher.Invoke(() =>
-                            {
-                                _data.EnableOn = true;
-                                _data.DisableOn = false;
-                            });
-                        }
-                        else
-                        {
-                            // Robot từ chối bật do có lỗi ngầm
-                            AddMachineLog("[MANUAL] Hệ thống đang khởi động");
-                        }
+                        AddMachineLog(
+                            "[MANUAL] Không thể Enable: Controller chưa initialized. Hãy nhấn OPEN trước.");
+                        return;
                     }
-                    else AddMachineLog($"[MANUAL] Enable thất bại (TCP Error): {res}");
+
+                    int enableResult = 0;
+                    int[] rbtState = null;
+                    string stateResult = "";
+                    for (int attempt = 1; attempt <= 3; attempt++)
+                    {
+                        AddMachineLog($"[MANUAL] Enable Servo lần {attempt}/3 (GrpPowerOn)...");
+                        enableResult = _robot.GrpPowerOn(0);
+
+                        DateTime deadlineUtc = DateTime.UtcNow.AddSeconds(6);
+                        do
+                        {
+                            Thread.Sleep(500);
+                            stateResult = _robot.ReadRobotState(0, out int[] currentState);
+                            if (stateResult == "OK" && currentState != null && currentState.Length >= 11)
+                            {
+                                rbtState = currentState;
+                                if (rbtState[1] == 1)
+                                    break;
+                            }
+                        }
+                        while (DateTime.UtcNow < deadlineUtc);
+
+                        if (rbtState != null && rbtState[1] == 1)
+                            break;
+
+                        if (attempt < 3)
+                            Thread.Sleep(2000);
+                    }
+
+                    bool servoEnabled = rbtState != null && rbtState.Length >= 11 && rbtState[1] == 1;
+                    AddMachineLog(
+                        servoEnabled
+                            ? "[MANUAL] Enable thành công - robot đang Standby."
+                            : $"[MANUAL] Enable không thành công (phản hồi {enableResult}, trạng thái {stateResult}).");
+
+                    Application.Current?.Dispatcher.Invoke(() =>
+                    {
+                        _data.OpenOn = true;
+                        _data.CloseOn = false;
+                        _data.EnableOn = servoEnabled;
+                        _data.DisableOn = !servoEnabled;
+                    });
                 }
 
                 // 2. Xử lý DISABLE (Tắt Servo đơn lẻ)
@@ -3395,84 +3790,115 @@ namespace WpfCompanyApp.Services
                     else AddMachineLog($"[MANUAL] Disable thất bại: {res}");
                 }
 
-                // 3. Xử lý OPEN (Quy trình chuẩn: Electrify -> StartMaster -> Enable Servo)
+                // 3. OPEN: đưa robot tới trạng thái Controller initialized/Disable.
                 if (_data.OpenReq)
                 {
                     _data.OpenReq = false;
-                    AddMachineLog("[MANUAL] Đang thực hiện quy trình OPEN ...");
+                    AddMachineLog("[MANUAL] OPEN: Powered on -> Controller initialized...");
 
-                    bool electrifyOk = false;
-
-                    // --- BƯỚC 1: CẤP ĐIỆN (ELECTRIFY) ---
-                    int res1 = _robot.Electrify();
-
-                    if (res1 == 0)
+                    string stateResult = _robot.ReadRobotState(0, out int[] openState);
+                    if (stateResult != "OK" || openState == null || openState.Length < 11)
                     {
-                        AddMachineLog("[MANUAL] Electrify OK. Đang chờ nạp tụ (5s)...");
-                        electrifyOk = true;
-                        Thread.Sleep(5000); // Giữ nguyên 5s như code của bạn để nạp tụ an toàn
-                    }
-                    else if (res1 == 20018)
-                    {
-                        AddMachineLog("[MANUAL] Robot đã có điện sẵn (20018). Chờ 1s...");
-                        electrifyOk = true;
-                        Thread.Sleep(1000); // Code của bạn chờ 1s khi đã có điện
-                    }
-                    else
-                    {
-                        AddMachineLog($"[MANUAL] Electrify thất bại: {res1}");
+                        AddMachineLog($"[MANUAL] OPEN thất bại: không đọc được trạng thái robot ({stateResult}).");
+                        return;
                     }
 
-                    if (electrifyOk)
+                    if (openState[7] != 0 || openState[2] != 0 || openState[3] != 0 || openState[4] != 0)
                     {
-                        // --- BƯỚC 2: START MASTER (Thử tối đa 2 lần như code của bạn) ---
-                        bool masterOk = false;
-                        for (int attempt = 1; attempt <= 2; attempt++)
+                        AddMachineLog("[MANUAL] OPEN bị chặn: robot đang lỗi/Emergency. Hãy Reset trước.");
+                        return;
+                    }
+
+                    bool wasPoweredOn = openState[9] == 1;
+                    if (openState[9] == 0)
+                    {
+                        int electrifyResult = _robot.Electrify();
+                        DateTime powerDeadlineUtc = DateTime.UtcNow.AddSeconds(10);
+                        do
                         {
-                            int res2 = _robot.StartMaster(0);
-
-                            if (res2 == 0 || res2 == 20016)
+                            Thread.Sleep(500);
+                            stateResult = _robot.ReadRobotState(0, out int[] currentState);
+                            if (stateResult == "OK" && currentState != null && currentState.Length >= 11)
                             {
-                                if (res2 == 20016)
-                                    AddMachineLog("[MANUAL] Master đã chạy sẵn (20016).");
-                                else
-                                    AddMachineLog("[MANUAL] StartMaster OK.");
+                                openState = currentState;
+                                if (openState[9] == 1)
+                                    break;
+                            }
+                        }
+                        while (DateTime.UtcNow < powerDeadlineUtc);
 
-                                masterOk = true;
+                        if (openState[9] != 1)
+                        {
+                            AddMachineLog($"[MANUAL] OPEN thất bại tại Electrify ({electrifyResult}).");
+                            return;
+                        }
+                    }
+
+                    // Mỗi lần nhấn chỉ thực hiện đúng một bước như giao diện HANS:
+                    // POWER ON xong thì nút đổi thành INITIALIZE.
+                    if (!wasPoweredOn)
+                    {
+                        AddMachineLog("[MANUAL] POWER ON hoàn tất. Có thể nhấn INITIALIZE.");
+                        Application.Current?.Dispatcher.Invoke(() =>
+                        {
+                            _data.RobotPoweredOn = true;
+                            _data.OpenOn = false;
+                            _data.CloseOn = false;
+                            _data.EnableOn = false;
+                            _data.DisableOn = false;
+                        });
+                        return;
+                    }
+
+                    string controllerResult = _robot.ReadControllerState(out int controllerStarted);
+                    int masterResult = 0;
+                    for (int attempt = 1; attempt <= 3 && controllerStarted == 0; attempt++)
+                    {
+                        masterResult = _robot.StartMaster(0);
+                        AddMachineLog(
+                            $"[MANUAL] Initialize lần {attempt}/3 (StartMaster={masterResult})...");
+
+                        DateTime controllerDeadlineUtc = DateTime.UtcNow.AddSeconds(20);
+                        do
+                        {
+                            Thread.Sleep(500);
+                            controllerResult = _robot.ReadControllerState(out controllerStarted);
+                            if (controllerResult == "OK" && controllerStarted == 1)
                                 break;
-                            }
-                            else
-                            {
-                                AddMachineLog($"[MANUAL] StartMaster lần {attempt} thất bại: {res2}");
-                                if (attempt < 2)
-                                    Thread.Sleep(1000); // Chờ 1s trước khi thử lại
-                            }
                         }
-
-                        if (masterOk)
-                        {                       
-
-                            AddMachineLog("[MANUAL] Quy trình OPEN hoàn tất. Chờ lệnh ENABLE Servo.");
-                            Thread.Sleep(4000);
-                            // Chỉ cập nhật trạng thái UI để nút chuyển sang chữ "ENABLE"
-                            Application.Current?.Dispatcher.Invoke(() =>
-                            {
-                                _data.OpenOn = true;
-                                _data.CloseOn = false;
-
-                                // QUAN TRỌNG: Đặt EnableOn = false để nút đa năng hiểu là Servo chưa bật
-                                _data.EnableOn = false;
-                                _data.DisableOn = true;
-                            });
-                        }
-                        else
-                        {
-                            AddMachineLog("[MANUAL] StartMaster thất bại sau 2 lần thử.");
-                        }
+                        while (DateTime.UtcNow < controllerDeadlineUtc);
                     }
+
+                    if (controllerStarted != 1)
+                    {
+                        AddMachineLog(
+                            $"[MANUAL] OPEN thất bại: Controller chưa initialized " +
+                            $"(StartMaster={masterResult}, ReadControllerState={controllerResult}).");
+                        return;
+                    }
+
+                    AddMachineLog(
+                        "[MANUAL] Controller initialized. Chờ axis group vào Disable (5 giây)...");
+                    Thread.Sleep(5000);
+                    stateResult = _robot.ReadRobotState(0, out openState);
+                    bool alreadyEnabled =
+                        stateResult == "OK" && openState != null && openState.Length >= 11 && openState[1] == 1;
+
+                    AddMachineLog(
+                        alreadyEnabled
+                            ? "[MANUAL] OPEN hoàn tất - robot đang Standby."
+                            : "[MANUAL] OPEN hoàn tất - robot đang Disable, có thể nhấn ENABLE.");
+                    Application.Current?.Dispatcher.Invoke(() =>
+                    {
+                        _data.RobotPoweredOn = true;
+                        _data.OpenOn = true;
+                        _data.CloseOn = false;
+                        _data.EnableOn = alreadyEnabled;
+                        _data.DisableOn = !alreadyEnabled;
+                    });
                 }
 
-                // 4. Xử lý CLOSE (Quy trình tắt an toàn 3 bước)
+                // 4. CLOSE: Standby -> Disable -> đóng Master -> Blackout 48V.
                 if (_data.CloseReq)
                 {
                     _data.CloseReq = false;
@@ -3486,34 +3912,60 @@ namespace WpfCompanyApp.Services
                         Thread.Sleep(500); // Chờ phanh cơ học đóng lại
                     }
 
-                    // BƯỚC 2: Tắt Servo (Disable) nếu đang mở
-                    if (_data.EnableOn)
+                    string closeStateResult = _robot.ReadRobotState(0, out int[] closeState);
+
+                    // BƯỚC 2: Tắt Servo theo trạng thái robot thực tế.
+                    if (closeStateResult == "OK"
+                        && closeState != null
+                        && closeState.Length >= 11
+                        && closeState[1] == 1)
                     {
-                        AddMachineLog("[MANUAL] Đang ngắt Servo (Power Off)...");
+                        AddMachineLog("[MANUAL] CLOSE bước 1/3: Disable Servo...");
                         _robot.GrpPowerOff(0);
-                        Thread.Sleep(500); // Chờ ngắt dòng điện động cơ
+                        Thread.Sleep(1500);
                     }
 
-                    // BƯỚC 3: Đóng Master
-                    int res = _robot.CloseMaster();
+                    // BƯỚC 3: Ngắt kết nối controller.
+                    AddMachineLog("[MANUAL] CLOSE bước 2/3: CloseMaster...");
+                    int closeMasterResult = _robot.CloseMaster();
+                    Thread.Sleep(2500);
 
-                    if (res >= 0 || res == 20018)
+                    // BƯỚC 4: Cắt nguồn 48V để trở về Blackout như giao diện HANS.
+                    AddMachineLog("[MANUAL] CLOSE bước 3/3: BlackOut 48V...");
+                    int blackOutResult = _robot.BlackOut();
+                    DateTime blackOutDeadlineUtc = DateTime.UtcNow.AddSeconds(10);
+                    do
                     {
-                        AddMachineLog("[MANUAL] CloseMaster thành công. Hệ thống đã nghỉ.");
+                        Thread.Sleep(500);
+                        closeStateResult = _robot.ReadRobotState(0, out int[] currentState);
+                        if (closeStateResult == "OK"
+                            && currentState != null
+                            && currentState.Length >= 11)
+                        {
+                            closeState = currentState;
+                            if (closeState[9] == 0)
+                                break;
+                        }
                     }
-                    else
-                    {
-                        AddMachineLog($"[MANUAL] CloseMaster trả về mã: {res}");
-                    }
+                    while (DateTime.UtcNow < blackOutDeadlineUtc);
 
-                    // BƯỚC 4: Dọn dẹp giao diện (Đảm bảo dập tắt mọi đèn báo dù có lỗi kết nối)
+                    bool blackedOut =
+                        closeState != null && closeState.Length >= 11 && closeState[9] == 0;
+                    AddMachineLog(
+                        blackedOut
+                            ? "[MANUAL] CLOSE hoàn tất - robot đang Blackout 48V."
+                            : $"[MANUAL] CLOSE chưa hoàn tất (CloseMaster={closeMasterResult}, " +
+                              $"BlackOut={blackOutResult}, State={closeStateResult}).");
+
+                    // Cập nhật nút theo trạng thái xác nhận được, không giả lập thành công.
                     Application.Current?.Dispatcher.Invoke(() =>
                     {
-                        _data.OpenOn = false;
+                        _data.RobotPoweredOn = !blackedOut;
+                        _data.OpenOn = !blackedOut;
                         _data.CloseOn = false;
                         _data.EnableOn = false;
-                        _data.DisableOn = false;
-                        _data.FreeDriveOn = false; // Triệt để tắt đèn Free Drive
+                        _data.DisableOn = !blackedOut;
+                        _data.FreeDriveOn = false;
                     });
                 }
                 // 5. Xử lý FREE DRIVE (Hoạt động khi Servo đang ENABLE)
@@ -3835,16 +4287,14 @@ namespace WpfCompanyApp.Services
                 _data.ResetRequested = false;
                 AddMachineLog("[ERROR] Người vận hành nhấn RESET, thử reset robot...");
 
-                // TODO: Gửi lệnh reset lỗi robot
-                // bool resetOk = _robot.ResetError();
-                bool resetOk = true; // demo
-
-                if (!resetOk)
+                if (!TryResetRobotError(out string resetError))
                 {
-                    AddMachineLog("[ERROR] Reset robot thất bại.");
+                    AddMachineLog($"[ERROR] Reset robot thất bại: {resetError}");
+                    AddRobotHistory($"[ERROR][ROBOT STATUS] {resetError}");
                     return; // vẫn ở Error
                 }
 
+                AddRobotHistory("[RESET][ROBOT STATUS] Đã xóa lỗi robot thành công.");
                 ClearErrorStatus();
                 ResetReadyCycle();
 

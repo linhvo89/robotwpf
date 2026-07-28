@@ -140,7 +140,6 @@ namespace WpfCompanyApp.Services
         private static readonly TimeSpan RobotStatusCheckInterval = TimeSpan.FromSeconds(1);
         private const string DropForwardPathName = "ABGO";
         private const string DropReturnPathName = "ABGOBACK";
-        private const double DropPathDefaultVelocity = 0.05;
         private const double DropPathBlendRadius = 0.05;
         private PosMoveJ? _forwardPose1Joint;
         private PosMoveJ? _forwardPose5Joint;
@@ -1994,7 +1993,7 @@ namespace WpfCompanyApp.Services
             if (!TryCreateJointMovePath(
                     DropForwardPathName,
                     forwardPoints,
-                    GetDropPathVelocity(forwardPoints),
+                    _data.SpeedMoveBetweenDrops,
                     out error))
             {
                 return false;
@@ -2008,7 +2007,7 @@ namespace WpfCompanyApp.Services
             if (!TryCreateJointMovePath(
                     DropReturnPathName,
                     returnPathPoints,
-                    GetDropPathVelocity(returnPoints),
+                    _data.SpeedReturnAfterDrop,
                     out error))
             {
                 return false;
@@ -2020,15 +2019,11 @@ namespace WpfCompanyApp.Services
 
             AddRobotHistory(
                 $"[START] Đã tạo quỹ đạo {DropForwardPathName}: ForwardPose1..5 và " +
-                $"{DropReturnPathName}: ForwardPose5 -> ReturnPose1..5.");
+                $"{DropReturnPathName}: ForwardPose5 -> ReturnPose1..5. " +
+                $"Tốc độ PathJ: đi={_data.SpeedMoveBetweenDrops:0.00}, " +
+                $"về={_data.SpeedReturnAfterDrop:0.00}.");
             error = string.Empty;
             return true;
-        }
-
-        private static double GetDropPathVelocity(IReadOnlyList<RobotTrajectory> points)
-        {
-            RobotTrajectory configuredPoint = points.FirstOrDefault(point => point.v > 0);
-            return configuredPoint?.v ?? DropPathDefaultVelocity;
         }
 
         private static PosMoveJ ToJointPosition(RobotTrajectory point)
@@ -2050,6 +2045,14 @@ namespace WpfCompanyApp.Services
             double velocity,
             out string error)
         {
+            if (velocity < 0.01 || velocity > 1)
+            {
+                error =
+                    $"tốc độ PathJ {pathName} không hợp lệ: {velocity:0.##}. " +
+                    "Giá trị phải nằm trong khoảng 0.01 đến 1.00.";
+                return false;
+            }
+
             // V6.3.3: InitPath tự xóa quỹ đạo cũ nếu trùng tên.
             string result = _robot.InitPathJ(0, pathName, velocity, DropPathBlendRadius);
             if (result != "OK")
@@ -3348,14 +3351,6 @@ namespace WpfCompanyApp.Services
 
                     if (_dropForwardPoseIndex == 2)
                     {
-                        if (!TrySetReadySpeed(
-                                _data.SpeedMoveBetweenDrops,
-                                "đi qua các vị trí thả 1 đến 5"))
-                        {
-                            _dropToolState = DropToolSubState.Complete;
-                            return true;
-                        }
-
                         if (!TryRunForwardDropMovePath(out string movePathError))
                         {
                             FailReadyCycle(
@@ -3378,15 +3373,17 @@ namespace WpfCompanyApp.Services
                     var releasedTools = new List<string>();
                     for (int tool = 1; tool <= 3; tool++)
                     {
+                        SetToolVacuum(tool, false);
+
                         if (!_readyToolHolding[tool])
                             continue;
 
-                        SetToolVacuum(tool, false);
                         _readyToolHolding[tool] = false;
                         releasedTools.Add($"Tool{tool}");
                     }
 
-                    Thread.Sleep(200);
+                    SetBlowAirOutputs(true, "[READY][DROP]");
+                    Thread.Sleep(50);
                     if (!_startupRecoveryDrop)
                         RecordReleasedProducts(releasedTools.Count);
                     AddRobotHistory($"[READY] Thả đồng thời sản phẩm của {string.Join(", ", releasedTools)} tại điểm thả.");
@@ -3399,16 +3396,9 @@ namespace WpfCompanyApp.Services
                 case DropToolSubState.MoveReturnPose:
                     if (_dropReturnPoseIndex == 1)
                     {
-                        if (!TrySetReadySpeed(
-                                _data.SpeedReturnAfterDrop,
-                                "quay về sau khi thả"))
-                        {
-                            _dropToolState = DropToolSubState.Complete;
-                            return true;
-                        }
-
                         if (!TryRunReturnDropMovePath(out string movePathError))
                         {
+                            SetBlowAirOutputs(false, "[READY][DROP]");
                             FailReadyCycle(
                                 $"[READY] Robot không chạy được quỹ đạo {DropReturnPathName}: " +
                                 $"{movePathError} Dừng máy, cần Reset lỗi.");
@@ -3416,6 +3406,7 @@ namespace WpfCompanyApp.Services
                             return true;
                         }
 
+                        SetBlowAirOutputs(false, "[READY][DROP]");
                         _dropReturnPoseIndex = 6;
                         return false;
                     }
@@ -3482,43 +3473,7 @@ namespace WpfCompanyApp.Services
 
                         break;
 
-                    case ReadySubState.MoveHome:
-                        _readyState = ReadySubState.CheckCNC0;
-                    
-                        break;
-                    case ReadySubState.CheckCNC0:
-                        if(triggerRun == true && xpixel.Length>0)
-                        {
-                            string cameraName = _activeTriggerCamera;
-                            string toolName = _activeCalibTool;
-                            var affine = GetCameraAffine(cameraName: cameraName, toolName: toolName);
-                            if (affine == null)
-                            {
-                                AddMachineLog($"[READY] Chưa load calibration cho {_data.GetCalibName(toolName, cameraName)}.");
-                                triggerRun = false;
-                                break;
-                            }
-                            //X, Y là tọa độ robot gắp
-                            var (X, Y) = affine.PixelToRobot(xpixel[ivan], ypixel[ivan]);
-
-                            AddRobotHistory($"[READY] Check CNC -> Pixel: ({xpixel[ivan]}, {ypixel[ivan]}) -> Robot: ({X}, {Y})");
-                            ivan++;
-                            if(ivan >= xpixel.Length)
-                            {
-                                ivan = 0;
-                                triggerRun = false;
-                            }
-                        }
-                        else
-                        {
-
-                        }
-                 
-                        break;
-                    case ReadySubState.CompleteHome:
-                    
-
-                        break;
+                  
 
                     // Bước 1: Nạp thông tin nền cho chu trình.
                     // PickProductPose dùng Z/RX/RY/RZ tham chiếu cho điểm gắp.
@@ -3781,11 +3736,11 @@ namespace WpfCompanyApp.Services
 
                     // Bước 8: Sau khi chạy hết các Tool trong chu kỳ, robot nâng lên độ cao an toàn H.
                     case ReadySubState.LiftSafeAfterPick:
-                        if (!MoveSafeZ())
-                        {
-                            FailReadyCycle("[READY] Robot không nâng được lên độ cao an toàn H. Dừng máy, cần Reset lỗi.");
-                            break;
-                        }
+                        //if (!MoveSafeZ())
+                        //{
+                        //    FailReadyCycle("[READY] Robot không nâng được lên độ cao an toàn H. Dừng máy, cần Reset lỗi.");
+                        //    break;
+                        //}
                         _readyState = ReadySubState.CheckHoldingProducts;
                         break;
 
@@ -4563,10 +4518,15 @@ namespace WpfCompanyApp.Services
 
         private void TurnOffBlowAirOutputs()
         {
+            SetBlowAirOutputs(false, "[START]");
+        }
+
+        private bool SetBlowAirOutputs(bool on, string logPrefix)
+        {
             var errors = new List<string>();
             for (int bit = 4; bit <= 6; bit++)
             {
-                string result = _robot.SetBoxCO(bit, 0);
+                string result = _robot.SetBoxCO(bit, on ? 1 : 0);
                 if (result != "OK")
                 {
                     errors.Add($"CO{bit}: {result}");
@@ -4575,14 +4535,16 @@ namespace WpfCompanyApp.Services
 
             if (errors.Count == 0)
             {
-                AddMachineLog("[START] Đã OFF CO4, CO5, CO6 - tắt chế độ thổi khí.");
-            }
-            else
-            {
                 AddMachineLog(
-                    $"[START][OUTPUT][ERROR] Không thể tắt hết chế độ thổi khí: " +
-                    $"{string.Join("; ", errors)}");
+                    $"{logPrefix} Đã {(on ? "ON" : "OFF")} CO4, CO5, CO6 - " +
+                    $"{(on ? "bật" : "tắt")} chế độ thổi khí.");
+                return true;
             }
+
+            AddMachineLog(
+                $"{logPrefix}[OUTPUT][ERROR] Không thể {(on ? "bật" : "tắt")} hết " +
+                $"chế độ thổi khí: {string.Join("; ", errors)}");
+            return false;
         }
 
         // === OUTPUT REQUESTS ===

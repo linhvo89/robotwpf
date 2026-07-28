@@ -83,7 +83,7 @@ namespace WpfCompanyApp
             mainWindow.Show();
             // ⭐⭐ BẮT BUỘC PHẢI START BACKGROUND SERVICE ⭐⭐
             var bgService = _host.Services.GetRequiredService<AppBackgroundService>();
-            bgService.Start(50);
+            bgService.Start(1);
             base.OnStartup(e);
         }
 

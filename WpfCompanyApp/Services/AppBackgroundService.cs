@@ -267,6 +267,15 @@ namespace WpfCompanyApp.Services
         private string _activeCalibTool = "Tool1";
         private bool _settingsTriggerCameraPending = false;
 
+        private sealed class VisionProduct
+        {
+            public float X { get; set; }
+            public float Y { get; set; }
+            public float CirclePointCount { get; set; }
+            public float Radius { get; set; }
+            public float Confidence { get; set; }
+        }
+
         private string GetSelectedTriggerFlowName()
         {
             return GetTriggerFlowName(_data.SelectedTriggerCamera);
@@ -304,6 +313,148 @@ namespace WpfCompanyApp.Services
             }
 
             triggerRun = _state == AppState.Running && count > 0;
+        }
+
+        private void ReadVisionResult(VmProcedure procedure)
+        {
+            // Trigger trong Settings/Calibration vẫn dùng outX, outY như trước.
+            // Chỉ chu trình READY (Auto) mới dùng chuỗi kết quả của hai hàm tìm kiếm.
+            if (!_readyCameraPending || _settingsTriggerCameraPending)
+            {
+                xpixel = procedure.ModuResult.GetOutputFloat("outX").pFloatVal
+                    ?? Array.Empty<float>();
+                ypixel = procedure.ModuResult.GetOutputFloat("outY").pFloatVal
+                    ?? Array.Empty<float>();
+                HandleVisionTriggerResult(Math.Min(xpixel.Length, ypixel.Length));
+                return;
+            }
+
+            string rawResult = procedure.ModuResult
+                .GetOutputString("ketqua").astStringVal[0].strValue;
+
+            if (!TryMergeVisionProducts(rawResult, out List<VisionProduct> products, out string error))
+                throw new FormatException($"Chuỗi ketqua không hợp lệ: {error}");
+
+            xpixel = products.Select(product => product.X).ToArray();
+            ypixel = products.Select(product => product.Y).ToArray();
+            AddMachineLog(
+                $"[READY] Basket{_readyCurrentBasket}: đã gộp kết quả hai hàm tìm kiếm, " +
+                $"còn {products.Count} sản phẩm không trùng.");
+            HandleVisionTriggerResult(products.Count);
+        }
+
+        private static bool TryMergeVisionProducts(
+            string rawResult,
+            out List<VisionProduct> mergedProducts,
+            out string error)
+        {
+            mergedProducts = new List<VisionProduct>();
+            error = string.Empty;
+
+            if (string.IsNullOrWhiteSpace(rawResult))
+                return true;
+
+            string normalized = rawResult.Trim().TrimStart('[').TrimEnd(']');
+            string[] groups = normalized.Split('#');
+            if (groups.Length == 0)
+            {
+                error = "không có nhóm dữ liệu";
+                return false;
+            }
+
+            var parsedGroups = new List<List<VisionProduct>>();
+            for (int groupIndex = 0; groupIndex < groups.Length; groupIndex++)
+            {
+                string[] fields = groups[groupIndex]
+                    .Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(field => field.Trim())
+                    .ToArray();
+
+                if (fields.Length == 0)
+                {
+                    parsedGroups.Add(new List<VisionProduct>());
+                    continue;
+                }
+
+                if (!int.TryParse(fields[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int count) ||
+                    count < 0)
+                {
+                    error = $"số lượng nhóm {groupIndex + 1} không hợp lệ";
+                    return false;
+                }
+
+                int requiredFieldCount = 1 + count * 5;
+                if (fields.Length < requiredFieldCount)
+                {
+                    error =
+                        $"nhóm {groupIndex + 1} khai báo {count} sản phẩm nhưng thiếu dữ liệu";
+                    return false;
+                }
+
+                var products = new List<VisionProduct>(count);
+                for (int productIndex = 0; productIndex < count; productIndex++)
+                {
+                    int offset = 1 + productIndex * 5;
+                    if (!TryParseVisionFloat(fields[offset], out float x) ||
+                        !TryParseVisionFloat(fields[offset + 1], out float y) ||
+                        !TryParseVisionFloat(fields[offset + 2], out float circlePointCount) ||
+                        !TryParseVisionFloat(fields[offset + 3], out float radius) ||
+                        !TryParseVisionFloat(fields[offset + 4], out float confidence))
+                    {
+                        error =
+                            $"sản phẩm {productIndex + 1} của nhóm {groupIndex + 1} có giá trị không hợp lệ";
+                        return false;
+                    }
+
+                    products.Add(new VisionProduct
+                    {
+                        X = x,
+                        Y = y,
+                        CirclePointCount = circlePointCount,
+                        Radius = Math.Abs(radius),
+                        Confidence = confidence
+                    });
+                }
+
+                parsedGroups.Add(products);
+            }
+
+            // Gộp tuần tự tất cả kết quả và loại mọi tọa độ trùng, kể cả trường hợp
+            // một hàm tìm kiếm tự trả cùng một sản phẩm nhiều lần.
+            for (int groupIndex = 0; groupIndex < parsedGroups.Count; groupIndex++)
+            {
+                foreach (VisionProduct candidate in parsedGroups[groupIndex])
+                {
+                    int duplicateIndex = mergedProducts.FindIndex(existing =>
+                    {
+                        double deltaX = existing.X - candidate.X;
+                        double deltaY = existing.Y - candidate.Y;
+                        double centerDistance = Math.Sqrt(deltaX * deltaX + deltaY * deltaY);
+                        return centerDistance < Math.Max(existing.Radius, candidate.Radius);
+                    });
+
+                    if (duplicateIndex < 0)
+                    {
+                        mergedProducts.Add(candidate);
+                    }
+                    else if (candidate.Confidence > mergedProducts[duplicateIndex].Confidence)
+                    {
+                        // Hai hàm cùng thấy một sản phẩm: dùng tọa độ của kết quả tin cậy hơn.
+                        mergedProducts[duplicateIndex] = candidate;
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        private static bool TryParseVisionFloat(string value, out float result)
+        {
+            return float.TryParse(
+                value,
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out result);
         }
 
         private void VmSolution_OnWorkStatusEvent(VM.PlatformSDKCS.ImvsSdkDefine.IMVS_MODULE_WORK_STAUS workStatusInfo)
@@ -346,30 +497,13 @@ namespace WpfCompanyApp.Services
 
                                         try
                                         {
-                                            //cycletime 	string vmResult = vmProcedure.ModuResult.GetOutputString("time").astStringVal[0].strValue;
-                                            // VisionMaster có thể trả pFloatVal = null khi ảnh
-                                            // không phát hiện sản phẩm. Đây là kết quả rỗng hợp lệ,
-                                            // không phải lỗi/timeout camera.
-                                            xpixel = vmProcedure.ModuResult.GetOutputFloat("outX").pFloatVal
-                                                ?? Array.Empty<float>();
-                                            ypixel = vmProcedure.ModuResult.GetOutputFloat("outY").pFloatVal
-                                                ?? Array.Empty<float>();
-                                            HandleVisionTriggerResult(xpixel.Length);
-                                            try
-                                            {
-                                                string vmResult = vmProcedure.ModuResult
-                                                    .GetOutputString("ketqua").astStringVal[0].strValue;
-                                                AddMachineLog(vmResult);
-                                            }
-                                            catch (Exception ex)
-                                            {
-
-                                            }
+                                            ReadVisionResult(vmProcedure);
+                                        
                                         }
                                         catch (Exception ex)
                                         {
                                             AddMachineLog(
-                                                $"[READY] Không đọc được kết quả Vision Basket1: {ex.Message}");
+                                                $"[READY] Không đọc được kết quả {ex.Message}");
                                         }
                                        
                                         Task.Run(() =>
@@ -454,25 +588,7 @@ namespace WpfCompanyApp.Services
 
                                         try
                                         {
-                                            //cycletime 	string vmResult = vmProcedure.ModuResult.GetOutputString("time").astStringVal[0].strValue;
-                                            // VisionMaster có thể trả pFloatVal = null khi ảnh
-                                            // không phát hiện sản phẩm. Chuẩn hóa thành mảng rỗng
-                                            // để state machine đếm đúng 5 ảnh kiểm tra.
-                                            xpixel = vmProcedure.ModuResult.GetOutputFloat("outX").pFloatVal
-                                                ?? Array.Empty<float>();
-                                            ypixel = vmProcedure.ModuResult.GetOutputFloat("outY").pFloatVal
-                                                ?? Array.Empty<float>();
-                                            HandleVisionTriggerResult(xpixel.Length);
-                                            try
-                                            {
-                                                string vmResult = vmProcedure.ModuResult
-                                                    .GetOutputString("ketqua").astStringVal[0].strValue;
-                                                AddMachineLog(vmResult);
-                                            }
-                                            catch (Exception ex)
-                                            {
-
-                                            }
+                                            ReadVisionResult(vmProcedure);
                                         }
                                         catch (Exception ex)
                                         {
@@ -1098,6 +1214,7 @@ namespace WpfCompanyApp.Services
             if (_data.StartRequested)
             {
                 _data.StartRequested = false;
+                TurnOffBlowAirOutputs();
 
                 if (!TryPrepareRobotForMotion("START", out string robotPrepareError))
                 {
@@ -1212,6 +1329,7 @@ namespace WpfCompanyApp.Services
                 _data.ResetRequested = false;
                 AddMachineLog("[STATE] Reset requested in IDLE.");
                 index = 0;
+                TurnOffAllOutputs();
 
                 if (!TryResetRobotError(out string resetError))
                 {
@@ -1431,6 +1549,7 @@ namespace WpfCompanyApp.Services
             if (_data.StartRequested)
             {
                 _data.StartRequested = false;
+                TurnOffBlowAirOutputs();
 
                 if (_pausedByDoorInterlock &&
                     !TryValidateResumeInterlocks(out string resumeInterlockError))
@@ -2140,6 +2259,19 @@ namespace WpfCompanyApp.Services
                 }
 
                 AddRobotHistory("[READY] Đã chọn TCP1 trước khi Move Home.");
+
+                const double homeSpeed = 0.05;
+                string setHomeSpeedResult = _robot.SetOverride(0, homeSpeed);
+                if (setHomeSpeedResult != "OK")
+                {
+                    AddMachineLog(
+                        $"[READY] Không cài được tốc độ mặc định {homeSpeed:0.00} trước khi Move Home. " +
+                        $"Lỗi: {setHomeSpeedResult}");
+                    return false;
+                }
+
+                AddRobotHistory(
+                    $"[READY] Tốc độ về Home cố định: {homeSpeed:0.00}.");
             }
 
             RobotTrajectory traj = _db.GetRobotTrajectoryByNamePoses(poseName);
@@ -2844,6 +2976,13 @@ namespace WpfCompanyApp.Services
                 return false;
             }
 
+            // Keep VmRenderControl synchronized with the flow that is about to run.
+            // ModuleSource is bound to a WPF control, so update it on the UI thread.
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                _data.ModuleSource = pro;
+            });
+
             _activeTriggerCamera = cameraName;
             _readyCameraPending = true;
             _readyCameraResultReady = false;
@@ -3162,6 +3301,14 @@ namespace WpfCompanyApp.Services
                     if (_dropForwardPoseIndex == 1)
                     {
                         const string poseName = "ForwardPose1";
+                        if (!TrySetReadySpeed(
+                                _data.SpeedMoveToDrop1,
+                                "đi tới vị trí thả 1"))
+                        {
+                            _dropToolState = DropToolSubState.Complete;
+                            return true;
+                        }
+
                         if (!MoveToForwardPathStart())
                         {
                             FailReadyCycle(
@@ -3201,6 +3348,14 @@ namespace WpfCompanyApp.Services
 
                     if (_dropForwardPoseIndex == 2)
                     {
+                        if (!TrySetReadySpeed(
+                                _data.SpeedMoveBetweenDrops,
+                                "đi qua các vị trí thả 1 đến 5"))
+                        {
+                            _dropToolState = DropToolSubState.Complete;
+                            return true;
+                        }
+
                         if (!TryRunForwardDropMovePath(out string movePathError))
                         {
                             FailReadyCycle(
@@ -3244,6 +3399,14 @@ namespace WpfCompanyApp.Services
                 case DropToolSubState.MoveReturnPose:
                     if (_dropReturnPoseIndex == 1)
                     {
+                        if (!TrySetReadySpeed(
+                                _data.SpeedReturnAfterDrop,
+                                "quay về sau khi thả"))
+                        {
+                            _dropToolState = DropToolSubState.Complete;
+                            return true;
+                        }
+
                         if (!TryRunReturnDropMovePath(out string movePathError))
                         {
                             FailReadyCycle(
@@ -3269,6 +3432,30 @@ namespace WpfCompanyApp.Services
                     ResetDropToolSubTree();
                     return true;
             }
+        }
+
+        private bool TrySetReadySpeed(double speed, string stepName)
+        {
+            if (speed <= 0 || speed > 1)
+            {
+                FailReadyCycle(
+                    $"[READY] Tốc độ bước {stepName} không hợp lệ: {speed:0.##}. " +
+                    "Giá trị phải lớn hơn 0 và không vượt quá 1.");
+                return false;
+            }
+
+            string result = _robot.SetOverride(0, speed);
+            if (result != "OK")
+            {
+                FailReadyCycle(
+                    $"[READY] Không cài được tốc độ {speed:0.##} cho bước {stepName}. " +
+                    $"Dừng máy, lỗi: {result}");
+                return false;
+            }
+
+            AddRobotHistory(
+                $"[READY] Tốc độ bước {stepName}: {speed:0.##}.");
+            return true;
         }
 
         private void HandleReady()
@@ -3383,12 +3570,6 @@ namespace WpfCompanyApp.Services
                         moveLPrePick.RZ = prePick.Rz;
 
                         AddMachineLog($"[READY] Đã load HomePose, PrePickPose và PickProductPose từ database.");
-                      string err=  _robot.SetOverride(0, 0.03);
-                        if (err != "OK")
-                        {
-                            FailReadyCycle($"[READY] Không Lưu đươc tốc độ xuống robot . Dừng máy, Error: {err}");
-                            break;
-                        }
                         _readyState = ReadySubState.SelectNextBasket;
                         break;
 
@@ -3415,6 +3596,13 @@ namespace WpfCompanyApp.Services
                     // Bước 3: Robot đi đến vị trí không che camera.
                     // Hiện dùng PrePickPose làm vị trí đứng ngoài vùng nhìn camera.
                     case ReadySubState.MoveClearCamera:
+                        if (!TrySetReadySpeed(
+                                _data.SpeedCapture,
+                                "đi tới vị trí chụp ảnh"))
+                        {
+                            break;
+                        }
+
                         if (!MoveLoadedPose("PrePickPose", moveLPrePick))
                         {
                             FailReadyCycle("[READY] Robot không di chuyển được tới PrePickPose. Dừng máy, cần Reset lỗi.");
@@ -3571,6 +3759,14 @@ namespace WpfCompanyApp.Services
                             _data.StopRequested = true;
                             FailReadyCycle(
                                 $"[READY] Dừng trước khi ra gắp sau 3 lần kiểm tra PLC: {plcReadyError}.");
+                            break;
+                        }
+
+                        if (_pickToolState == PickToolSubState.Idle &&
+                            !TrySetReadySpeed(
+                                _data.SpeedSuction,
+                                "hút sản phẩm"))
+                        {
                             break;
                         }
 
@@ -4010,6 +4206,7 @@ namespace WpfCompanyApp.Services
                 {
                     _data.ResetRobotReq = false;
                     AddMachineLog("[MANUAL] Đang thực hiện Reset Robot...");
+                    TurnOffAllOutputs();
                     int res = _robot.GrpReset(0); // Gọi hàm reset từ ConmandRobot 
 
                     if (res == 0) AddMachineLog("[MANUAL] Reset Robot thành công.");
@@ -4286,6 +4483,7 @@ namespace WpfCompanyApp.Services
             {
                 _data.ResetRequested = false;
                 AddMachineLog("[ERROR] Người vận hành nhấn RESET, thử reset robot...");
+                TurnOffAllOutputs();
 
                 if (!TryResetRobotError(out string resetError))
                 {
@@ -4310,6 +4508,80 @@ namespace WpfCompanyApp.Services
                 _readyState = ReadySubState.CheckStatus;
                 _productLoaded = false;
                 _stopAfterCycle = false;
+            }
+        }
+
+        private void TurnOffAllOutputs()
+        {
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                _data.PushAir1 = false;
+                _data.PushAir2 = false;
+                _data.PushAir3 = false;
+                _data.SubPush = false;
+                _data.Cylinder1 = false;
+                _data.Cylinder2 = false;
+                _data.Cylinder3 = false;
+                _data.GreenLampOn = false;
+
+                _data.Vacuum1 = false;
+                _data.Vacuum2 = false;
+                _data.Vacuum3 = false;
+                _data.RedLampOn = false;
+                _data.YellowLampOn = false;
+                _data.EnableOn = false;
+                _data.DisableOn = false;
+                _data.OpenOn = false;
+                _data.CloseOn = false;
+            });
+
+            var errors = new List<string>();
+            for (int bit = 0; bit < 8; bit++)
+            {
+                string doResult = _robot.SetSerialDO(bit, 0);
+                if (doResult != "OK")
+                {
+                    errors.Add($"DO{bit}: {doResult}");
+                }
+
+                string coResult = _robot.SetBoxCO(bit, 0);
+                if (coResult != "OK")
+                {
+                    errors.Add($"CO{bit}: {coResult}");
+                }
+            }
+
+            if (errors.Count == 0)
+            {
+                AddMachineLog("[RESET] Đã OFF toàn bộ DO0..DO7 và CO0..CO7.");
+            }
+            else
+            {
+                AddMachineLog($"[RESET][OUTPUT][ERROR] Không thể OFF một số output: {string.Join("; ", errors)}");
+            }
+        }
+
+        private void TurnOffBlowAirOutputs()
+        {
+            var errors = new List<string>();
+            for (int bit = 4; bit <= 6; bit++)
+            {
+                string result = _robot.SetBoxCO(bit, 0);
+                if (result != "OK")
+                {
+                    errors.Add($"CO{bit}: {result}");
+                }
+            }
+
+            if (errors.Count == 0)
+            {
+                AddMachineLog("[START] Đã OFF CO4, CO5, CO6 - tắt chế độ thổi khí.");
+            }
+            else
+            {
+                AddMachineLog(
+                    $"[START][OUTPUT][ERROR] Không thể tắt hết chế độ thổi khí: " +
+                    $"{string.Join("; ", errors)}");
             }
         }
 

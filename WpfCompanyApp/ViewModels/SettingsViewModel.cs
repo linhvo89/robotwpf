@@ -52,13 +52,6 @@ namespace WpfCompanyApp.ViewModels
         public ObservableCollection<double> SpeedOptions { get; } =
             new(Enumerable.Range(1, 20)
                 .Select(i => Math.Round(i * 0.05, 2)));
-
-
-        [ObservableProperty] private double speedCapture = 0.2;
-        [ObservableProperty] private double speedWaitPick = 0.2;
-        [ObservableProperty] private double speedMoveUp = 0.2;
-        [ObservableProperty] private double speedReturn = 0.2;
-        [ObservableProperty] private double speedUnused = 0.2;
         // ⭐ 5 giá trị đang được chọn cho 5 điểm Forward
         public ObservableCollection<RobotTrajectory.MoveTypeEnum> MoveTypes { get; } =
             new ObservableCollection<RobotTrajectory.MoveTypeEnum>

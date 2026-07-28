@@ -1406,47 +1406,47 @@
                                                Foreground="#CCCCCC"/>
                                                                         <ComboBox Grid.Column="1"
                                               ItemsSource="{Binding SpeedOptions}"
-                                              SelectedItem="{Binding SpeedCapture, Mode=TwoWay}"
+                                              SelectedItem="{Binding Data.SpeedCapture, Mode=TwoWay}"
                                               Style="{StaticResource PrettyComboBox}"/>
 
-                                            <!-- Tốc độ Robot chờ hút -->
-                                            <TextBlock Text="Tốc độ Robot chờ hút"
+                                            <!-- Tốc độ Robot hút -->
+                                            <TextBlock Text="Tốc độ Robot hút"
                                                 Grid.Row="1"
                                                 Foreground="#CCCCCC"/>
                                                                         <ComboBox Grid.Column="1"
                                                 Grid.Row="1"
                                                 ItemsSource="{Binding SpeedOptions}"
-                                                SelectedItem="{Binding SpeedWaitPick, Mode=TwoWay}"
+                                                SelectedItem="{Binding Data.SpeedSuction, Mode=TwoWay}"
                                                 Style="{StaticResource PrettyComboBox}"/>
 
-                                            <!-- Tốc độ Robot đi lên vị trí thả -->
-                                            <TextBlock Text="Tốc độ Robot đi lên vị trí thả"
+                                            <!-- Tốc độ Robot đi thả 1 -->
+                                            <TextBlock Text="Tốc độ Robot đi thả 1"
                                                Grid.Row="2"
                                                Foreground="#CCCCCC"/>
                                                                         <ComboBox Grid.Column="1"
                                               Grid.Row="2"
                                               ItemsSource="{Binding SpeedOptions}"
-                                              SelectedItem="{Binding SpeedMoveUp, Mode=TwoWay}"
+                                              SelectedItem="{Binding Data.SpeedMoveToDrop1, Mode=TwoWay}"
                                               Style="{StaticResource PrettyComboBox}"/>
 
-                                            <!-- Tốc độ Robot quay về sau khi thả -->
-                                            <TextBlock Text="Tốc độ Robot quay về sau khi thả"
+                                            <!-- Tốc độ Robot đi lên vị trí thả từ 1 đến 5 -->
+                                            <TextBlock Text="Tốc độ Robot đi lên vị trí thả từ 1 đến 5"
                                                Grid.Row="3"
                                                Foreground="#CCCCCC"/>
                                                                         <ComboBox Grid.Column="1"
                                               Grid.Row="3"
                                               ItemsSource="{Binding SpeedOptions}"
-                                              SelectedItem="{Binding SpeedReturn, Mode=TwoWay}"
+                                              SelectedItem="{Binding Data.SpeedMoveBetweenDrops, Mode=TwoWay}"
                                               Style="{StaticResource PrettyComboBox}"/>
 
-                                            <!-- Chưa dùng -->
-                                            <TextBlock Text="Chưa dùng đến"
+                                            <!-- Tốc độ Robot quay về sau khi thả -->
+                                            <TextBlock Text="Tốc độ Robot quay về sau khi thả"
                                                 Grid.Row="4"
-                                               Foreground="#777777"/>
+                                               Foreground="#CCCCCC"/>
                                                                         <ComboBox Grid.Column="1"
                                               Grid.Row="4"
                                               ItemsSource="{Binding SpeedOptions}"
-                                              SelectedItem="{Binding SpeedUnused, Mode=TwoWay}"
+                                              SelectedItem="{Binding Data.SpeedReturnAfterDrop, Mode=TwoWay}"
                                               Style="{StaticResource PrettyComboBox}"/>
                                         </Grid>
                                     </GroupBox>

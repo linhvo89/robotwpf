@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
 using WpfCompanyApp.CalibRobot;
+using WpfCompanyApp.Data;
 using WpfCompanyApp.Models;
 using WpfCompanyApp.ViewModels;
 
@@ -11,6 +12,8 @@ namespace WpfCompanyApp.Services
 {
     public partial class AppDataService : ViewModelBase
     {
+        private readonly DatabaseRobot _db = new();
+
         // ====== STATE HIỆN TẠI CỦA APP (để đổi màu nút Start/Stop/Pause) ======
         private AppState _currentState;
         public AppState CurrentState
@@ -20,6 +23,8 @@ namespace WpfCompanyApp.Services
         }
         public AppDataService()
         {
+            LoadRobotSpeeds();
+
             // Khi bất kỳ phần tử nào trong Slots bị thay đổi,
             // event này sẽ được gọi (Action = Replace)
         }
@@ -50,6 +55,55 @@ namespace WpfCompanyApp.Services
         [ObservableProperty] private int vacuumWaitMs = 500;
         [ObservableProperty] private int emptyConfirmShots = 3;
         [ObservableProperty] private int maxToolMissCount = 3;
+        [ObservableProperty] private double speedCapture = 0.2;
+        [ObservableProperty] private double speedSuction = 0.2;
+        [ObservableProperty] private double speedMoveToDrop1 = 0.2;
+        [ObservableProperty] private double speedMoveBetweenDrops = 0.2;
+        [ObservableProperty] private double speedReturnAfterDrop = 0.2;
+
+        private void LoadRobotSpeeds()
+        {
+            Dictionary<string, double> savedSpeeds = _db.GetRobotSpeedSettings();
+
+            SpeedCapture = GetSavedSpeed(savedSpeeds, nameof(SpeedCapture), SpeedCapture);
+            SpeedSuction = GetSavedSpeed(savedSpeeds, nameof(SpeedSuction), SpeedSuction);
+            SpeedMoveToDrop1 = GetSavedSpeed(savedSpeeds, nameof(SpeedMoveToDrop1), SpeedMoveToDrop1);
+            SpeedMoveBetweenDrops = GetSavedSpeed(savedSpeeds, nameof(SpeedMoveBetweenDrops), SpeedMoveBetweenDrops);
+            SpeedReturnAfterDrop = GetSavedSpeed(savedSpeeds, nameof(SpeedReturnAfterDrop), SpeedReturnAfterDrop);
+        }
+
+        private static double GetSavedSpeed(
+            IReadOnlyDictionary<string, double> savedSpeeds,
+            string speedName,
+            double defaultValue)
+        {
+            return savedSpeeds.TryGetValue(speedName, out double value) &&
+                   value > 0 &&
+                   value <= 1
+                ? value
+                : defaultValue;
+        }
+
+        private void SaveRobotSpeed(string speedName, double value)
+        {
+            if (value > 0 && value <= 1)
+                _db.SaveRobotSpeedSetting(speedName, value);
+        }
+
+        partial void OnSpeedCaptureChanged(double value) =>
+            SaveRobotSpeed(nameof(SpeedCapture), value);
+
+        partial void OnSpeedSuctionChanged(double value) =>
+            SaveRobotSpeed(nameof(SpeedSuction), value);
+
+        partial void OnSpeedMoveToDrop1Changed(double value) =>
+            SaveRobotSpeed(nameof(SpeedMoveToDrop1), value);
+
+        partial void OnSpeedMoveBetweenDropsChanged(double value) =>
+            SaveRobotSpeed(nameof(SpeedMoveBetweenDrops), value);
+
+        partial void OnSpeedReturnAfterDropChanged(double value) =>
+            SaveRobotSpeed(nameof(SpeedReturnAfterDrop), value);
         private object? _moduleSource;
         public object? ModuleSource
         {

@@ -43,10 +43,86 @@ namespace WpfCompanyApp.Data
                                     FOREIGN KEY (JobId) REFERENCES Jobs(Id) ON DELETE CASCADE
                                   )";
 
+            string createRobotSpeedSettings = @"
+                CREATE TABLE IF NOT EXISTS RobotSpeedSettings(
+                    SpeedName TEXT PRIMARY KEY,
+                    SpeedValue REAL NOT NULL,
+                    UpdatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+                )";
+
             using var cmd1 = new SqliteCommand(createJobs, conn);
             using var cmd2 = new SqliteCommand(createPoses, conn);
+            using var cmd3 = new SqliteCommand(createRobotSpeedSettings, conn);
             cmd1.ExecuteNonQuery();
             cmd2.ExecuteNonQuery();
+            cmd3.ExecuteNonQuery();
+
+            string[] speedNames =
+            {
+                "SpeedCapture",
+                "SpeedSuction",
+                "SpeedMoveToDrop1",
+                "SpeedMoveBetweenDrops",
+                "SpeedReturnAfterDrop"
+            };
+
+            foreach (string speedName in speedNames)
+            {
+                using var insertDefault = conn.CreateCommand();
+                insertDefault.CommandText = @"
+                    INSERT OR IGNORE INTO RobotSpeedSettings
+                        (SpeedName, SpeedValue)
+                    VALUES
+                        ($speedName, 0.2);";
+                insertDefault.Parameters.AddWithValue("$speedName", speedName);
+                insertDefault.ExecuteNonQuery();
+            }
+        }
+
+        public Dictionary<string, double> GetRobotSpeedSettings()
+        {
+            var result = new Dictionary<string, double>(StringComparer.Ordinal);
+
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT SpeedName, SpeedValue
+                FROM RobotSpeedSettings;";
+
+            using var reader = cmd.ExecuteReader();
+            while (reader.Read())
+                result[reader.GetString(0)] = reader.GetDouble(1);
+
+            return result;
+        }
+
+        public void SaveRobotSpeedSetting(string speedName, double speedValue)
+        {
+            if (string.IsNullOrWhiteSpace(speedName))
+                throw new ArgumentException("Tên tốc độ không được để trống.", nameof(speedName));
+
+            if (speedValue <= 0 || speedValue > 1)
+                throw new ArgumentOutOfRangeException(
+                    nameof(speedValue),
+                    "Tốc độ phải lớn hơn 0 và không vượt quá 1.");
+
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                INSERT INTO RobotSpeedSettings
+                    (SpeedName, SpeedValue, UpdatedAt)
+                VALUES
+                    ($speedName, $speedValue, datetime('now'))
+                ON CONFLICT(SpeedName) DO UPDATE SET
+                    SpeedValue = excluded.SpeedValue,
+                    UpdatedAt = datetime('now');";
+            cmd.Parameters.AddWithValue("$speedName", speedName);
+            cmd.Parameters.AddWithValue("$speedValue", speedValue);
+            cmd.ExecuteNonQuery();
         }
         public void SaveCalibPointsToDb(RobotPointCalib[] points, string namecalib)
         {

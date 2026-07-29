@@ -431,6 +431,18 @@
                 <!-- ===================== TAB 1: MANUAL ROBOT (FULL) ===================== -->
                 <TabItem Header="Manual Robot">
                     <Grid Margin="10">
+                        <Grid.Style>
+                            <Style TargetType="Grid">
+                                <Setter Property="IsEnabled" Value="False"/>
+                                <Setter Property="Opacity" Value="0.5"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding CurrentState}" Value="Idle">
+                                        <Setter Property="IsEnabled" Value="True"/>
+                                        <Setter Property="Opacity" Value="1"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Grid.Style>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="3*"/>
                             <ColumnDefinition Width="2*"/>
@@ -451,9 +463,10 @@
                                     <GroupBox Grid.Column="0" Header="Camera">
                                         <StackPanel Orientation="Horizontal">
                                             <TextBox Width="120" Text="0" Margin="0,0,10,0"/>
-                                            <Button Content="Trigger Test"
-                                                    Width="140"
-                                                    Style="{StaticResource PrimaryButtonStyle}"/>
+                                            <ToggleButton Content="Trigger Camera (DO6)"
+                                                          Width="160"
+                                                          Style="{StaticResource OnOffToggleButtonStyle}"
+                                                          IsChecked="{Binding TriggerCamera, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                         </StackPanel>
                                     </GroupBox>
 
@@ -462,43 +475,43 @@
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                             <ToggleButton Content="Green"
                                                           Style="{StaticResource GreenLampStyle}"
-                                                          IsChecked="{Binding GreenLampOn}"
+                                                          IsChecked="{Binding GreenLampOn, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                           Margin="5"/>
                                             <ToggleButton Content="Red"
                                                           Style="{StaticResource RedLampStyle}"
-                                                          IsChecked="{Binding RedLampOn}"
+                                                          IsChecked="{Binding RedLampOn, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                           Margin="5"/>
                                             <ToggleButton Content="Yellow"
                                                           Style="{StaticResource YellowLampStyle}"
-                                                          IsChecked="{Binding YellowLampOn}"
+                                                          IsChecked="{Binding YellowLampOn, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                                           Margin="5"/>
                                         </StackPanel>
                                     </GroupBox>
                                 </Grid>
 
                                 <!-- PUSH AIR -->
-                                <GroupBox Header="Push Air">
+                                <GroupBox Header="Blow Air (CO4–CO6)">
                                     <WrapPanel Margin="10,5,10,5">
-                                        <ToggleButton Content="PushAir 1" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding PushAir1}" Margin="0,0,15,0"/>
-                                        <ToggleButton Content="PushAir 2" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding PushAir2}" Margin="0,0,15,0"/>
-                                        <ToggleButton Content="PushAir 3" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding PushAir3}" Margin="0,0,15,0"/>
-                                        <ToggleButton Content="Sub Push" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding SubPush}"/>
+                                        <ToggleButton Content="PushAir 1" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding PushAir1, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,15,0"/>
+                                        <ToggleButton Content="PushAir 2" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding PushAir2, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,15,0"/>
+                                        <ToggleButton Content="PushAir 3" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding PushAir3, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,15,0"/>
+                                        <ToggleButton Content="Buzzer (CO3)" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding BuzzerOn, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                     </WrapPanel>
                                 </GroupBox>
 
-                                <GroupBox Header="Cylinders">
+                                <GroupBox Header="Cylinders (DO0–DO2)">
                                     <WrapPanel Margin="10,5,10,5">
-                                        <ToggleButton Content="Cylinder 1" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding Cylinder1}" Margin="0,0,15,0"/>
-                                        <ToggleButton Content="Cylinder 2" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding Cylinder2}" Margin="0,0,15,0"/>
-                                        <ToggleButton Content="Cylinder 3" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding Cylinder3}"/>
+                                        <ToggleButton Content="Cylinder 1" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding Cylinder1, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,15,0"/>
+                                        <ToggleButton Content="Cylinder 2" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding Cylinder2, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,15,0"/>
+                                        <ToggleButton Content="Cylinder 3" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding Cylinder3, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                     </WrapPanel>
                                 </GroupBox>
 
-                                <GroupBox Header="Vacuum">
+                                <GroupBox Header="Suction Cups (DO3–DO5)">
                                     <WrapPanel Margin="10,5,10,5">
-                                        <ToggleButton Content="Vacuum 1" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding Vacuum1}" Margin="0,0,15,0"/>
-                                        <ToggleButton Content="Vacuum 2" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding Vacuum2}" Margin="0,0,15,0"/>
-                                        <ToggleButton Content="Vacuum 3" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding Vacuum3}"/>
+                                        <ToggleButton Content="Vacuum 1" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding Vacuum1, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,15,0"/>
+                                        <ToggleButton Content="Vacuum 2" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding Vacuum2, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,15,0"/>
+                                        <ToggleButton Content="Vacuum 3" Style="{StaticResource OnOffToggleButtonStyle}" IsChecked="{Binding Vacuum3, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
                                     </WrapPanel>
                                 </GroupBox>
 
@@ -1072,7 +1085,7 @@
                                         <RowDefinition Height="36"/>
                                     </Grid.RowDefinitions>
 
-                                    <TextBlock Grid.Row="0" Text="XL1_Down"/>
+                                    <TextBlock Grid.Row="0" Text="DI0 - XL1_Down"/>
                                     <Ellipse Grid.Row="0" Grid.Column="1">
                                         <Ellipse.Style>
                                             <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
@@ -1085,7 +1098,7 @@
                                         </Ellipse.Style>
                                     </Ellipse>
 
-                                    <TextBlock Grid.Row="1" Text="XL1_Up"/>
+                                    <TextBlock Grid.Row="1" Text="DI1 - XL1_Up"/>
                                     <Ellipse Grid.Row="1" Grid.Column="1">
                                         <Ellipse.Style>
                                             <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
@@ -1098,7 +1111,7 @@
                                         </Ellipse.Style>
                                     </Ellipse>
 
-                                    <TextBlock Grid.Row="2" Text="XL2_Down"/>
+                                    <TextBlock Grid.Row="2" Text="DI2 - XL2_Down"/>
                                     <Ellipse Grid.Row="2" Grid.Column="1">
                                         <Ellipse.Style>
                                             <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
@@ -1111,7 +1124,7 @@
                                         </Ellipse.Style>
                                     </Ellipse>
 
-                                    <TextBlock Grid.Row="3" Text="XL2_Up"/>
+                                    <TextBlock Grid.Row="3" Text="DI3 - XL2_Up"/>
                                     <Ellipse Grid.Row="3" Grid.Column="1">
                                         <Ellipse.Style>
                                             <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
@@ -1124,7 +1137,7 @@
                                         </Ellipse.Style>
                                     </Ellipse>
 
-                                    <TextBlock Grid.Row="4" Text="XL3_Down"/>
+                                    <TextBlock Grid.Row="4" Text="DI4 - XL3_Down"/>
                                     <Ellipse Grid.Row="4" Grid.Column="1">
                                         <Ellipse.Style>
                                             <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
@@ -1137,7 +1150,7 @@
                                         </Ellipse.Style>
                                     </Ellipse>
 
-                                    <TextBlock Grid.Row="5" Text="XL3_Up"/>
+                                    <TextBlock Grid.Row="5" Text="DI5 - XL3_Up"/>
                                     <Ellipse Grid.Row="5" Grid.Column="1">
                                         <Ellipse.Style>
                                             <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
@@ -1166,7 +1179,7 @@
                                             <RowDefinition Height="36"/>
                                         </Grid.RowDefinitions>
 
-                                        <TextBlock Grid.Row="0" Text="SS_SC1"/>
+                                        <TextBlock Grid.Row="0" Text="X5 / 20485 - Tool1"/>
                                         <Ellipse Grid.Row="0" Grid.Column="1">
                                             <Ellipse.Style>
                                                 <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
@@ -1179,7 +1192,7 @@
                                             </Ellipse.Style>
                                         </Ellipse>
 
-                                        <TextBlock Grid.Row="1" Text="SS_SC2"/>
+                                        <TextBlock Grid.Row="1" Text="X6 / 20486 - Tool2"/>
                                         <Ellipse Grid.Row="1" Grid.Column="1">
                                             <Ellipse.Style>
                                                 <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
@@ -1192,7 +1205,7 @@
                                             </Ellipse.Style>
                                         </Ellipse>
 
-                                        <TextBlock Grid.Row="2" Text="SS_SC3"/>
+                                        <TextBlock Grid.Row="2" Text="X7 / 20487 - Tool3"/>
                                         <Ellipse Grid.Row="2" Grid.Column="1">
                                             <Ellipse.Style>
                                                 <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
@@ -1216,14 +1229,16 @@
                                         <Grid.RowDefinitions>
                                             <RowDefinition Height="36"/>
                                             <RowDefinition Height="36"/>
+                                            <RowDefinition Height="36"/>
+                                            <RowDefinition Height="36"/>
                                         </Grid.RowDefinitions>
 
-                                        <TextBlock Grid.Row="0" Text="Front Door"/>
+                                        <TextBlock Grid.Row="0" Text="CI0 - Door1"/>
                                         <Ellipse Grid.Row="0" Grid.Column="1">
                                             <Ellipse.Style>
                                                 <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
                                                     <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding FrontDoor}" Value="True">
+                                                    <DataTrigger Binding="{Binding Door1}" Value="True">
                                                             <Setter Property="Fill" Value="{StaticResource DotOn}"/>
                                                         </DataTrigger>
                                                     </Style.Triggers>
@@ -1231,12 +1246,38 @@
                                             </Ellipse.Style>
                                         </Ellipse>
 
-                                        <TextBlock Grid.Row="1" Text="Back Door"/>
+                                        <TextBlock Grid.Row="1" Text="CI1 - Door2"/>
                                         <Ellipse Grid.Row="1" Grid.Column="1">
                                             <Ellipse.Style>
                                                 <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
                                                     <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding BackDoor}" Value="True">
+                                                    <DataTrigger Binding="{Binding Door2}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+
+                                        <TextBlock Grid.Row="2" Text="CI2 - Door3"/>
+                                        <Ellipse Grid.Row="2" Grid.Column="1">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Door3}" Value="True">
+                                                            <Setter Property="Fill" Value="{StaticResource DotOn}"/>
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+
+                                        <TextBlock Grid.Row="3" Text="CI3 - Door4"/>
+                                        <Ellipse Grid.Row="3" Grid.Column="1">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding Door4}" Value="True">
                                                             <Setter Property="Fill" Value="{StaticResource DotOn}"/>
                                                         </DataTrigger>
                                                     </Style.Triggers>
@@ -1338,7 +1379,7 @@
                                             <RowDefinition Height="36"/>
                                         </Grid.RowDefinitions>
 
-                                        <TextBlock Grid.Row="0" Text="Basket1"/>
+                                        <TextBlock Grid.Row="0" Text="X2 / 20482 - Basket1"/>
                                         <Ellipse Grid.Row="0" Grid.Column="1">
                                             <Ellipse.Style>
                                                 <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
@@ -1351,7 +1392,7 @@
                                             </Ellipse.Style>
                                         </Ellipse>
 
-                                        <TextBlock Grid.Row="1" Text="Basket2"/>
+                                        <TextBlock Grid.Row="1" Text="X3 / 20483 - Basket2"/>
                                         <Ellipse Grid.Row="1" Grid.Column="1">
                                             <Ellipse.Style>
                                                 <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
@@ -1377,7 +1418,7 @@
                                             <RowDefinition Height="36"/>
                                         </Grid.RowDefinitions>
 
-                                        <TextBlock Grid.Row="0" Text="May_Polishing"/>
+                                        <TextBlock Grid.Row="0" Text="X0 / 20480 - Máy1"/>
                                         <Ellipse Grid.Row="0" Grid.Column="1">
                                             <Ellipse.Style>
                                                 <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
@@ -1390,7 +1431,7 @@
                                             </Ellipse.Style>
                                         </Ellipse>
 
-                                        <TextBlock Grid.Row="1" Text="May_Seat_Finishin"/>
+                                        <TextBlock Grid.Row="1" Text="X1 / 20481 - Máy2"/>
                                         <Ellipse Grid.Row="1" Grid.Column="1">
                                             <Ellipse.Style>
                                                 <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
@@ -1420,7 +1461,7 @@
                                             <RowDefinition Height="36"/>
                                         </Grid.RowDefinitions>
 
-                                        <TextBlock Grid.Row="0" Text="Stop"/>
+                                        <TextBlock Grid.Row="0" Text="CI5 - Stop"/>
                                         <Ellipse Grid.Row="0" Grid.Column="1">
                                             <Ellipse.Style>
                                                 <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
@@ -1433,7 +1474,7 @@
                                             </Ellipse.Style>
                                         </Ellipse>
 
-                                        <TextBlock Grid.Row="1" Text="Reset"/>
+                                        <TextBlock Grid.Row="1" Text="CI6 - Reset"/>
                                         <Ellipse Grid.Row="1" Grid.Column="1">
                                             <Ellipse.Style>
                                                 <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
@@ -1446,7 +1487,7 @@
                                             </Ellipse.Style>
                                         </Ellipse>
 
-                                        <TextBlock Grid.Row="2" Text="Start"/>
+                                        <TextBlock Grid.Row="2" Text="CI4 - Start"/>
                                         <Ellipse Grid.Row="2" Grid.Column="1">
                                             <Ellipse.Style>
                                                 <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">
@@ -1471,7 +1512,7 @@
                                             <RowDefinition Height="36"/>
                                         </Grid.RowDefinitions>
 
-                                        <TextBlock Grid.Row="0" Text="Air_P"/>
+                                        <TextBlock Grid.Row="0" Text="X4 / 20484 - Air Pressure"/>
                                         <Ellipse Grid.Row="0" Grid.Column="1">
                                             <Ellipse.Style>
                                                 <Style TargetType="Ellipse" BasedOn="{StaticResource IoDotStyle}">

@@ -7,6 +7,7 @@ using WpfCompanyApp.CalibRobot;
 using WpfCompanyApp.Data;
 using WpfCompanyApp.Models;
 using WpfCompanyApp.ViewModels;
+using WpfCompanyApp.Views;
 
 namespace WpfCompanyApp.Services
 {
@@ -205,6 +206,8 @@ namespace WpfCompanyApp.Services
         [ObservableProperty] private bool vacuum1;
         [ObservableProperty] private bool vacuum2;
         [ObservableProperty] private bool vacuum3;
+        [ObservableProperty] private bool triggerCamera;
+        [ObservableProperty] private bool buzzerOn;
         [ObservableProperty] private bool greenLampOn;
         [ObservableProperty] private bool redLampOn;
         [ObservableProperty] private bool yellowLampOn;
@@ -269,6 +272,16 @@ namespace WpfCompanyApp.Services
         [RelayCommand]
         private void RequestFreeDrive()
         {
+            string action = FreeDriveOn ? "khóa Free Drive" : "mở Free Drive";
+            string warning = FreeDriveOn
+                ? "Bạn có chắc chắn muốn khóa Free Drive và đóng phanh robot không?"
+                : "Bạn có chắc chắn muốn mở Free Drive không?\n\n" +
+                  "CẢNH BÁO: Robot có thể chuyển động tự do. " +
+                  "Hãy giữ chắc tay robot và bảo đảm không có người trong vùng nguy hiểm.";
+
+            if (!VietnameseConfirmationDialog.Confirm($"Xác nhận {action}", warning))
+                return;
+
             FreeDriveReq = true;
         }
         // 1. Thêm các cờ yêu cầu (Flags)
@@ -321,8 +334,10 @@ namespace WpfCompanyApp.Services
         [ObservableProperty] private bool ssSc2;
         [ObservableProperty] private bool ssSc3;
 
-        [ObservableProperty] private bool frontDoor;
-        [ObservableProperty] private bool backDoor;
+        [ObservableProperty] private bool door1;
+        [ObservableProperty] private bool door2;
+        [ObservableProperty] private bool door3;
+        [ObservableProperty] private bool door4;
         [ObservableProperty] private bool buzzer;
 
         [ObservableProperty] private bool lampRed;

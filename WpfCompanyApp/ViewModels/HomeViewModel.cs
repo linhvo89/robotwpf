@@ -228,13 +228,49 @@ namespace WpfCompanyApp.ViewModels
         [RelayCommand]
         private void Shutdown()
         {
+            if (_data.CurrentState != AppState.Idle)
+            {
+                AddMachineLog(
+                    $"[SYSTEM][BLOCKED] Không được phép nhấn Shutdown khi máy đang ở trạng thái {_data.CurrentState}. " +
+                    "Hãy nhấn STOP và chờ máy về trạng thái Idle.");
+                return;
+            }
+
+            if (!VietnameseConfirmationDialog.Confirm(
+                    "Xác nhận tắt hệ thống",
+                    "Bạn có chắc chắn muốn TẮT toàn bộ hệ thống Robot và máy tính không?\n\n" +
+                    "Hãy bảo đảm robot đã dừng và mọi dữ liệu đã được lưu."))
+                return;
+
             _data.ShutdownReq = true;
         }
 
         [RelayCommand]
         private void Restart()
         {
+            if (_data.CurrentState != AppState.Idle)
+            {
+                AddMachineLog(
+                    $"[SYSTEM][BLOCKED] Không được phép nhấn Restart khi máy đang ở trạng thái {_data.CurrentState}. " +
+                    "Hãy nhấn STOP và chờ máy về trạng thái Idle.");
+                return;
+            }
+
+            if (!VietnameseConfirmationDialog.Confirm(
+                    "Xác nhận khởi động lại",
+                    "Bạn có chắc chắn muốn KHỞI ĐỘNG LẠI hệ thống không?\n\n" +
+                    "Hãy bảo đảm robot đã dừng và mọi dữ liệu đã được lưu."))
+                return;
+
             _data.RestartReq = true;
+        }
+
+        private void AddMachineLog(string message)
+        {
+            string line = $"{DateTime.Now:HH:mm:ss} {message}";
+            _data.MachineLog.Insert(0, line);
+            if (_data.MachineLog.Count > 3000)
+                _data.MachineLog.RemoveAt(_data.MachineLog.Count - 1);
         }
         // ======= VIEW MODE STATE (JOB / CAMERA) =======
         [ObservableProperty]

@@ -101,12 +101,24 @@
                BasedOn="{StaticResource CommandButtonBaseStyle}">
             <Setter Property="Background" Value="#D32F2F"/>
             <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Opacity" Value="0.65"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Data.CurrentState}" Value="Idle">
+                    <Setter Property="Opacity" Value="1"/>
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
 
         <Style x:Key="RestartButtonStyle" TargetType="Button"
                BasedOn="{StaticResource CommandButtonBaseStyle}">
             <Setter Property="Background" Value="#E65100"/>
             <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Opacity" Value="0.65"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Data.CurrentState}" Value="Idle">
+                    <Setter Property="Opacity" Value="1"/>
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
         <!-- Ô PHÔI: TRỐNG = XÁM, CÓ PHÔI = XANH -->
         <Style x:Key="SlotCellStyle" TargetType="Border">
@@ -277,9 +289,16 @@
         Background="#252830"
         BorderBrush="#3C3F46"
         BorderThickness="1" Grid.RowSpan="2">
-                    <StackPanel Margin="15">
+                    <Grid Margin="15">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
 
-                        <Grid Margin="0,0,0,15">
+                        <Grid Grid.Row="0" Margin="0,0,0,15">
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto"/>
                                 <ColumnDefinition Width="*"/>
@@ -310,42 +329,91 @@
                             </StackPanel>
                         </Grid>
 
-                        <WrapPanel HorizontalAlignment="Center" Margin="0,10,0,0">
-                            <Button Content="Start"
-            Command="{Binding StartCommand}"
-            Style="{StaticResource StartButtonStyle}"
-            Margin="4"/>
-                            <Button Content="Stop"
-            Command="{Binding StopCommand}"
-            Style="{StaticResource StopButtonStyle}"
-            Margin="4"/>
-                            <Button Content="Home"
-            Command="{Binding HomeCommand}"
-            Style="{StaticResource HomeButtonStyle}"
-            Margin="4"/>
-                            <Button Content="Pause"
-            Command="{Binding PauseCommand}"
-            Style="{StaticResource PauseButtonStyle}"
-            Margin="4"/>
-                            <Button Content="Reset"
-            Command="{Binding ResetCommand}"
-            Style="{StaticResource ResetButtonStyle}"
-            Margin="4"/>
-                        </WrapPanel>
+                        <Grid Grid.Row="1"
+                              HorizontalAlignment="Center"
+                              Width="330"
+                              Margin="0,10,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
 
-                        <Border Height="1" Background="#3C3F46" Margin="40,15,40,5"/>
+                            <Button Grid.Row="0"
+                                    Grid.Column="0"
+                                    Height="86"
+                                    FontSize="30"
+                                    Content="Start"
+                                    Command="{Binding StartCommand}"
+                                    Style="{StaticResource StartButtonStyle}"
+                                    Margin="9"/>
+                            <Button Grid.Row="0"
+                                    Grid.Column="1"
+                                    Height="86"
+                                    FontSize="30"
+                                    Content="Stop"
+                                    Command="{Binding StopCommand}"
+                                    Style="{StaticResource StopButtonStyle}"
+                                    Margin="9"/>
+                            <Button Grid.Row="1"
+                                    Grid.Column="0"
+                                    Height="86"
+                                    FontSize="30"
+                                    Content="Home"
+                                    Command="{Binding HomeCommand}"
+                                    Style="{StaticResource HomeButtonStyle}"
+                                    Margin="9"/>
+                            <Button Grid.Row="1"
+                                    Grid.Column="1"
+                                    Height="86"
+                                    FontSize="30"
+                                    Content="Pause"
+                                    Command="{Binding PauseCommand}"
+                                    Style="{StaticResource PauseButtonStyle}"
+                                    Margin="9"/>
+                            <Button Grid.Row="2"
+                                    Grid.Column="0"
+                                    Grid.ColumnSpan="2"
+                                    Height="86"
+                                    FontSize="30"
+                                    Content="Reset"
+                                    Command="{Binding ResetCommand}"
+                                    Style="{StaticResource ResetButtonStyle}"
+                                    Margin="9"/>
+                        </Grid>
 
-                        <WrapPanel HorizontalAlignment="Center" Margin="0,10,0,10">
-                            <Button Content="Restart"
-            Command="{Binding RestartCommand}"
-            Style="{StaticResource RestartButtonStyle}"
-            Margin="4"/>
-                            <Button Content="Shutdown"
-            Command="{Binding ShutdownCommand}"
-            Style="{StaticResource ShutdownButtonStyle}"
-            Margin="4"/>
-                        </WrapPanel>
-                    </StackPanel>
+                        <Border Grid.Row="3"
+                                Height="1"
+                                Background="#3C3F46"
+                                Margin="40,14,40,5"/>
+
+                        <Grid Grid.Row="4"
+                              HorizontalAlignment="Center"
+                              Width="300"
+                              Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Button Grid.Column="0"
+                                    Height="52"
+                                    Content="Restart"
+                                    Command="{Binding RestartCommand}"
+                                    Style="{StaticResource RestartButtonStyle}"
+                                    Margin="5"/>
+                            <Button Grid.Column="1"
+                                    Height="52"
+                                    Content="Shutdown"
+                                    Command="{Binding ShutdownCommand}"
+                                    Style="{StaticResource ShutdownButtonStyle}"
+                                    Margin="5"/>
+                        </Grid>
+                    </Grid>
                 </Border>
                 <!-- ========== NHÓM 2: CHỌN JOB ========== -->
                 <!-- ========== NHÓM 3: CHỌN JOB ========== -->

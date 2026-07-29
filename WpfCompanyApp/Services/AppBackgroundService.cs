@@ -119,6 +119,7 @@ namespace WpfCompanyApp.Services
         // STATE CON
         private ReadySubState _readyState = ReadySubState.CheckStatus;
         private ManualSubState _manualState = ManualSubState.CheckSensor;
+        private bool _manualBlockedLogged;
         private SettingsSubState _settingsState = SettingsSubState.WaitUserEdit;
 
         // Robot điều khiển
@@ -1874,26 +1875,22 @@ namespace WpfCompanyApp.Services
             {
                 _data.ShutdownReq = false;
 
-                // 1. Kiểm tra an toàn: Đang chạy thì không cho tắt
-                if (_state == AppState.Running || _state == AppState.Homing)
+                // Chỉ cho phép tắt hệ thống khi máy đã dừng hoàn toàn (STOP/IDLE).
+                if (_state != AppState.Idle)
                 {
+                    AddMachineLog(
+                        $"[SYSTEM][BLOCKED] Từ chối Shutdown vì máy đang ở trạng thái {_state}. " +
+                        "Chỉ cho phép khi STOP/IDLE.");
                     Application.Current?.Dispatcher.Invoke(() =>
                     {
-                        MessageBox.Show("Máy đang chạy! Không được nhấn ShutDown.", "Cảnh báo", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        VietnameseConfirmationDialog.ShowWarning(
+                            "Không thể tắt hệ thống",
+                            "Chỉ được phép tắt hệ thống khi máy đang ở chế độ DỪNG (STOP).");
                     });
                     return;
                 }
 
-                // 2. Hỏi xác nhận người dùng
-                bool isConfirm = false;
-                Application.Current?.Dispatcher.Invoke(() =>
-                {
-                    var result = MessageBox.Show("Bạn có chắc chắn muốn TẮT toàn bộ hệ thống (Robot & PC) không?",
-                                                 "Xác nhận Shutdown", MessageBoxButton.YesNo, MessageBoxImage.Error);
-                    isConfirm = (result == MessageBoxResult.Yes);
-                });
-
-                if (isConfirm)
+                // Người dùng đã xác nhận bằng tiếng Việt tại HomeViewModel.
                 {
                     // 3. Chạy luồng ngầm để không làm đơ giao diện 15 giây
                     Task.Run(() =>
@@ -1926,24 +1923,21 @@ namespace WpfCompanyApp.Services
             {
                 _data.RestartReq = false;
 
-                if (_state == AppState.Running || _state == AppState.Homing)
+                if (_state != AppState.Idle)
                 {
+                    AddMachineLog(
+                        $"[SYSTEM][BLOCKED] Từ chối Restart vì máy đang ở trạng thái {_state}. " +
+                        "Chỉ cho phép khi STOP/IDLE.");
                     Application.Current?.Dispatcher.Invoke(() =>
                     {
-                        MessageBox.Show("Máy đang chạy! Vui lòng ấn STOP trước khi nhấn Restart.", "Cảnh báo", MessageBoxButton.OK, MessageBoxImage.Warning);
+                        VietnameseConfirmationDialog.ShowWarning(
+                            "Không thể khởi động lại",
+                            "Chỉ được phép khởi động lại hệ thống khi máy đang ở chế độ DỪNG (STOP).");
                     });
                     return;
                 }
 
-                bool isConfirm = false;
-                Application.Current?.Dispatcher.Invoke(() =>
-                {
-                    var result = MessageBox.Show("Bạn có chắc chắn muốn KHỞI ĐỘNG LẠI máy tính không?",
-                                                 "Xác nhận Restart", MessageBoxButton.YesNo, MessageBoxImage.Question);
-                    isConfirm = (result == MessageBoxResult.Yes);
-                });
-
-                if (isConfirm)
+                // Người dùng đã xác nhận bằng tiếng Việt tại HomeViewModel.
                 {
                     Task.Run(() =>
                     {
@@ -4484,6 +4478,21 @@ namespace WpfCompanyApp.Services
         // === MANUAL ===
         private void HandleManual()
         {
+            if (_state != AppState.Idle)
+            {
+                ClearPendingManualRequests();
+                if (!_manualBlockedLogged)
+                {
+                    AddMachineLog(
+                        $"[MANUAL][BLOCKED] Không cho phép điều khiển Manual Robot khi máy đang ở trạng thái {_state}. " +
+                        "Hãy nhấn STOP và chờ máy về trạng thái Idle.");
+                    _manualBlockedLogged = true;
+                }
+                return;
+            }
+
+            _manualBlockedLogged = false;
+
             // 1) Nếu bấm Manual Step 1
             switch (_manualState)
             {
@@ -4798,6 +4807,46 @@ namespace WpfCompanyApp.Services
             }
         }
 
+        private void ClearPendingManualRequests()
+        {
+            _data.EnableReq = false;
+            _data.DisableReq = false;
+            _data.OpenReq = false;
+            _data.CloseReq = false;
+            _data.FreeDriveReq = false;
+            _data.ResetRobotReq = false;
+            _data.StatusRobotReq = false;
+
+            _data.JogXPlusReq = false;
+            _data.JogXMinusReq = false;
+            _data.JogYPlusReq = false;
+            _data.JogYMinusReq = false;
+            _data.JogZPlusReq = false;
+            _data.JogZMinusReq = false;
+            _data.JogRXPlusReq = false;
+            _data.JogRXMinusReq = false;
+            _data.JogRYPlusReq = false;
+            _data.JogRYMinusReq = false;
+            _data.JogRZPlusReq = false;
+            _data.JogRZMinusReq = false;
+
+            // Không giữ lệnh output Manual để tránh tự kích hoạt khi máy trở lại Idle.
+            _data.Cylinder1 = false;
+            _data.Cylinder2 = false;
+            _data.Cylinder3 = false;
+            _data.Vacuum1 = false;
+            _data.Vacuum2 = false;
+            _data.Vacuum3 = false;
+            _data.PushAir1 = false;
+            _data.PushAir2 = false;
+            _data.PushAir3 = false;
+            _data.TriggerCamera = false;
+            _data.BuzzerOn = false;
+            _data.RedLampOn = false;
+            _data.YellowLampOn = false;
+            _data.GreenLampOn = false;
+        }
+
         private void TurnOffAllOutputs()
         {
             Application.Current?.Dispatcher.Invoke(() =>
@@ -4814,6 +4863,8 @@ namespace WpfCompanyApp.Services
                 _data.Vacuum1 = false;
                 _data.Vacuum2 = false;
                 _data.Vacuum3 = false;
+                _data.TriggerCamera = false;
+                _data.BuzzerOn = false;
                 _data.RedLampOn = false;
                 _data.YellowLampOn = false;
                 _data.EnableOn = false;
@@ -4885,115 +4936,51 @@ namespace WpfCompanyApp.Services
             try
             {
                 // ===== GHI DO0..DO7 =====
-                _robot.SetSerialDO(0, _data.PushAir1 ? 1 : 0);
-                _robot.SetSerialDO(1, _data.PushAir2 ? 1 : 0);
-                _robot.SetSerialDO(2, _data.PushAir3 ? 1 : 0);
-                _robot.SetSerialDO(3, _data.SubPush ? 1 : 0);
-                _robot.SetSerialDO(4, _data.Cylinder1 ? 1 : 0);
-                _robot.SetSerialDO(5, _data.Vacuum3 ? 1 : 0);      // DO5 = Vacuum3
-                _robot.SetSerialDO(6, _data.Cylinder3 ? 1 : 0);
-                _robot.SetSerialDO(7, _data.GreenLampOn ? 1 : 0);   // DO7 = GreenLamp
+                _robot.SetSerialDO(0, _data.Cylinder1 ? 1 : 0);      // DO0 = XL1
+                _robot.SetSerialDO(1, _data.Cylinder2 ? 1 : 0);      // DO1 = XL2
+                _robot.SetSerialDO(2, _data.Cylinder3 ? 1 : 0);      // DO2 = XL3
+                _robot.SetSerialDO(3, _data.Vacuum1 ? 1 : 0);        // DO3 = SC1
+                _robot.SetSerialDO(4, _data.Vacuum2 ? 1 : 0);        // DO4 = SC2
+                _robot.SetSerialDO(5, _data.Vacuum3 ? 1 : 0);        // DO5 = SC3
+                _robot.SetSerialDO(6, _data.TriggerCamera ? 1 : 0);   // DO6 = Trigger camera
 
-                // ===== GHI CO0..CO7: CO2 dành riêng cho đèn xanh báo Full Work =====
-                _robot.SetBoxCO(0, _data.Vacuum1 ? 1 : 0);
-                _robot.SetBoxCO(1, _data.Vacuum2 ? 1 : 0);
-                _robot.SetBoxCO(3, _data.RedLampOn ? 1 : 0);        // CO3 = RedLamp
-                _robot.SetBoxCO(4, _data.YellowLampOn ? 1 : 0);     // CO4 = YellowLamp
+                // ===== GHI CO0..CO6 =====
+                _robot.SetBoxCO(0, _data.RedLampOn ? 1 : 0);         // CO0 = Red
+                _robot.SetBoxCO(1, _data.YellowLampOn ? 1 : 0);      // CO1 = Yellow
+                _robot.SetBoxCO(2, _data.GreenLampOn ? 1 : 0);       // CO2 = Green
+                _robot.SetBoxCO(3, _data.BuzzerOn ? 1 : 0);          // CO3 = Buzzer
+                _robot.SetBoxCO(4, _data.PushAir1 ? 1 : 0);          // CO4 = Blow1
+                _robot.SetBoxCO(5, _data.PushAir2 ? 1 : 0);          // CO5 = Blow2
+                _robot.SetBoxCO(6, _data.PushAir3 ? 1 : 0);          // CO6 = Blow3
               //  _robot.SetBoxCO(5, _data.EnableOn ? 1 : 0);         // CO5 = Enable
               //  _robot.SetBoxCO(6, _data.DisableOn ? 1 : 0);        // CO6 = Disable
                // _robot.SetBoxCO(7, _data.OpenOn ? 1 : 0);           // CO7 = Open(1)/Close(0)
 
-                // ===== ĐỌC LẠI DO TỪ ROBOT → CẬP NHẬT UI =====
-                int[] doi = new int[8];
-                string kp = _robot.ReadBoxDO_01234567(out doi);
-                if (kp == "OK")
-                {
-                    Application.Current?.Dispatcher.Invoke(() =>
-                    {
-                        _data.PushAir1 = doi[0] == 1;
-                        _data.PushAir2 = doi[1] == 1;
-                        _data.PushAir3 = doi[2] == 1;
-                        _data.SubPush = doi[3] == 1;
-                        _data.Cylinder1 = doi[4] == 1;
-                        _data.Vacuum3 = doi[5] == 1;  // DO5
-                        _data.Cylinder3 = doi[6] == 1;
-                        _data.GreenLampOn = doi[7] == 1;  // DO7
-                    });
-                }
-                else
-                {
-                    AddMachineLog($"[MANUAL] Error Read DO: {kp}");
-                }
-
-                // ===== ĐỌC LẠI CO TỪ ROBOT → CẬP NHẬT UI =====
-                int[] coi = new int[8];
-                kp = _robot.ReadBoxCO_01234567(out coi);
-                if (kp == "OK")
-                {
-                    Application.Current?.Dispatcher.Invoke(() =>
-                    {
-                        _data.Vacuum1 = coi[0] == 1;
-                        _data.Vacuum2 = coi[1] == 1;
-                        _data.RedLampOn = coi[3] == 1;     // CO3
-                        _data.YellowLampOn = coi[4] == 1;  // CO4
-                        // EnableOn/DisableOn/OpenOn/CloseOn được quản lý bởi HandleControlRequests()
-                        // Không readback từ CO để tránh ghi đè trạng thái
-                        // _data.EnableOn = coi[5] == 1;   // CO5
-                        // _data.DisableOn = coi[6] == 1;  // CO6
-                      //  _data.OpenOn = coi[7] == 1;        // CO7 = Open
-                     //  _data.CloseOn = coi[7] == 0;       // CO7 = Close (ngược lại Open)
-                    });
-                }
-                else
-                {
-                    AddMachineLog($"[MANUAL] Error Read CO: {kp}");
-                }
+                // Không gán readback DO/CO ngược vào các biến đang bind với
+                // ToggleButton. Robot có thể trả về trạng thái cũ trong một chu kỳ,
+                // làm nút tự OFF rồi chu kỳ sau lại ON liên tục.
             }
             catch (Exception ex)
             {
-                AddMachineLog($"[OUTPUT][READBACK][ERROR] {ex.Message}");
+                AddMachineLog($"[OUTPUT][WRITE][ERROR] {ex.Message}");
             }
         }
 
         private void ReadSensorAndUpdateUI()
         {
-            // ===== ĐỌC CI0..CI7 =====
-            int[] ci = new int[8];
-            string kq = _robot.ReadBoxCI_01234567(out ci);
-            if (kq == "OK")
-            {
-                Application.Current?.Dispatcher.Invoke(() =>
-                {
-                    _data.Xl1Down  = ci[0] == 1;  // CI0
-                    _data.Xl1Up    = ci[1] == 1;  // CI1
-                    _data.Xl2Down  = ci[2] == 1;  // CI2
-                    _data.Xl2Up    = ci[3] == 1;  // CI3
-                    _data.Xl3Down  = ci[4] == 1;  // CI4
-                    _data.Xl3Up    = ci[5] == 1;  // CI5
-                    _data.SsSc1    = ci[6] == 1;  // CI6
-                    _data.SsSc2    = ci[7] == 1;  // CI7
-                });
-            }
-            else
-            {
-                AddMachineLog($"[ERROR] Read CI robot {kq}");
-            }
-
-            // ===== ĐỌC DI0..DI7 =====
+            // ===== ĐỌC DI0..DI7: cảm biến xi lanh =====
             int[] di = new int[8];
-            kq = _robot.ReadBoxDI_01234567(out di);
+            string kq = _robot.ReadBoxDI_01234567(out di);
             if (kq == "OK")
             {
                 Application.Current?.Dispatcher.Invoke(() =>
                 {
-                    _data.SsSc3      = di[0] == 1;  // DI0
-                    _data.FrontDoor  = di[1] == 1;  // DI1
-                    _data.BackDoor   = di[2] == 1;  // DI2
-                    _data.Buzzer     = di[3] == 1;  // DI3
-                    _data.LampRed    = di[4] == 1;  // DI4
-                    _data.LampYellow = di[5] == 1;  // DI5
-                    _data.LampGreen  = di[6] == 1;  // DI6
-                    _data.Basket1    = di[7] == 1;  // DI7
+                    _data.Xl1Down = di[0] == 1;
+                    _data.Xl1Up   = di[1] == 1;
+                    _data.Xl2Down = di[2] == 1;
+                    _data.Xl2Up   = di[3] == 1;
+                    _data.Xl3Down = di[4] == 1;
+                    _data.Xl3Up   = di[5] == 1;
                 });
             }
             else
@@ -5001,8 +4988,43 @@ namespace WpfCompanyApp.Services
                 AddMachineLog($"[ERROR] Read DI robot {kq}");
             }
 
-            // TODO: Basket2, MayPolishing, MaySeatFinishin, Stop, Reset, Start, AirP
-            // cần thêm kênh IO (ví dụ ReadSerialDI hoặc mở rộng CI/DI) để mapping
+            // ===== ĐỌC CI0..CI7: cửa và nút nhấn =====
+            int[] ci = new int[8];
+            kq = _robot.ReadBoxCI_01234567(out ci);
+            if (kq == "OK")
+            {
+                Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    _data.Door1 = ci[0] == 1;
+                    _data.Door2 = ci[1] == 1;
+                    _data.Door3 = ci[2] == 1;
+                    _data.Door4 = ci[3] == 1;
+                    _data.Start = ci[4] == 1;
+                    _data.Stop  = ci[5] == 1;
+                    _data.Reset = ci[6] == 1;
+                });
+            }
+            else
+            {
+                AddMachineLog($"[ERROR] Read CI robot {kq}");
+            }
+
+            // ===== PLC X0..X7 / Modbus addresses 20480..20487 =====
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                _data.MayPolishing = _toolSensorRtu.IsMachine1Full;
+                _data.MaySeatFinishin = _toolSensorRtu.IsMachine2Full;
+                _data.Basket1 = _toolSensorRtu.IsBasket1Ready;
+                _data.Basket2 = _toolSensorRtu.IsBasket2Ready;
+                _data.AirP = _toolSensorRtu.IsAirPressureReady;
+                _data.SsSc1 = _toolSensorRtu.IsToolHolding(1);
+                _data.SsSc2 = _toolSensorRtu.IsToolHolding(2);
+                _data.SsSc3 = _toolSensorRtu.IsToolHolding(3);
+                _data.LampRed = _data.RedLampOn;
+                _data.LampYellow = _data.YellowLampOn;
+                _data.LampGreen = _data.GreenLampOn;
+                _data.Buzzer = _data.BuzzerOn;
+            });
         }
 
         // Thêm tham số đầu vào 'currentPos'

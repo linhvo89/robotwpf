@@ -4,6 +4,8 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net48</TargetFramework>
     <UseWPF>true</UseWPF>
+    <AssemblyName>KBOT</AssemblyName>
+    <Product>KBOT</Product>
 
     <!-- Keep existing AssemblyInfo.cs -->
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
@@ -71,6 +73,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="Image\NittanVietnamLogo.jpg" />
     <Resource Include="Views\backgroudXYZ.png" />
     <Resource Include="Views\backgroudXYZ2.png" />
   </ItemGroup>

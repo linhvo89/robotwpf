@@ -274,7 +274,7 @@
                     <RowDefinition Height="215*"/>
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1.5*"/>
+                    <ColumnDefinition Width="1.2*"/>
                     <!-- Nhóm 1: Vận hành -->
 
                     <!-- Nhóm 2: Khu vực phôi -->

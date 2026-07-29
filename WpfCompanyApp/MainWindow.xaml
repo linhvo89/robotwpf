@@ -35,24 +35,19 @@
             </Border.Effect>
 
             <DockPanel>
-                <!-- 🔹 Logo góc trái -->
-                <StackPanel Orientation="Horizontal"
-                    DockPanel.Dock="Left"
-                    VerticalAlignment="Center"
-                    Margin="20,0,0,0">
-                    <Ellipse Width="36" Height="36" Fill="#2196F3" Opacity="0.9">
-                        <Ellipse.Effect>
-                            <DropShadowEffect Color="#000000"
-                                      BlurRadius="8"
-                                      ShadowDepth="2"
-                                      Opacity="0.4"/>
-                        </Ellipse.Effect>
-                    </Ellipse>
-                    <TextBlock Text="🤖"
-                       FontSize="22"
-                       VerticalAlignment="Center"
-                       Margin="-28,0,0,0"/>
-                </StackPanel>
+                <!-- Logo công ty ở góc trái thanh tiêu đề -->
+                <Border DockPanel.Dock="Left"
+                        Width="160"
+                        Margin="20,8,0,8"
+                        Padding="6,3"
+                        CornerRadius="8"
+                        Background="White"
+                        VerticalAlignment="Center">
+                    <Image Source="/KBOT;component/Image/NittanVietnamLogo.jpg"
+                           Width="145"
+                           Height="60"
+                           Stretch="Uniform"/>
+                </Border>
 
                 <!-- 🔷 Tiêu đề chính -->
                 <TextBlock Text="Automatic Pick &amp; Place System"

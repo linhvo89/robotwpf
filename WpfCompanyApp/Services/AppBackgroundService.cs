@@ -1153,12 +1153,21 @@ namespace WpfCompanyApp.Services
                 if (int.TryParse(timeoutStr, out int timeout))
                     _readTimeout = timeout;
 
+                var cameraResultTimeoutStr = _ini.Read("ResultTimeOut", "Camera");
+                if (int.TryParse(cameraResultTimeoutStr, out int cameraResultTimeoutMs) &&
+                    cameraResultTimeoutMs > 0)
+                {
+                    _readyCameraTimeout = TimeSpan.FromMilliseconds(cameraResultTimeoutMs);
+                }
+
                 _robotConnectAttemptLogged = false;
                 _robotConnectFailureLogged = false;
                 _data.HomeData = $"Đã load config: IP={_ipRobot}, Port={_portRobot}, TO={_readTimeout}";
                 AddMachineLog(
                     $"[ROBOT TCP] Đã tải cấu hình từ [RobotTCP]: IP={_ipRobot}, " +
                     $"Port={_portRobot}, TimeOut={_readTimeout} ms.");
+                AddMachineLog(
+                    $"[CAMERA] Timeout chờ kết quả={_readyCameraTimeout.TotalMilliseconds:0} ms.");
                 
                 AddRobotHistory("[INIT] Load config OK");
 
@@ -1990,7 +1999,7 @@ namespace WpfCompanyApp.Services
         private bool _readyCameraResultReady = false;
         private int _readyCameraResultCount = 0;
         private DateTime _readyCameraTriggeredAtUtc = DateTime.MinValue;
-        private static readonly TimeSpan ReadyCameraTimeout = TimeSpan.FromSeconds(5);
+        private TimeSpan _readyCameraTimeout = TimeSpan.FromSeconds(7);
         private int _readyCameraTimeoutCount = 0;
         private int _readyEmptyConfirmCount = 0;
         // Dùng cho chế độ Both: chỉ kết thúc khi hai Basket khác nhau được xác nhận
@@ -3840,14 +3849,14 @@ namespace WpfCompanyApp.Services
                         break;
 
                     // Bước 5: Chờ callback VisionMaster trả danh sách pixel sản phẩm.
-                    // Quá 5 giây chưa có callback thì chụp lại. Sau đủ số lần cấu hình,
+                    // Quá thời gian cấu hình chưa có callback thì chụp lại. Sau đủ số lần cấu hình,
                     // bỏ qua Basket hiện tại và chuyển sang Basket tiếp theo.
                     // Nếu không có sản phẩm thì chuyển sang bước chụp xác nhận Basket rỗng.
                     case ReadySubState.WaitBasketCamera:
                         if (!_readyCameraResultReady)
                         {
                             if (_readyCameraTriggeredAtUtc != DateTime.MinValue &&
-                                DateTime.UtcNow - _readyCameraTriggeredAtUtc >= ReadyCameraTimeout)
+                                DateTime.UtcNow - _readyCameraTriggeredAtUtc >= _readyCameraTimeout)
                             {
                                 _readyCameraPending = false;
                                 _readyCameraTriggeredAtUtc = DateTime.MinValue;
@@ -3869,7 +3878,10 @@ namespace WpfCompanyApp.Services
                                 }
                                 else
                                 {
-                                    AddMachineLog($"[READY] Basket{_readyCurrentBasket} không trả kết quả sau 5 giây ({_readyCameraTimeoutCount}/{maxTimeouts}), chụp lại.");
+                                    AddMachineLog(
+                                        $"[READY] Basket{_readyCurrentBasket} không trả kết quả sau " +
+                                        $"{_readyCameraTimeout.TotalSeconds:0.###} giây " +
+                                        $"({_readyCameraTimeoutCount}/{maxTimeouts}), chụp lại.");
                                     _readyState = ReadySubState.TriggerBasketCamera;
                                 }
                             }
@@ -5086,11 +5098,11 @@ namespace WpfCompanyApp.Services
 
             if (er == "OK")
             {
-                AddRobotHistory($"[MANUAL] Jog {axis} {direction}: Thành công (Step: {stepValue})");
+                AddMachineLog($"[MANUAL] Jog {axis} {direction}: Thành công (Step: {stepValue})");
             }
             else
             {
-                AddRobotHistory($"[MANUAL] Jog {axis} {direction}: Thất bại - {er}");
+                AddMachineLog($"[MANUAL] Jog {axis} {direction}: Thất bại - {er}");
             }
         }
         // Thêm hàm cập nhật vị trí thời gian thực

@@ -27,6 +27,9 @@
   <ItemGroup>
     <None Remove="Views\backgroudXYZ.png" />
     <None Remove="Views\backgroudXYZ2.png" />
+    <Content Include="Documents\Huong_dan_van_hanh_KBOT.pdf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
     <None Update="Config\HMRobotV3.ini">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

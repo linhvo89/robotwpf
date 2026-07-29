@@ -24,6 +24,7 @@ namespace WpfCompanyApp.Services
         public AppDataService()
         {
             LoadRobotSpeeds();
+            LoadAppSettings();
 
             // Khi bất kỳ phần tử nào trong Slots bị thay đổi,
             // event này sẽ được gọi (Action = Replace)
@@ -47,6 +48,9 @@ namespace WpfCompanyApp.Services
         [ObservableProperty] private string cycleTimeDisplay = "00:00:00";
         [ObservableProperty] private double cycleCount;
         [ObservableProperty] private string selectedBasketMode = "Both";
+        [ObservableProperty] private string selectedFullWorkSensor = "Máy1";
+        [ObservableProperty] private bool setSensor;
+        [ObservableProperty] private bool writeLog;
         [ObservableProperty] private bool runTool1 = true;
         [ObservableProperty] private bool runTool2 = true;
         [ObservableProperty] private bool runTool3 = true;
@@ -70,6 +74,21 @@ namespace WpfCompanyApp.Services
             SpeedMoveToDrop1 = GetSavedSpeed(savedSpeeds, nameof(SpeedMoveToDrop1), SpeedMoveToDrop1);
             SpeedMoveBetweenDrops = GetSavedSpeed(savedSpeeds, nameof(SpeedMoveBetweenDrops), SpeedMoveBetweenDrops);
             SpeedReturnAfterDrop = GetSavedSpeed(savedSpeeds, nameof(SpeedReturnAfterDrop), SpeedReturnAfterDrop);
+        }
+
+        private void LoadAppSettings()
+        {
+            string savedSensor = _db.GetAppSetting(
+                nameof(SelectedFullWorkSensor),
+                SelectedFullWorkSensor);
+
+            SelectedFullWorkSensor =
+                savedSensor == "Máy2" ? "Máy2" : "Máy1";
+
+            WriteLog = bool.TryParse(
+                _db.GetAppSetting(nameof(WriteLog), bool.FalseString),
+                out bool savedWriteLog) &&
+                savedWriteLog;
         }
 
         private static double GetSavedSpeed(
@@ -104,6 +123,16 @@ namespace WpfCompanyApp.Services
 
         partial void OnSpeedReturnAfterDropChanged(double value) =>
             SaveRobotSpeed(nameof(SpeedReturnAfterDrop), value);
+
+        partial void OnSelectedFullWorkSensorChanged(string value)
+        {
+            if (value == "Máy1" || value == "Máy2")
+                _db.SaveAppSetting(nameof(SelectedFullWorkSensor), value);
+        }
+
+        partial void OnWriteLogChanged(bool value) =>
+            _db.SaveAppSetting(nameof(WriteLog), value.ToString());
+
         private object? _moduleSource;
         public object? ModuleSource
         {

@@ -1372,7 +1372,9 @@
                                     <GroupBox Header="Sensor Full Work"
                               Grid.Column="2"
                               Style="{StaticResource DarkGroupBox}">
-                                        <ComboBox Style="{StaticResource PrettyComboBox}"
+                                        <ComboBox ItemsSource="{Binding FullWorkSensorList}"
+                                  SelectedItem="{Binding Data.SelectedFullWorkSensor, Mode=TwoWay}"
+                                  Style="{StaticResource PrettyComboBox}"
                                   Margin="4"/>
                                     </GroupBox>
                                 </Grid>
@@ -1467,9 +1469,11 @@
                               Style="{StaticResource DarkGroupBox}">
                                         <StackPanel>
                                             <CheckBox Content="SetSensor"
+                                      IsChecked="{Binding Data.SetSensor, Mode=TwoWay}"
                                       Foreground="White"/>
                                             <Separator Margin="8"/>
                                             <CheckBox Content="WriteLog"
+                                      IsChecked="{Binding Data.WriteLog, Mode=TwoWay}"
                                       Foreground="White"/>
                                         </StackPanel>
                                     </GroupBox>

@@ -819,6 +819,9 @@ namespace WpfCompanyApp.ViewModels
         [ObservableProperty]
         private ObservableCollection<string> basketRunModeList = new(new[] { "Basket1", "Basket2", "Both" });
 
+        [ObservableProperty]
+        private ObservableCollection<string> fullWorkSensorList = new(new[] { "Máy1", "Máy2" });
+
         // ✅ Tool được chọn (mặc định Tool1)
         [ObservableProperty]
         private string selectedCalibTool = "Tool1";

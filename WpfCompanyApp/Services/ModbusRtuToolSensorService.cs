@@ -14,6 +14,8 @@ namespace WpfCompanyApp.Services
     /// </summary>
     public sealed class ModbusRtuToolSensorService : IDisposable
     {
+        private const ushort Machine1FullAddress = 20480;
+        private const ushort Machine2FullAddress = 20481;
         private const ushort Basket1ReadyAddress = 20482;
         private const ushort Basket2ReadyAddress = 20483;
         private const ushort AirPressureReadyAddress = 20484;
@@ -28,6 +30,8 @@ namespace WpfCompanyApp.Services
         private SerialPort? _serialPort;
         private IModbusSerialMaster? _master;
 
+        private volatile bool _machine1Full;
+        private volatile bool _machine2Full;
         private volatile bool _basket1Ready;
         private volatile bool _basket2Ready;
         private volatile bool _airPressureReady;
@@ -40,6 +44,8 @@ namespace WpfCompanyApp.Services
 
         public Action<string>? ConnectionStatusChanged { get; set; }
         public bool IsCommunicationHealthy => _communicationHealthy;
+        public bool IsMachine1Full => _machine1Full;
+        public bool IsMachine2Full => _machine2Full;
         public bool IsBasket1Ready => _basket1Ready;
         public bool IsBasket2Ready => _basket2Ready;
         public bool IsAirPressureReady => _airPressureReady;
@@ -102,15 +108,17 @@ namespace WpfCompanyApp.Services
                     byte slaveId = ReadByte("SlaveId", 1);
                     bool[] values = _master!.ReadCoils(
                         slaveId,
-                        Basket1ReadyAddress,
-                        Tool3Address - Basket1ReadyAddress + 1);
+                        Machine1FullAddress,
+                        Tool3Address - Machine1FullAddress + 1);
 
-                    _basket1Ready = values[0];
-                    _basket2Ready = values[1];
-                    _airPressureReady = values[2];
-                    _tool1Holding = values[3]; // 20485 / X5 / Tool1
-                    _tool2Holding = values[4]; // 20486 / X6 / Tool2
-                    _tool3Holding = values[5]; // 20487 / X7 / Tool3
+                    _machine1Full = values[0]; // 20480 / X0 / Máy1
+                    _machine2Full = values[1]; // 20481 / X1 / Máy2
+                    _basket1Ready = values[2];
+                    _basket2Ready = values[3];
+                    _airPressureReady = values[4];
+                    _tool1Holding = values[5]; // 20485 / X5 / Tool1
+                    _tool2Holding = values[6]; // 20486 / X6 / Tool2
+                    _tool3Holding = values[7]; // 20487 / X7 / Tool3
                     _communicationHealthy = true;
 
                     NotifyCommunicationRestored();
@@ -209,7 +217,7 @@ namespace WpfCompanyApp.Services
             Log.Information(
                 "[MODBUS RTU] Connected {Port}, {BaudRate},{DataBits},{Parity},{StopBits}; SlaveId={SlaveId}; coils={Start}-{End}; function=01.",
                 portName, baudRate, dataBits, evenParity ? "E" : "N", stopBitsValue,
-                ReadByte("SlaveId", 1), Basket1ReadyAddress, Tool3Address);
+                ReadByte("SlaveId", 1), Machine1FullAddress, Tool3Address);
         }
 
         private int ReadInt(string key, int defaultValue)
@@ -229,6 +237,8 @@ namespace WpfCompanyApp.Services
         private void ClearSensorValues()
         {
             _communicationHealthy = false;
+            _machine1Full = false;
+            _machine2Full = false;
             _basket1Ready = false;
             _basket2Ready = false;
             _airPressureReady = false;

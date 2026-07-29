@@ -50,12 +50,21 @@ namespace WpfCompanyApp.Data
                     UpdatedAt TEXT NOT NULL DEFAULT (datetime('now'))
                 )";
 
+            string createAppSettings = @"
+                CREATE TABLE IF NOT EXISTS AppSettings(
+                    SettingName TEXT PRIMARY KEY,
+                    SettingValue TEXT NOT NULL,
+                    UpdatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+                )";
+
             using var cmd1 = new SqliteCommand(createJobs, conn);
             using var cmd2 = new SqliteCommand(createPoses, conn);
             using var cmd3 = new SqliteCommand(createRobotSpeedSettings, conn);
+            using var cmd4 = new SqliteCommand(createAppSettings, conn);
             cmd1.ExecuteNonQuery();
             cmd2.ExecuteNonQuery();
             cmd3.ExecuteNonQuery();
+            cmd4.ExecuteNonQuery();
 
             string[] speedNames =
             {
@@ -124,6 +133,48 @@ namespace WpfCompanyApp.Data
             cmd.Parameters.AddWithValue("$speedValue", speedValue);
             cmd.ExecuteNonQuery();
         }
+
+        public string GetAppSetting(string settingName, string defaultValue)
+        {
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT SettingValue
+                FROM AppSettings
+                WHERE SettingName = $settingName
+                LIMIT 1;";
+            cmd.Parameters.AddWithValue("$settingName", settingName);
+
+            object? value = cmd.ExecuteScalar();
+            return value is string text && !string.IsNullOrWhiteSpace(text)
+                ? text
+                : defaultValue;
+        }
+
+        public void SaveAppSetting(string settingName, string settingValue)
+        {
+            if (string.IsNullOrWhiteSpace(settingName))
+                throw new ArgumentException("Tên cấu hình không được để trống.", nameof(settingName));
+
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                INSERT INTO AppSettings
+                    (SettingName, SettingValue, UpdatedAt)
+                VALUES
+                    ($settingName, $settingValue, datetime('now'))
+                ON CONFLICT(SettingName) DO UPDATE SET
+                    SettingValue = excluded.SettingValue,
+                    UpdatedAt = datetime('now');";
+            cmd.Parameters.AddWithValue("$settingName", settingName);
+            cmd.Parameters.AddWithValue("$settingValue", settingValue ?? string.Empty);
+            cmd.ExecuteNonQuery();
+        }
+
         public void SaveCalibPointsToDb(RobotPointCalib[] points, string namecalib)
         {
             if (points == null || points.Length == 0) return;

@@ -120,6 +120,8 @@ namespace WpfCompanyApp.Services
         private ReadySubState _readyState = ReadySubState.CheckStatus;
         private ManualSubState _manualState = ManualSubState.CheckSensor;
         private bool _manualBlockedLogged;
+        private DateTime _nextManualStatusUpdateUtc = DateTime.MinValue;
+        private static readonly TimeSpan ManualStatusUpdateInterval = TimeSpan.FromMilliseconds(100);
         private SettingsSubState _settingsState = SettingsSubState.WaitUserEdit;
 
         // Robot điều khiển
@@ -168,6 +170,7 @@ namespace WpfCompanyApp.Services
         private double _activeSecondsAtLastRelease;
         private int _completedProductCount;
         private int _displayCompletedProductCount;
+        private bool _cycleTimingSuspendedByFullWork;
 
         // ✅ cờ lỗi chung
         private bool _hasError = false;
@@ -844,6 +847,7 @@ namespace WpfCompanyApp.Services
 
         private void StartCycleStatistics()
         {
+            _cycleTimingSuspendedByFullWork = false;
             _cycleActiveTime.Restart();
             _machineRunTime.Restart();
             _recentProductCycleSeconds.Clear();
@@ -870,11 +874,12 @@ namespace WpfCompanyApp.Services
                 _data.ClearCycleRequested = false;
 
                 _cycleActiveTime.Reset();
-                if (_state == AppState.Running)
+                if (_state == AppState.Running && !_cycleTimingSuspendedByFullWork)
                     _cycleActiveTime.Start();
 
                 _machineRunTime.Reset();
-                if (_state == AppState.Running || _state == AppState.Error)
+                if ((_state == AppState.Running || _state == AppState.Error) &&
+                    !_cycleTimingSuspendedByFullWork)
                     _machineRunTime.Start();
 
                 _recentProductCycleSeconds.Clear();
@@ -2388,6 +2393,34 @@ namespace WpfCompanyApp.Services
             _fullWorkLampOn = on;
         }
 
+        private void SuspendCycleTimingForFullWork()
+        {
+            if (_cycleTimingSuspendedByFullWork)
+                return;
+
+            _cycleTimingSuspendedByFullWork = true;
+            _cycleActiveTime.Stop();
+            _machineRunTime.Stop();
+            AddMachineLog(
+                "[FULL WORK] Tạm dừng tính cycle time trong thời gian chờ lấy sản phẩm.");
+        }
+
+        private void ResumeCycleTimingAfterFullWork()
+        {
+            if (!_cycleTimingSuspendedByFullWork)
+                return;
+
+            _cycleTimingSuspendedByFullWork = false;
+            if (_state == AppState.Running)
+            {
+                _cycleActiveTime.Start();
+                _machineRunTime.Start();
+            }
+
+            AddMachineLog(
+                "[FULL WORK] Tiếp tục tính cycle time sau khi cảm biến đầy đã về 0.");
+        }
+
         private bool EnterFullWorkWaitIfRequired()
         {
             if (IsSelectedFullWorkSensorActive())
@@ -2420,6 +2453,7 @@ namespace WpfCompanyApp.Services
             AddMachineLog(
                 $"[FULL WORK] {GetSelectedFullWorkSensorDescription()} ở mức 1 trong 2 lần thả liên tiếp. " +
                 "Robot đã về HomePose và chờ cảm biến về 0; đèn xanh CO2 nháy mỗi 1 giây.");
+            SuspendCycleTimingForFullWork();
             _readyState = ReadySubState.WaitFullWorkClear;
             return true;
         }
@@ -2664,7 +2698,7 @@ namespace WpfCompanyApp.Services
                     return true;
 
                 if (stopwatch.ElapsedMilliseconds < timeoutMs)
-                    Thread.Sleep(20);
+                    Thread.Sleep(10);
             }
             while (stopwatch.ElapsedMilliseconds < timeoutMs);
 
@@ -4082,6 +4116,7 @@ namespace WpfCompanyApp.Services
                             SetFullWorkLamp(false);
                             _fullWorkConsecutiveDropCount = 0;
                             _fullWorkNextLampToggleUtc = DateTime.MinValue;
+                            ResumeCycleTimingAfterFullWork();
                             AddMachineLog(
                                 $"[FULL WORK] {GetSelectedFullWorkSensorDescription()} đã về 0. " +
                                 "Tắt CO2 và tiếp tục chương trình.");
@@ -4490,6 +4525,8 @@ namespace WpfCompanyApp.Services
         // === MANUAL ===
         private void HandleManual()
         {
+            UpdateManualStatusIfDue();
+
             if (_state != AppState.Idle)
             {
                 ClearPendingManualRequests();
@@ -4515,7 +4552,6 @@ namespace WpfCompanyApp.Services
                     break;
 
                 case ManualSubState.CheckSensor:
-                    ReadSensorAndUpdateUI();   // đọc input (CI, DI)
                     HandleControlRequests();
                     HandleOutputRequests();    // xử lý output người dùng bấm
                                               
@@ -4529,6 +4565,16 @@ namespace WpfCompanyApp.Services
                     _manualState = ManualSubState.MoveRobot;
                     break;
             }
+        }
+
+        private void UpdateManualStatusIfDue()
+        {
+            DateTime nowUtc = DateTime.UtcNow;
+            if (nowUtc < _nextManualStatusUpdateUtc)
+                return;
+
+            _nextManualStatusUpdateUtc = nowUtc.Add(ManualStatusUpdateInterval);
+            ReadSensorAndUpdateUI();
         }
 
         // === SETTINGS ===

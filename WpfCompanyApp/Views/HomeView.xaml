@@ -212,7 +212,7 @@
         <Style x:Key="ClearButtonStyle" TargetType="Button">
             <Setter Property="Width" Value="60"/>
             <Setter Property="Height" Value="25"/>
-            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="FontSize" Value="14"/>
             <Setter Property="FontWeight" Value="Bold"/>
             <Setter Property="Cursor" Value="Hand"/>
             <Setter Property="Foreground" Value="White"/>
@@ -331,7 +331,7 @@
 
                         <Grid Grid.Row="1"
                               HorizontalAlignment="Center"
-                              Width="330"
+                              Width="340"
                               Margin="0,10,0,0">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
@@ -339,51 +339,57 @@
                                 <RowDefinition Height="Auto"/>
                             </Grid.RowDefinitions>
                             <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="147"/>
+                                <ColumnDefinition Width="46"/>
+                                <ColumnDefinition Width="147"/>
                             </Grid.ColumnDefinitions>
 
                             <Button Grid.Row="0"
                                     Grid.Column="0"
+                                    Width="147"
                                     Height="86"
                                     FontSize="30"
                                     Content="Start"
                                     Command="{Binding StartCommand}"
                                     Style="{StaticResource StartButtonStyle}"
-                                    Margin="9"/>
+                                    Margin="0,9"/>
                             <Button Grid.Row="0"
-                                    Grid.Column="1"
+                                    Grid.Column="2"
+                                    Width="147"
                                     Height="86"
                                     FontSize="30"
                                     Content="Stop"
                                     Command="{Binding StopCommand}"
                                     Style="{StaticResource StopButtonStyle}"
-                                    Margin="9"/>
+                                    Margin="0,9"/>
                             <Button Grid.Row="1"
                                     Grid.Column="0"
+                                    Width="147"
                                     Height="86"
                                     FontSize="30"
                                     Content="Home"
                                     Command="{Binding HomeCommand}"
                                     Style="{StaticResource HomeButtonStyle}"
-                                    Margin="9"/>
+                                    Margin="0,9"/>
                             <Button Grid.Row="1"
-                                    Grid.Column="1"
+                                    Grid.Column="2"
+                                    Width="147"
                                     Height="86"
                                     FontSize="30"
                                     Content="Pause"
                                     Command="{Binding PauseCommand}"
                                     Style="{StaticResource PauseButtonStyle}"
-                                    Margin="9"/>
+                                    Margin="0,9"/>
                             <Button Grid.Row="2"
                                     Grid.Column="0"
-                                    Grid.ColumnSpan="2"
+                                    Grid.ColumnSpan="3"
+                                    Width="340"
                                     Height="86"
                                     FontSize="30"
                                     Content="Reset"
                                     Command="{Binding ResetCommand}"
                                     Style="{StaticResource ResetButtonStyle}"
-                                    Margin="9"/>
+                                    Margin="0,9"/>
                         </Grid>
 
                         <Border Grid.Row="3"
@@ -457,7 +463,9 @@
                             CornerRadius="6"
                             Padding="8"
                             Margin="15,0,0,0">
-                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <StackPanel Orientation="Horizontal"
+                                            VerticalAlignment="Center"
+                                            TextElement.FontSize="14">
 
                                     <!-- Instant Cycle -->
                                     <TextBlock Text="Instant Cycle:"
@@ -613,10 +621,10 @@
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="60"/>
                                     <DataGridTextColumn Header="Job Name" Binding="{Binding JobName}" Width="*"/>
-                                    <DataGridTextColumn Header="H1" Binding="{Binding H1}" Width="*"/>
-                                    <DataGridTextColumn Header="H2" Binding="{Binding H2}" Width="*"/>
-                                    <DataGridTextColumn Header="H3" Binding="{Binding H3}" Width="*"/>
-                                    <DataGridTextColumn Header="R" Binding="{Binding R}" Width="*"/>
+                                    <DataGridTextColumn Header="H1" Binding="{Binding H1}" Width="0.5*"/>
+                                    <DataGridTextColumn Header="H2" Binding="{Binding H2}" Width="0.5*"/>
+                                    <DataGridTextColumn Header="H3" Binding="{Binding H3}" Width="0.5*"/>
+                                    <DataGridTextColumn Header="R" Binding="{Binding R}" Width="0.5*"/>
                                     <DataGridTextColumn Header="Job Time"
                                     Binding="{Binding DatetimeJob, StringFormat=yyyy-MM-dd HH:mm:ss}"
                                     Width="1.5*"/>

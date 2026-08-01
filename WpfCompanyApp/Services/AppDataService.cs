@@ -39,6 +39,8 @@ namespace WpfCompanyApp.Services
         [ObservableProperty] private bool manualActive;
         [ObservableProperty] private bool settingsActive;
         [ObservableProperty] private bool homeActive;
+        [ObservableProperty] private bool isRobotAtHome;
+        [ObservableProperty] private bool isResetProcessing;
         [ObservableProperty] private int ketqua = 0;   // để log kết quả move robot
         [ObservableProperty] private double instantCycleTime;
         [ObservableProperty] private double averageCycleTime;
@@ -431,7 +433,7 @@ namespace WpfCompanyApp.Services
 
         public string GetCalibName(string? tool = null, string? camera = null)
         {
-            string toolName = string.IsNullOrWhiteSpace(tool) ? SelectedCalibTool : tool;
+            string toolName = string.IsNullOrWhiteSpace(tool) ? "Tool1" : tool;
             string cameraName = string.IsNullOrWhiteSpace(camera) ? SelectedTriggerCamera : camera;
 
             return $"{toolName}_{cameraName}";

@@ -44,13 +44,13 @@ namespace WpfCompanyApp.Views
             noButton.IsDefault = true;
             noButton.IsCancel = true;
             noButton.Click += (_, _) => DialogResult = false;
-            buttons.Children.Add(noButton);
             if (confirmation)
             {
                 var yesButton = CreateButton("CÓ", Color.FromRgb(211, 47, 47));
                 yesButton.Click += (_, _) => DialogResult = true;
                 buttons.Children.Add(yesButton);
             }
+            buttons.Children.Add(noButton);
             root.Children.Add(buttons);
             Content = root;
         }

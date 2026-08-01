@@ -142,6 +142,8 @@ namespace WpfCompanyApp.Services
         private string _lastRobotStatusSignature = "";
         private DateTime _nextRobotStatusCheckUtc = DateTime.MinValue;
         private static readonly TimeSpan RobotStatusCheckInterval = TimeSpan.FromSeconds(1);
+        private DateTime _nextHomePositionCheckUtc = DateTime.MinValue;
+        private static readonly TimeSpan HomePositionCheckInterval = TimeSpan.FromSeconds(1);
         private const string DropForwardPathName = "ABGO";
         private const string DropReturnPathName = "ABGOBACK";
         private const double DropPathBlendRadius = 0.05;
@@ -1443,6 +1445,7 @@ namespace WpfCompanyApp.Services
         private void HandleIdle()
         {
             UpdateRobotStatusHistory();
+            UpdateRobotHomeStatus();
 
             if (_data.StartRequested)
             {
@@ -1565,25 +1568,32 @@ namespace WpfCompanyApp.Services
                 index = 0;
                 TurnOffAllOutputs();
 
-                if (!TryResetRobotError(out string resetError))
+                try
                 {
-                    AddMachineLog($"[ERROR] Reset robot thất bại: {resetError}");
-                    AddRobotHistory($"[ERROR][ROBOT STATUS] {resetError}");
-                    return;
+                    if (!TryResetRobotError(out string resetError))
+                    {
+                        AddMachineLog($"[ERROR] Reset robot thất bại: {resetError}");
+                        AddRobotHistory($"[ERROR][ROBOT STATUS] {resetError}");
+                        return;
+                    }
+
+                    AddMachineLog("[STATE] Reset robot OK trong IDLE.");
+                    AddRobotHistory("[RESET][ROBOT STATUS] Đã xóa lỗi robot thành công.");
+
+                    // Clear cờ lỗi trên phần mềm (nếu đang còn)
+                    _hasError = false;
+                    _lastError = "";
+
+                    Application.Current?.Dispatcher.Invoke(() =>
+                    {
+                        _data.HasError = false;
+                        _data.ErrorMessage = "";
+                    });
                 }
-
-                AddMachineLog("[STATE] Reset robot OK trong IDLE.");
-                AddRobotHistory("[RESET][ROBOT STATUS] Đã xóa lỗi robot thành công.");
-
-                // Clear cờ lỗi trên phần mềm (nếu đang còn)
-                _hasError = false;
-                _lastError = "";
-
-                Application.Current?.Dispatcher.Invoke(() =>
+                finally
                 {
-                    _data.HasError = false;
-                    _data.ErrorMessage = "";
-                });
+                    _data.IsResetProcessing = false;
+                }
 
                 // Tắt đèn đỏ nếu đang bật
              
@@ -1629,6 +1639,7 @@ namespace WpfCompanyApp.Services
             if (_data.ResetRequested)
             {
                 _data.ResetRequested = false;
+                _data.IsResetProcessing = false;
                 AddMachineLog("[STATE] Reset bị IGNORE vì robot đang RUNNING.");
                 // Không làm gì thêm
                 index = 0;
@@ -2195,6 +2206,7 @@ namespace WpfCompanyApp.Services
 
         private bool TryCreateDropMovePaths(out string error)
         {
+            var totalStopwatch = Stopwatch.StartNew();
             var forwardPoints = new List<RobotTrajectory>(6);
             var returnPoints = new List<RobotTrajectory>(6);
             _forwardPose1Joint = null;
@@ -2249,11 +2261,14 @@ namespace WpfCompanyApp.Services
             _forwardPose6Joint = ToJointPosition(forwardPoints[5]);
             _returnPose6Joint = ToJointPosition(returnPoints[5]);
 
+            totalStopwatch.Stop();
+
             AddRobotHistory(
                 $"[START] Đã tạo quỹ đạo {DropForwardPathName}: ForwardPose1..6 và " +
                 $"{DropReturnPathName}: ForwardPose6 -> ReturnPose1..6. " +
                 $"Tốc độ PathJ: đi={_data.SpeedMoveBetweenDrops:0.00}, " +
-                $"về={_data.SpeedReturnAfterDrop:0.00}.");
+                $"về={_data.SpeedReturnAfterDrop:0.00}. " +
+                $"Tổng thời gian tạo MovePathJ: {totalStopwatch.ElapsedMilliseconds} ms.");
             error = string.Empty;
             return true;
         }
@@ -2277,6 +2292,11 @@ namespace WpfCompanyApp.Services
             double velocity,
             out string error)
         {
+            var stopwatch = Stopwatch.StartNew();
+            bool created = false;
+
+            try
+            {
             if (velocity < 0.01 || velocity > 1)
             {
                 error =
@@ -2320,7 +2340,17 @@ namespace WpfCompanyApp.Services
             }
 
             error = string.Empty;
+            created = true;
             return true;
+            }
+            finally
+            {
+                stopwatch.Stop();
+                AddRobotHistory(
+                    $"[PATHJ] Tạo quỹ đạo {pathName} {(created ? "hoàn tất" : "thất bại")}: " +
+                    $"{points.Count} điểm, tốc độ={velocity:0.00}, " +
+                    $"thời gian={stopwatch.ElapsedMilliseconds} ms.");
+            }
         }
 
         private bool TryRunForwardDropMovePath(out string error)
@@ -3191,6 +3221,36 @@ namespace WpfCompanyApp.Services
             return false;
         }
 
+        private void UpdateRobotHomeStatus()
+        {
+            if (DateTime.UtcNow < _nextHomePositionCheckUtc)
+                return;
+
+            _nextHomePositionCheckUtc = DateTime.UtcNow.Add(HomePositionCheckInterval);
+
+            RobotTrajectory home = _db.GetRobotTrajectoryByNamePoses("HomePose");
+            if (home == null ||
+                _robot.ReadActualPosMoveL(0, out PosMoveL actualPosition) != "OK")
+            {
+                _data.IsRobotAtHome = false;
+                return;
+            }
+
+            var homePosition = new PosMoveL
+            {
+                X = home.X,
+                Y = home.Y,
+                Z = home.Z,
+                RX = home.Rx,
+                RY = home.Ry,
+                RZ = home.Rz
+            };
+
+            const double homePositionToleranceMm = 10.0;
+            _data.IsRobotAtHome =
+                IsAlmostEqual(homePosition, actualPosition, homePositionToleranceMm);
+        }
+
         private bool TryValidateStartInterlocks(out string error)
         {
             if (!TryValidateDoorsClosed(out string doorError))
@@ -3623,7 +3683,8 @@ namespace WpfCompanyApp.Services
                     _pickToolState = PickToolSubState.ConfirmCylinderSensors;
                     return false;
 
-                // Sau MoveSafeZ, cả ba cảm biến xi lanh phải ON trước khi xử lý kết quả hút.
+                // Sau khi đầu hút đã nâng lên, cả ba cảm biến xi lanh phải ON.
+                // Chỉ xác nhận kết quả hút và tăng bộ đếm trượt một lần tại đây.
                 case PickToolSubState.ConfirmCylinderSensors:
                     bool readOk = TryReadPickCylinderSensors(out int di0, out int di2, out int di4);
                     if (readOk && di0 == 1 && di2 == 1 && di4 == 1)
@@ -3631,7 +3692,12 @@ namespace WpfCompanyApp.Services
                         AddRobotHistory("[READY] Xác nhận cảm biến xi lanh OK: DI0=1, DI2=1, DI4=1.");
                         _pickCylinderConfirmStartedAtUtc = DateTime.MinValue;
 
-                        if (_pickCurrentOk)
+                        // Kiểm tra lại cảm biến hút sau khi đầu Tool đã nâng lên vị trí an toàn.
+                        // SetSensor là chế độ bỏ qua cảm biến nên giữ nguyên kết quả mô phỏng trước đó.
+                        bool holdingAfterLift =
+                            _pickCurrentOk && (_data.SetSensor || IsToolHolding(_pickCurrentTool));
+
+                        if (holdingAfterLift)
                         {
                             _readyToolHolding[_pickCurrentTool] = true;
                             _productLoaded = true;
@@ -3644,6 +3710,9 @@ namespace WpfCompanyApp.Services
                             return false;
                         }
 
+                        // Một chu trình gắp thất bại chỉ được tính trượt đúng một lần ở đây.
+                        SetToolVacuum(_pickCurrentTool, false);
+                        _readyToolHolding[_pickCurrentTool] = false;
                         _readyToolMissCount[_pickCurrentTool]++;
                         _pickAttemptsPerTool[_pickCurrentTool]++;
                         AddMachineLog(
@@ -4748,7 +4817,7 @@ namespace WpfCompanyApp.Services
                         _data.RequestTriggerCamera = false;
                         //  HandleTriggerCamera(); // Gọi hàm xử lý Trigger
                         _activeTriggerCamera = _data.SelectedTriggerCamera;
-                        _activeCalibTool = _data.SelectedCalibTool;
+                        _activeCalibTool = "Tool1";
 
                         string flowName = GetTriggerFlowName(_activeTriggerCamera);
                         var pro = VmSolution.Instance[flowName] as VmProcedure;
@@ -4953,29 +5022,36 @@ namespace WpfCompanyApp.Services
                 AddMachineLog("[ERROR] Người vận hành nhấn RESET, thử reset robot...");
                 TurnOffAllOutputs();
 
-                if (!TryResetRobotError(out string resetError))
+                try
                 {
-                    AddMachineLog($"[ERROR] Reset robot thất bại: {resetError}");
-                    AddRobotHistory($"[ERROR][ROBOT STATUS] {resetError}");
-                    return; // vẫn ở Error
-                }
+                    if (!TryResetRobotError(out string resetError))
+                    {
+                        AddMachineLog($"[ERROR] Reset robot thất bại: {resetError}");
+                        AddRobotHistory($"[ERROR][ROBOT STATUS] {resetError}");
+                        return; // vẫn ở Error
+                    }
 
-                AddRobotHistory("[RESET][ROBOT STATUS] Đã xóa lỗi robot thành công.");
-                ClearErrorStatus();
-                ResetReadyCycle();
+                    AddRobotHistory("[RESET][ROBOT STATUS] Đã xóa lỗi robot thành công.");
+                    ClearErrorStatus();
+                    ResetReadyCycle();
 
                 // Tắt đèn đỏ
               
 
                 // Reset chỉ xóa lỗi và đưa máy về trạng thái Stop/Idle.
                 // Robot chỉ được di chuyển khi người vận hành nhấn Home riêng.
-                _data.HomeRequested = false;
-                AddMachineLog("[ERROR] Reset OK -> chuyển sang IDLE, không di chuyển robot.");
-                _machineRunTime.Stop();
-                _state = AppState.Idle;
-                _readyState = ReadySubState.CheckStatus;
-                _productLoaded = false;
-                _stopAfterCycle = false;
+                    _data.HomeRequested = false;
+                    AddMachineLog("[ERROR] Reset OK -> chuyển sang IDLE, không di chuyển robot.");
+                    _machineRunTime.Stop();
+                    _state = AppState.Idle;
+                    _readyState = ReadySubState.CheckStatus;
+                    _productLoaded = false;
+                    _stopAfterCycle = false;
+                }
+                finally
+                {
+                    _data.IsResetProcessing = false;
+                }
             }
         }
 
@@ -5018,6 +5094,7 @@ namespace WpfCompanyApp.Services
             // Nếu nhiều nút cùng được nhấn, ưu tiên lệnh an toàn hơn.
             if (resetRising)
             {
+                _data.IsResetProcessing = true;
                 _data.ResetRequested = true;
                 AddMachineLog("[CONTROL INPUT] CI6 rising edge -> Reset requested.");
                 return;
@@ -5535,7 +5612,7 @@ namespace WpfCompanyApp.Services
             }
 
             // ✅ Lưu riêng theo Tool + Camera đang chọn trên UI, ví dụ Tool1_Camera1 hoặc Tool2_Camera2.
-            string selectedTool = _data.SelectedCalibTool;
+            string selectedTool = "Tool1";
             string selectedCamera = _data.SelectedTriggerCamera;
             string selectedCalibName = _data.GetCalibName(selectedTool, selectedCamera);
 

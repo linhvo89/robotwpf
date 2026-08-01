@@ -381,7 +381,7 @@
                 <TabItem Header="ROBOT POSITION MANAGEMENT">
                     <Grid Background="#20232A">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="420"/>
+                            <ColumnDefinition Width="330"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
 
@@ -442,10 +442,9 @@
                                     </DataGrid.Resources>
 
                                     <DataGrid.Columns>
-                                        <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="0.5*" />
-                                        <DataGridTextColumn Header="Job Name" Binding="{Binding JobName}" Width="1.5*" />
-                                        <DataGridTextColumn Header="Created Time" Binding="{Binding DatetimeJob, StringFormat=yyyy-MM-dd HH:mm:ss}" Width="1.5*" />
-                                        <DataGridTemplateColumn Header="Delete" Width="Auto">
+                                        <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="35" />
+                                        <DataGridTextColumn Header="Job Name" Binding="{Binding JobName}" Width="*" />
+                                        <DataGridTemplateColumn Header="Delete" Width="72">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate>
                                                     <Button Content="🗑 Delete"
@@ -497,15 +496,6 @@
                                                    FontSize="14"
                                                    Margin="0,0,8,0"/>
 
-                                        <!-- ComboBox chọn namecalib (tool1, tool2, tool3) -->
-                                        <ComboBox ItemsSource="{Binding CalibToolList}"
-                                                  SelectedItem="{Binding Data.SelectedCalibTool, Mode=TwoWay}"
-                                                  Width="90"
-                                                  Height="32"
-                                                  FontSize="13"
-                                                  Style="{StaticResource PrettyComboBox}"
-                                                  VerticalAlignment="Center"
-                                                  Margin="0,0,0,0"/>
                                     </StackPanel>
                                 </StackPanel>
 

@@ -41,61 +41,67 @@
             </Setter>
         </Style>
 
-        <!-- START: mặc định xanh đậm, khi RUNNING thì xanh neon rất sáng -->
+        <!-- START: xám khi không chạy, xanh sáng khi RUNNING -->
         <Style x:Key="StartButtonStyle" TargetType="Button"
                BasedOn="{StaticResource CommandButtonBaseStyle}">
-            <!-- mặc định: xanh đậm (chưa chạy) -->
-            <Setter Property="Background" Value="#1B5E20"/>
+            <Setter Property="Background" Value="#9E9E9E"/>
             <Style.Triggers>
-                <!-- Khi state = RUNNING thì xanh sáng -->
                 <DataTrigger Binding="{Binding Data.CurrentState}" Value="Running">
                     <Setter Property="Background" Value="#00E676"/>
-                    <!-- xanh neon -->
                 </DataTrigger>
             </Style.Triggers>
         </Style>
 
-        <!-- STOP: mặc định đỏ rất đậm, khi IDLE thì đỏ sáng -->
+        <!-- STOP: xám khi máy không dừng, đỏ sáng khi IDLE -->
         <Style x:Key="StopButtonStyle" TargetType="Button"
                BasedOn="{StaticResource CommandButtonBaseStyle}">
-            <!-- mặc định: đỏ đậm -->
-            <Setter Property="Background" Value="#660000"/>
+            <Setter Property="Background" Value="#9E9E9E"/>
             <Setter Property="Foreground" Value="White"/>
             <Style.Triggers>
-                <!-- trạng thái dừng / chờ -->
                 <DataTrigger Binding="{Binding Data.CurrentState}" Value="Idle">
                     <Setter Property="Background" Value="#FF1744"/>
-                    <!-- đỏ sáng -->
                 </DataTrigger>
             </Style.Triggers>
         </Style>
 
-        <!-- HOME: command chỉ cho phép nhấn khi máy đang Stop/Idle -->
+        <!-- HOME: chỉ xanh khi đang Stop/Idle và robot thực sự ở HomePose -->
         <Style x:Key="HomeButtonStyle" TargetType="Button"
                BasedOn="{StaticResource CommandButtonBaseStyle}">
-            <Setter Property="Background" Value="#1E88E5"/>
+            <Setter Property="Background" Value="#9E9E9E"/>
             <Setter Property="Foreground" Value="White"/>
+            <Style.Triggers>
+                <MultiDataTrigger>
+                    <MultiDataTrigger.Conditions>
+                        <Condition Binding="{Binding Data.CurrentState}" Value="Idle"/>
+                        <Condition Binding="{Binding Data.IsRobotAtHome}" Value="True"/>
+                    </MultiDataTrigger.Conditions>
+                    <Setter Property="Background" Value="#1E88E5"/>
+                </MultiDataTrigger>
+            </Style.Triggers>
         </Style>
 
-        <!-- PAUSE: mặc định vàng nâu đậm, khi PAUSED thì vàng sáng chói -->
+        <!-- PAUSE: xám khi không tạm dừng, vàng sáng khi PAUSED -->
         <Style x:Key="PauseButtonStyle" TargetType="Button"
                BasedOn="{StaticResource CommandButtonBaseStyle}">
-            <!-- mặc định: vàng nâu đậm -->
-            <Setter Property="Background" Value="#996500"/>
+            <Setter Property="Background" Value="#9E9E9E"/>
             <Setter Property="Foreground" Value="White"/>
             <Style.Triggers>
                 <DataTrigger Binding="{Binding Data.CurrentState}" Value="Paused">
                     <Setter Property="Background" Value="#FFC400"/>
-                    <!-- vàng chói -->
                 </DataTrigger>
             </Style.Triggers>
         </Style>
 
-        <!-- RESET: luôn xám -->
+        <!-- RESET: vàng khi đang xử lý, xám khi đã xử lý xong -->
         <Style x:Key="ResetButtonStyle" TargetType="Button"
                BasedOn="{StaticResource CommandButtonBaseStyle}">
             <Setter Property="Background" Value="#9E9E9E"/>
             <Setter Property="Foreground" Value="White"/>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding Data.IsResetProcessing}" Value="True">
+                    <Setter Property="Background" Value="#FFC400"/>
+                </DataTrigger>
+            </Style.Triggers>
         </Style>
         <Style x:Key="ShutdownButtonStyle" TargetType="Button"
                BasedOn="{StaticResource CommandButtonBaseStyle}">
@@ -274,7 +280,18 @@
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="*"/>
-                <RowDefinition Height="220"/>
+                <RowDefinition>
+                    <RowDefinition.Style>
+                        <Style TargetType="RowDefinition">
+                            <Setter Property="Height" Value="220"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsJobViewVisible}" Value="False">
+                                    <Setter Property="Height" Value="0"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </RowDefinition.Style>
+                </RowDefinition>
             </Grid.RowDefinitions>
 
             <!-- 🟩 MAIN AREA -->
@@ -317,7 +334,7 @@
 
                             <TextBlock Grid.Column="0" 
                        Text="Vận hành"
-                       FontSize="22"
+                       FontSize="26"
                        FontWeight="Bold"
                        Foreground="#E0E0E0"
                        VerticalAlignment="Bottom"/>
@@ -329,7 +346,7 @@
                         Margin="15,0,0,2">
 
                                 <TextBlock Text="{Binding SelectedJob.JobName, TargetNullValue='(No job selected)'}"
-                           FontSize="14"
+                           FontSize="24"
                            FontWeight="SemiBold"
                            Foreground="#00E676" 
                            Margin="0,0,10,0"/>
@@ -362,7 +379,10 @@
                                     Grid.Column="0"
                                     Width="147"
                                     Height="68"
-                                    FontSize="30"
+                                    FontSize="40"
+                                    Padding="0"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
                                     Content="Start"
                                     Command="{Binding StartCommand}"
                                     Style="{StaticResource StartButtonStyle}"
@@ -371,7 +391,10 @@
                                     Grid.Column="2"
                                     Width="147"
                                     Height="68"
-                                    FontSize="30"
+                                    FontSize="40"
+                                    Padding="0"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
                                     Content="Stop"
                                     Command="{Binding StopCommand}"
                                     Style="{StaticResource StopButtonStyle}"
@@ -380,7 +403,10 @@
                                     Grid.Column="0"
                                     Width="147"
                                     Height="68"
-                                    FontSize="30"
+                                    FontSize="40"
+                                    Padding="0"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
                                     Content="Home"
                                     Command="{Binding HomeCommand}"
                                     Style="{StaticResource HomeButtonStyle}"
@@ -389,7 +415,10 @@
                                     Grid.Column="0"
                                     Width="147"
                                     Height="68"
-                                    FontSize="30"
+                                    FontSize="40"
+                                    Padding="0"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
                                     Content="Reset"
                                     Command="{Binding ResetCommand}"
                                     Style="{StaticResource ResetButtonStyle}"
@@ -398,7 +427,10 @@
                                     Grid.Column="2"
                                     Width="147"
                                     Height="68"
-                                    FontSize="30"
+                                    FontSize="40"
+                                    Padding="0"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
                                     Content="Pause"
                                     Command="{Binding PauseCommand}"
                                     Style="{StaticResource PauseButtonStyle}"
@@ -407,7 +439,10 @@
                                     Grid.Column="2"
                                     Width="147"
                                     Height="68"
-                                    FontSize="24"
+                                    FontSize="40"
+                                    Padding="0"
+                                    HorizontalContentAlignment="Center"
+                                    VerticalContentAlignment="Center"
                                     Content="{Binding JobCameraButtonText}"
                                     Command="{Binding ToggleJobCameraCommand}"
                                     Style="{StaticResource JobCameraButtonStyle}"
@@ -656,7 +691,8 @@
             </Grid>
 
             <!-- 🟨 LOG AREA (giữ nguyên) -->
-            <Grid Grid.Row="1">
+            <Grid Grid.Row="1"
+                  Visibility="{Binding IsJobViewVisible, Converter={StaticResource BoolToVisibility}}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
                     <ColumnDefinition Width="*"/>

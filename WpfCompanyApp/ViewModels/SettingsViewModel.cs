@@ -382,61 +382,79 @@ namespace WpfCompanyApp.ViewModels
         [ObservableProperty]
         private double speed;
 
+        private RobotTrajectory? GetSavedPose(string poseName)
+        {
+            try
+            {
+                return _db.GetRobotTrajectoryByNamePoses(poseName);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string FormatPoseCoordinates(RobotTrajectory pose) =>
+            $"X: {pose.X:0.###}   Y: {pose.Y:0.###}   Z: {pose.Z:0.###}\n" +
+            $"Rx: {pose.Rx:0.###}   Ry: {pose.Ry:0.###}   Rz: {pose.Rz:0.###}";
+
+        private bool ConfirmSaveRobotPoint(string poseName, string displayName)
+        {
+            var savedPose = GetSavedPose(poseName);
+            var oldValue = savedPose == null
+                ? "Điểm này chưa có dữ liệu đã lưu."
+                : $"Tọa độ đang lưu:\n{FormatPoseCoordinates(savedPose)}\n\nDữ liệu trên sẽ bị ghi đè.";
+
+            return VietnameseConfirmationDialog.Confirm(
+                "Xác nhận lưu điểm robot",
+                $"Bạn chuẩn bị LƯU VỊ TRÍ HIỆN TẠI của robot vào:\n\n" +
+                $"Điểm: {displayName}\nMã điểm: {poseName}\n\n{oldValue}\n\n" +
+                "Bạn có chắc chắn muốn lưu không?");
+        }
+
+        private bool ConfirmMoveRobotPoint(string poseName, string displayName)
+        {
+            var savedPose = GetSavedPose(poseName);
+            if (savedPose == null)
+            {
+                VietnameseConfirmationDialog.ShowWarning(
+                    "Không thể di chuyển",
+                    $"Điểm {displayName} ({poseName}) chưa có dữ liệu tọa độ.\n\nHãy lưu điểm trước khi di chuyển robot.");
+                return false;
+            }
+
+            return VietnameseConfirmationDialog.Confirm(
+                "Xác nhận di chuyển robot",
+                $"Robot chuẩn bị DI CHUYỂN đến:\n\n" +
+                $"Điểm: {displayName}\nMã điểm: {poseName}\n\n" +
+                $"Tọa độ đích:\n{FormatPoseCoordinates(savedPose)}\n\n" +
+                "Hãy bảo đảm vùng làm việc an toàn. Bạn có chắc chắn muốn di chuyển không?");
+        }
+
         // ====== FORWARD TRAJECTORY ======
         [RelayCommand]
         public void SaveForwardPoint(object param)
         {
-            var result = MessageBox.Show(
-                "Bạn có chắc muốn thực hiện Lưu vị trí hiện tại robot  không?",
-                "Xác nhận",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Yes)
+            if (param is string str && int.TryParse(str, out int pointIndex))
             {
-
-                if (param is string str && int.TryParse(str, out int pointIndex))
-                {
-                    //MessageBox.Show($"Save Forward Point {pointIndex}");
-                    // TODO: Gọi model lưu dữ liệu
-                    _data.FUpdatePose = true;
-                    _data.NamePose = $"ForwardPose{pointIndex}";
-                }
-            }
-            else
-            {
-                // Nhấn NO: bỏ qua
-                return;
+                string poseName = $"ForwardPose{pointIndex}";
+                if (!ConfirmSaveRobotPoint(poseName, $"Đi thả {pointIndex}")) return;
+                _data.FUpdatePose = true;
+                _data.NamePose = poseName;
             }
         }
 
         [RelayCommand]
         public void MoveForwardPoint(object param)
         {
-                var result = MessageBox.Show(
-             "Bạn có chắc muốn thực hiện dịch chuyển robot  không?",
-             "Xác nhận",
-             MessageBoxButton.YesNo,
-             MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Yes)
+            if (param is string str && int.TryParse(str, out int pointIndex))
             {
-                if (param is string str && int.TryParse(str, out int pointIndex))
-                {
-                    int idx = pointIndex - 1;                      // 1→0, 2→1, ...
-
-                    string poseName = $"ForwardPose{pointIndex}"; // tên pose
-                    var moveType = MoveTypes[idx];                 // moveL / moveJ từ ComboBox
-
-                    _data.MovePoseName = poseName;
-                    _data.MoveTypeToMove = moveType;
-                    _data.RequestMovePose = true;
-                }
-            }
-            else
-            {
-                // Nhấn NO: bỏ qua
-                return;
+                int idx = pointIndex - 1;
+                string poseName = $"ForwardPose{pointIndex}";
+                if (!ConfirmMoveRobotPoint(poseName, $"Đi thả {pointIndex}")) return;
+                _data.MovePoseName = poseName;
+                _data.MoveTypeToMove = MoveTypes[idx];
+                _data.RequestMovePose = true;
             }
          
         }
@@ -445,57 +463,26 @@ namespace WpfCompanyApp.ViewModels
         [RelayCommand]
         public void SaveReturnPoint(object param)
         {
-            var result = MessageBox.Show(
-           "Bạn có chắc muốn thực hiện Lưu vị trí hiện tại robot  không?",
-           "Xác nhận",
-           MessageBoxButton.YesNo,
-           MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Yes)
+            if (param is string str && int.TryParse(str, out int pointIndex))
             {
-                if (param is string str && int.TryParse(str, out int pointIndex))
-                {
-                    //MessageBox.Show($"Save Return Point {pointIndex}");
-                    // TODO: Gọi model lưu dữ liệu
-                    _data.FUpdatePose = true;
-                    _data.NamePose = $"ReturnPose{pointIndex}";
-
-                }
-            }
-            else
-            {
-                // Nhấn NO: bỏ qua
-                return;
+                string poseName = $"ReturnPose{pointIndex}";
+                if (!ConfirmSaveRobotPoint(poseName, $"Quay về {pointIndex}")) return;
+                _data.FUpdatePose = true;
+                _data.NamePose = poseName;
             }
         }
 
         [RelayCommand]
         public void MoveReturnPoint(object param)
         {
-            var result = MessageBox.Show(
-          "Bạn có chắc muốn thực hiện dịch chuyển robot  không?",
-          "Xác nhận",
-          MessageBoxButton.YesNo,
-          MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Yes)
+            if (param is string str && int.TryParse(str, out int pointIndex))
             {
-                if (param is string str && int.TryParse(str, out int pointIndex))
-                {
-                    int idx = pointIndex - 1;
-
-                    string poseName = $"ReturnPose{pointIndex}";
-                    var moveType = ReturnMoveTypes[idx];
-
-                    _data.MovePoseName = poseName;
-                    _data.MoveTypeToMove = moveType;
-                    _data.RequestMovePose = true;
-                }
-            }
-            else
-            {
-                // Nhấn NO: bỏ qua
-                return;
+                int idx = pointIndex - 1;
+                string poseName = $"ReturnPose{pointIndex}";
+                if (!ConfirmMoveRobotPoint(poseName, $"Quay về {pointIndex}")) return;
+                _data.MovePoseName = poseName;
+                _data.MoveTypeToMove = ReturnMoveTypes[idx];
+                _data.RequestMovePose = true;
             }
            
         }
@@ -504,85 +491,33 @@ namespace WpfCompanyApp.ViewModels
         [RelayCommand]
         public void SaveHome()
         {
-            var result = MessageBox.Show(
-          "Bạn có chắc muốn thực hiện Lưu vị trí home robot không?",
-          "Xác nhận",
-          MessageBoxButton.YesNo,
-          MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Yes)
-            {
-                _data.FUpdatePose = true;
-                _data.NamePose = "HomePose";
-            }
-            else
-            {
-                // Nhấn NO: bỏ qua
-                return;
-            }
+            if (!ConfirmSaveRobotPoint("HomePose", "Vị trí Home")) return;
+            _data.FUpdatePose = true;
+            _data.NamePose = "HomePose";
         }
 
         [RelayCommand]
         public void MoveHome()
         {
-            var result = MessageBox.Show(
-            "Bạn có chắc muốn thực hiện dịch chuyển robot về home không?",
-            "Xác nhận",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Yes)
-            {
-                _data.MovePoseName = "HomePose";
-                _data.RequestMovePose = true;
-            }
-            else
-            {
-                // Nhấn NO: bỏ qua
-                return;
-            }
+            if (!ConfirmMoveRobotPoint("HomePose", "Vị trí Home")) return;
+            _data.MovePoseName = "HomePose";
+            _data.RequestMovePose = true;
         }
 
         [RelayCommand]
         public void SavePickProduct()
         {
-            var result = MessageBox.Show(
-          "Bạn có chắc muốn thực hiện Lưu vị trí nhặt sản phẩm không?",
-          "Xác nhận",
-          MessageBoxButton.YesNo,
-          MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Yes)
-            {
-                _data.FUpdatePose = true;
-                _data.NamePose = "PickProductPose";
-            }
-            else
-            {
-                // Nhấn NO: bỏ qua
-                return;
-            }
+            if (!ConfirmSaveRobotPoint("PickProductPose", "Vị trí nhặt sản phẩm")) return;
+            _data.FUpdatePose = true;
+            _data.NamePose = "PickProductPose";
         }
 
         [RelayCommand]
         public void MovePickProduct()
         {
-            var result = MessageBox.Show(
-            "Bạn có chắc muốn thực hiện dịch chuyển robot tới vị trí nhặt sản phẩm không?",
-            "Xác nhận",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Yes)
-            {
-                _data.MovePoseName = "PickProductPose";
-                _data.RequestMovePose = true;
-            }
-            else
-            {
-                // Nhấn NO: bỏ qua
-                return;
-            }
+            if (!ConfirmMoveRobotPoint("PickProductPose", "Vị trí nhặt sản phẩm")) return;
+            _data.MovePoseName = "PickProductPose";
+            _data.RequestMovePose = true;
         }
         // Velocity collection cho Return
         [ObservableProperty]
@@ -662,23 +597,9 @@ namespace WpfCompanyApp.ViewModels
         [RelayCommand]
         private void SavePrePickPose()
         {
-            var result = MessageBox.Show(
-             "Bạn có chắc muốn thực hiện Lưu vị trí robot không?",
-             "Xác nhận",
-             MessageBoxButton.YesNo,
-             MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Yes)
-            {
-                _data.FUpdatePose = true;
-                _data.NamePose = $"PrePickPose";
-            }
-            else
-            {
-                // Nhấn NO: bỏ qua
-                return;
-            }
-          
+            if (!ConfirmSaveRobotPoint("PrePickPose", "Điểm trước khi xuống gắp")) return;
+            _data.FUpdatePose = true;
+            _data.NamePose = "PrePickPose";
         }
 
         /// <summary>
@@ -687,23 +608,9 @@ namespace WpfCompanyApp.ViewModels
         [RelayCommand]
         private void MovePrePickPose()
         {
-            var result = MessageBox.Show(
-               "Bạn có chắc muốn thực hiện dịch chuyển robot không?",
-               "Xác nhận",
-               MessageBoxButton.YesNo,
-               MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Yes)
-            {
-                _data.MovePoseName = "PrePickPose";
-                _data.RequestMovePose = true;
-            }
-            else
-            {
-                // Nhấn NO: bỏ qua
-                return;
-            }
-            
+            if (!ConfirmMoveRobotPoint("PrePickPose", "Điểm trước khi xuống gắp")) return;
+            _data.MovePoseName = "PrePickPose";
+            _data.RequestMovePose = true;
         }
 
         /// <summary>
@@ -746,32 +653,13 @@ namespace WpfCompanyApp.ViewModels
         [RelayCommand]
         private void SaveWorkspacePoint(object? param)
         {
-            var result = MessageBox.Show(
-               "Bạn có chắc muốn thực hiện lưu vị trí robot hiện tại không không?",
-               "Xác nhận",
-               MessageBoxButton.YesNo,
-               MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Yes)
-            {
-                if (param == null)
-                    return;
-
-                if (!int.TryParse(param.ToString(), out int index))
-                    return;
-
-                if (index < 1 || index > 10)
-                    return;
-
-                _data.FUpdatePose = true;
-                _data.NamePose = $"WorkP{index}";
-            }
-            else
-            {
-                // Nhấn NO: bỏ qua
+            if (param == null || !int.TryParse(param.ToString(), out int index) || index < 1 || index > 10)
                 return;
-            }
-            
+
+            string poseName = $"WorkP{index}";
+            if (!ConfirmSaveRobotPoint(poseName, $"Điểm không gian P{index}")) return;
+            _data.FUpdatePose = true;
+            _data.NamePose = poseName;
         }
 
         /// <summary>
@@ -780,31 +668,13 @@ namespace WpfCompanyApp.ViewModels
         [RelayCommand]
         private void MoveWorkspacePoint(object? param)
         {
-            var result = MessageBox.Show(
-            "Bạn có chắc muốn thực hiện dịch chuyển robot không?",
-            "Xác nhận",
-            MessageBoxButton.YesNo,
-            MessageBoxImage.Question);
-
-            if (result == MessageBoxResult.Yes)
-            {
-                if (param == null)
-                    return;
-
-                if (!int.TryParse(param.ToString(), out int index))
-                    return;
-
-                if (index < 1 || index > 10)
-                    return;
-                _data.MovePoseName = $"WorkP{index}";
-                _data.RequestMovePose = true;
-            }
-            else
-            {
-                // Nhấn NO: bỏ qua
+            if (param == null || !int.TryParse(param.ToString(), out int index) || index < 1 || index > 10)
                 return;
-            }
-           
+
+            string poseName = $"WorkP{index}";
+            if (!ConfirmMoveRobotPoint(poseName, $"Điểm không gian P{index}")) return;
+            _data.MovePoseName = poseName;
+            _data.RequestMovePose = true;
         }
         // Thêm các property cho Trigger Camera
         [ObservableProperty]

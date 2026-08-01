@@ -222,7 +222,12 @@ namespace WpfCompanyApp.ViewModels
         [RelayCommand]
         private void Reset()
         {
+            if (_data.IsResetProcessing ||
+                (_data.CurrentState != AppState.Idle && _data.CurrentState != AppState.Error))
+                return;
+
             // Gửi cờ Reset cho AppBackgroundService (HandleError sẽ xử lý)
+            _data.IsResetProcessing = true;
             _data.ResetRequested = true;
         }
         [RelayCommand]
@@ -279,7 +284,7 @@ namespace WpfCompanyApp.ViewModels
         private bool isJobViewVisible = true;
 
         public bool IsCameraViewVisible => !IsJobViewVisible;
-        public string JobCameraButtonText => IsJobViewVisible ? "Job" : "Camera";
+        public string JobCameraButtonText => IsJobViewVisible ? "Job" : "Cam";
 
         [RelayCommand]
         private void ShowJob()

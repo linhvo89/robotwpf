@@ -19,7 +19,7 @@ namespace WpfCompanyApp
     public partial class MainWindow : Window
     {
         // ===== THÔNG TIN PHIÊN BẢN - CHỈNH SỬA TẠI ĐÂY =====
-        public const string ApplicationVersion = "1.3.3";
+        public const string ApplicationVersion = "1.4.0";
         public static readonly string ReleaseDateTime =
             System.IO.File.GetLastWriteTime(
                 System.Reflection.Assembly.GetExecutingAssembly().Location)

@@ -452,26 +452,9 @@
                         <ScrollViewer Grid.Column="0" VerticalScrollBarVisibility="Auto">
                             <StackPanel>
 
-                                <!-- TOP ROW: Camera + Lamp -->
+                                <!-- LAMP -->
                                 <Grid>
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="*"/>
-                                        <ColumnDefinition Width="*"/>
-                                    </Grid.ColumnDefinitions>
-
-                                    <!-- CAMERA -->
-                                    <GroupBox Grid.Column="0" Header="Camera">
-                                        <StackPanel Orientation="Horizontal">
-                                            <TextBox Width="120" Text="0" Margin="0,0,10,0"/>
-                                            <ToggleButton Content="Trigger Camera (DO6)"
-                                                          Width="160"
-                                                          Style="{StaticResource OnOffToggleButtonStyle}"
-                                                          IsChecked="{Binding TriggerCamera, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
-                                        </StackPanel>
-                                    </GroupBox>
-
-                                    <!-- LAMP -->
-                                    <GroupBox Grid.Column="1" Header="Lamp">
+                                    <GroupBox Header="Lamp">
                                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                                             <ToggleButton Content="Green"
                                                           Style="{StaticResource GreenLampStyle}"
@@ -704,15 +687,10 @@
                         <StackPanel Grid.Column="1">
 
                             <GroupBox Header="Robot">
-                                <StackPanel>
-
-                                    <StackPanel Orientation="Horizontal">
-                                        <TextBlock Text="Select Zone" VerticalAlignment="Center"/>
-                                        <ComboBox Width="160" Margin="10,0"/>
-                                    </StackPanel>
+                                    <StackPanel>
 
                                     <!-- Robot startup status: Powered on -> Initialized -> Disable -> Standby -->
-                                    <Grid Margin="8,14,8,4" Height="62">
+                                    <Grid Margin="8,4,8,4" Height="62">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>

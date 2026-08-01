@@ -146,8 +146,8 @@ namespace WpfCompanyApp.Services
         private const string DropReturnPathName = "ABGOBACK";
         private const double DropPathBlendRadius = 0.05;
         private PosMoveJ? _forwardPose1Joint;
-        private PosMoveJ? _forwardPose5Joint;
-        private PosMoveJ? _returnPose5Joint;
+        private PosMoveJ? _forwardPose6Joint;
+        private PosMoveJ? _returnPose6Joint;
 
         // ✅ đã kẹp sản phẩm sau bước CompleteSP hay chưa
         private bool _productLoaded = false;
@@ -197,21 +197,112 @@ namespace WpfCompanyApp.Services
             return inside;
         }
 
-        bool IsRobotInsideWorkspace(IReadOnlyList<PosMoveL> boundary, PosMoveL robotPos, double heightOffset)
+        bool IsRobotInsideWorkspace(IReadOnlyList<PosMoveL> boundary, PosMoveL robotPos)
         {
             if (boundary == null || boundary.Count != 10)
                 return false;
 
-            // ---- 1. Lấy Z_MIN từ mặt đáy ----
-            double zMin = boundary.Min(p => p.Z) - 100;
-            double zMax = zMin + heightOffset;
+            // 10 điểm XYZ phải tạo được một khối có thể tích.
+            // Nếu tất cả điểm đồng phẳng thì không thể xác định không gian làm việc 3D.
+            const double volumeEpsilon = 1e-6;
+            bool hasVolume = false;
+            for (int a = 0; a < boundary.Count - 3 && !hasVolume; a++)
+            for (int b = a + 1; b < boundary.Count - 2 && !hasVolume; b++)
+            for (int c = b + 1; c < boundary.Count - 1 && !hasVolume; c++)
+            for (int d = c + 1; d < boundary.Count && !hasVolume; d++)
+            {
+                PosMoveL p0 = boundary[a];
+                PosMoveL p1 = boundary[b];
+                PosMoveL p2 = boundary[c];
+                PosMoveL p3 = boundary[d];
 
-            // ---- 2. Kiểm tra theo Z (trục đứng) ----
-            if (robotPos.Z < zMin || robotPos.Z > zMax)
+                double ux = p1.X - p0.X;
+                double uy = p1.Y - p0.Y;
+                double uz = p1.Z - p0.Z;
+                double vx = p2.X - p0.X;
+                double vy = p2.Y - p0.Y;
+                double vz = p2.Z - p0.Z;
+                double wx = p3.X - p0.X;
+                double wy = p3.Y - p0.Y;
+                double wz = p3.Z - p0.Z;
+
+                double nx = uy * vz - uz * vy;
+                double ny = uz * vx - ux * vz;
+                double nz = ux * vy - uy * vx;
+                double sixTimesVolume = nx * wx + ny * wy + nz * wz;
+                hasVolume = Math.Abs(sixTimesVolume) > volumeEpsilon;
+            }
+
+            if (!hasVolume)
                 return false;
 
-            // ---- 3. Kiểm tra theo mặt XY (đa giác WorkP1..WorkP10) ----
-            return IsPointInPolygonXY(boundary, robotPos);
+            // Mỗi bộ ba điểm có thể tạo một mặt đỡ của bao lồi.
+            // Robot phải nằm cùng phía với toàn bộ khối đối với tất cả các mặt đỡ.
+            const double distanceToleranceMm = 0.5;
+            bool foundHullFace = false;
+
+            for (int i = 0; i < boundary.Count - 2; i++)
+            for (int j = i + 1; j < boundary.Count - 1; j++)
+            for (int k = j + 1; k < boundary.Count; k++)
+            {
+                PosMoveL a = boundary[i];
+                PosMoveL b = boundary[j];
+                PosMoveL c = boundary[k];
+
+                double abx = b.X - a.X;
+                double aby = b.Y - a.Y;
+                double abz = b.Z - a.Z;
+                double acx = c.X - a.X;
+                double acy = c.Y - a.Y;
+                double acz = c.Z - a.Z;
+
+                double nx = aby * acz - abz * acy;
+                double ny = abz * acx - abx * acz;
+                double nz = abx * acy - aby * acx;
+                double normalLength = Math.Sqrt(nx * nx + ny * ny + nz * nz);
+
+                if (normalLength <= volumeEpsilon)
+                    continue;
+
+                nx /= normalLength;
+                ny /= normalLength;
+                nz /= normalLength;
+
+                bool hasPositive = false;
+                bool hasNegative = false;
+
+                foreach (PosMoveL point in boundary)
+                {
+                    double signedDistance =
+                        nx * (point.X - a.X) +
+                        ny * (point.Y - a.Y) +
+                        nz * (point.Z - a.Z);
+
+                    if (signedDistance > distanceToleranceMm)
+                        hasPositive = true;
+                    else if (signedDistance < -distanceToleranceMm)
+                        hasNegative = true;
+                }
+
+                // Có điểm ở cả hai phía: tam giác này nằm bên trong khối,
+                // không phải mặt biên của bao lồi.
+                if (hasPositive && hasNegative)
+                    continue;
+
+                foundHullFace = true;
+                double robotDistance =
+                    nx * (robotPos.X - a.X) +
+                    ny * (robotPos.Y - a.Y) +
+                    nz * (robotPos.Z - a.Z);
+
+                if (hasPositive && robotDistance < -distanceToleranceMm)
+                    return false;
+
+                if (hasNegative && robotDistance > distanceToleranceMm)
+                    return false;
+            }
+
+            return foundHullFace;
         }
 
         private bool TryLoadWorkspaceBoundary(out List<PosMoveL> boundary, out string error)
@@ -853,17 +944,14 @@ namespace WpfCompanyApp.Services
             _recentProductCycleSeconds.Clear();
             _activeSecondsAtLastRelease = 0;
             _completedProductCount = 0;
-            _displayCompletedProductCount = 0;
+            _displayCompletedProductCount = (int)_data.CycleCount;
 
             Application.Current?.Dispatcher.Invoke(() =>
             {
                 _data.InstantCycleTime = 0;
                 _data.AverageCycleTime = 0;
-                _data.Basket1Count = 0;
-                _data.Basket2Count = 0;
                 _data.CycleTime = 0;
                 _data.CycleTimeDisplay = "00:00:00";
-                _data.CycleCount = 0;
             });
         }
 
@@ -906,7 +994,7 @@ namespace WpfCompanyApp.Services
             {
                 _data.CycleTime = elapsedSeconds;
                 _data.CycleTimeDisplay = elapsedDisplay;
-                _data.CycleCount = _displayCompletedProductCount;
+                _data.CycleCount = _data.Basket1Count + _data.Basket2Count;
             }));
         }
 
@@ -1060,7 +1148,7 @@ namespace WpfCompanyApp.Services
                             // sau khi đọc IO/manual/settings -> check safety
                             CheckSafetySignals();
                         }
-                        LoadJob();
+                        await LoadJobAsync();
                         HandleShutdown();
                         HandleRestart();
                         await Task.Delay(intervalMs, _cts.Token);
@@ -1100,7 +1188,7 @@ namespace WpfCompanyApp.Services
         }
 
         // ========= STATE HANDLER =========
-        private void LoadJob()
+        private async Task LoadJobAsync()
         {
             try
             {
@@ -1110,21 +1198,34 @@ namespace WpfCompanyApp.Services
                     VmSolutionInfo vmSolutionInfo = new VmSolutionInfo();
                     string path111 = AppDomain.CurrentDomain.BaseDirectory + "Solution\\" + _data.JobName + ".sol";
                     vmSolutionInfo.vmSolutionPath = path111;
-                    Application.Current?.Dispatcher.Invoke(() =>
+                    if (VmSolution.Instance.SolutionPath != null)
                     {
-                        // VisionMaster configuration controls contain WPF/Win32 UI.
-                        // Keep the complete solution lifecycle on the UI thread so
-                        // native parameter dialogs (for example Camera) can open.
-                        if (VmSolution.Instance.SolutionPath != null)
+                        // VisionMaster cần được gọi trên UI thread, nhưng thời gian chờ
+                        // giữa các bước không được khóa Dispatcher.
+                        Application.Current?.Dispatcher.Invoke(() =>
                         {
                             VmSolution.Save();
-                            Thread.Sleep(1500);
-                            VmSolution.Instance.CloseSolution();
-                            Thread.Sleep(500);
-                        }
+                        });
 
+                        await Task.Delay(1500, _cts.Token);
+
+                        Application.Current?.Dispatcher.Invoke(() =>
+                        {
+                            VmSolution.Instance.CloseSolution();
+                        });
+
+                        await Task.Delay(500, _cts.Token);
+                    }
+
+                    Application.Current?.Dispatcher.Invoke(() =>
+                    {
                         VmSolution.Load(vmSolutionInfo.vmSolutionPath, "196370");
-                        Thread.Sleep(1000);
+                    });
+
+                    await Task.Delay(1000, _cts.Token);
+
+                    Application.Current?.Dispatcher.Invoke(() =>
+                    {
                         vmProcessInfoList = VmSolution.Instance.GetAllProcedureList();
                         vmProcedure = VmSolution.Instance[
                             vmProcessInfoList.astProcessInfo[0].strProcessName] as VmProcedure;
@@ -1134,6 +1235,10 @@ namespace WpfCompanyApp.Services
                 }
                 
            
+            }
+            catch (OperationCanceledException)
+            {
+                // Ứng dụng đang dừng; không hiển thị thông báo lỗi Load Job.
             }
             catch
             {
@@ -1748,8 +1853,7 @@ namespace WpfCompanyApp.Services
                         moveLHome.RX = pose.Rx;
                         moveLHome.RY = pose.Ry;
                         moveLHome.RZ = pose.Rz;
-                        // Vùng an toàn là lăng trụ tạo bởi đa giác WorkP1..WorkP10.
-                        double heightOffset = 500;
+                        // Vùng an toàn là khối lồi 3D tạo bởi XYZ của WorkP1..WorkP10.
                         PosMoveL movel2 = new PosMoveL();
                         string er = _robot.ReadActualPosMoveL(0, out movel2);
                         if (er == "OK")
@@ -1758,7 +1862,7 @@ namespace WpfCompanyApp.Services
                             {
                                 AddMachineLog($"[HOMING] {workspaceError} Không cho phép Move Home.");
                             }
-                            else if (IsRobotInsideWorkspace(workspaceBoundary, movel2, heightOffset))
+                            else if (IsRobotInsideWorkspace(workspaceBoundary, movel2))
                             {
                                 AddMachineLog("Robot hiện tại nằm TRONG vùng an toàn WorkP1..WorkP10 → ĐƯỢC phép Move Home");
                                 // gửi lệnh Move Home
@@ -2091,13 +2195,13 @@ namespace WpfCompanyApp.Services
 
         private bool TryCreateDropMovePaths(out string error)
         {
-            var forwardPoints = new List<RobotTrajectory>(5);
-            var returnPoints = new List<RobotTrajectory>(5);
+            var forwardPoints = new List<RobotTrajectory>(6);
+            var returnPoints = new List<RobotTrajectory>(6);
             _forwardPose1Joint = null;
-            _forwardPose5Joint = null;
-            _returnPose5Joint = null;
+            _forwardPose6Joint = null;
+            _returnPose6Joint = null;
 
-            for (int i = 1; i <= 5; i++)
+            for (int i = 1; i <= 6; i++)
             {
                 RobotTrajectory forwardPoint = _db.GetRobotTrajectoryByNamePoses($"ForwardPose{i}");
                 RobotTrajectory returnPoint = _db.GetRobotTrajectoryByNamePoses($"ReturnPose{i}");
@@ -2127,9 +2231,9 @@ namespace WpfCompanyApp.Services
                 return false;
             }
 
-            // Khi bắt đầu ABGOBACK, robot đang ở ForwardPose5. Thêm chính điểm này
+            // Khi bắt đầu ABGOBACK, robot đang ở ForwardPose6. Thêm chính điểm này
             // làm điểm đầu để vị trí khớp hiện tại khớp với điểm đầu của PathJ.
-            var returnPathPoints = new List<RobotTrajectory>(6) { forwardPoints[4] };
+            var returnPathPoints = new List<RobotTrajectory>(7) { forwardPoints[5] };
             returnPathPoints.AddRange(returnPoints);
 
             if (!TryCreateJointMovePath(
@@ -2142,12 +2246,12 @@ namespace WpfCompanyApp.Services
             }
 
             _forwardPose1Joint = ToJointPosition(forwardPoints[0]);
-            _forwardPose5Joint = ToJointPosition(forwardPoints[4]);
-            _returnPose5Joint = ToJointPosition(returnPoints[4]);
+            _forwardPose6Joint = ToJointPosition(forwardPoints[5]);
+            _returnPose6Joint = ToJointPosition(returnPoints[5]);
 
             AddRobotHistory(
-                $"[START] Đã tạo quỹ đạo {DropForwardPathName}: ForwardPose1..5 và " +
-                $"{DropReturnPathName}: ForwardPose5 -> ReturnPose1..5. " +
+                $"[START] Đã tạo quỹ đạo {DropForwardPathName}: ForwardPose1..6 và " +
+                $"{DropReturnPathName}: ForwardPose6 -> ReturnPose1..6. " +
                 $"Tốc độ PathJ: đi={_data.SpeedMoveBetweenDrops:0.00}, " +
                 $"về={_data.SpeedReturnAfterDrop:0.00}.");
             error = string.Empty;
@@ -2228,9 +2332,9 @@ namespace WpfCompanyApp.Services
                 return false;
             }
 
-            if (_forwardPose5Joint == null)
+            if (_forwardPose6Joint == null)
             {
-                error = "ForwardPose5 chưa được nạp khi nhấn Start.";
+                error = "ForwardPose6 chưa được nạp khi nhấn Start.";
                 return false;
             }
 
@@ -2245,17 +2349,17 @@ namespace WpfCompanyApp.Services
                 return false;
             }
 
-            result = _robot.MovePathJ(0, DropForwardPathName, _forwardPose5Joint);
+            result = _robot.MovePathJ(0, DropForwardPathName, _forwardPose6Joint);
             if (result != "OK")
             {
                 error = result == "1"
-                    ? $"robot không hoàn thành vị trí cuối ForwardPose5 của {DropForwardPathName}."
+                    ? $"robot không hoàn thành vị trí cuối ForwardPose6 của {DropForwardPathName}."
                     : $"MovePath {DropForwardPathName} lỗi: {result}";
                 return false;
             }
 
             AddRobotHistory(
-                $"[READY] MovePath {DropForwardPathName} OK: ForwardPose1 -> ForwardPose5.");
+                $"[READY] MovePath {DropForwardPathName} OK: ForwardPose1 -> ForwardPose6.");
             error = string.Empty;
             return true;
         }
@@ -2289,9 +2393,9 @@ namespace WpfCompanyApp.Services
                 return false;
             }
 
-            if (_returnPose5Joint == null)
+            if (_returnPose6Joint == null)
             {
-                error = "ReturnPose5 chưa được nạp khi nhấn Start.";
+                error = "ReturnPose6 chưa được nạp khi nhấn Start.";
                 return false;
             }
 
@@ -2306,17 +2410,17 @@ namespace WpfCompanyApp.Services
                 return false;
             }
 
-            result = _robot.MovePathJ(0, DropReturnPathName, _returnPose5Joint);
+            result = _robot.MovePathJ(0, DropReturnPathName, _returnPose6Joint);
             if (result != "OK")
             {
                 error = result == "1"
-                    ? $"robot không hoàn thành vị trí cuối ReturnPose5 của {DropReturnPathName}."
+                    ? $"robot không hoàn thành vị trí cuối ReturnPose6 của {DropReturnPathName}."
                     : $"MovePath {DropReturnPathName} lỗi: {result}";
                 return false;
             }
 
             AddRobotHistory(
-                $"[READY] MovePath {DropReturnPathName} OK: ReturnPose1 -> ReturnPose5.");
+                $"[READY] MovePath {DropReturnPathName} OK: ReturnPose1 -> ReturnPose6.");
             error = string.Empty;
             return true;
         }
@@ -2615,24 +2719,42 @@ namespace WpfCompanyApp.Services
             return true;
         }
 
-        private bool MoveSafeZ()
+        private bool MoveSafeZ(int tool, double robotX, double robotY)
         {
-            PosMoveL current;
-            string er = _robot.ReadActualPosMoveL(0, out current);
-            if (er != "OK")
+            //if (!TrySetReadySpeed(
+            //        _data.SpeedSuction,
+            //        "nâng SafeH sau khi nhặt sản phẩm"))
+            //{
+            //    return false;
+            //}
+
+            double safeRz = moveLPickProduct.RZ;
+            if (robotX > moveLPickProduct.X)
             {
-                AddMachineLog($"[READY] Không đọc được vị trí để nâng H: {er}");
-                return false;
+                safeRz += _readyCurrentBasket == 1 ? 90 : -90;
             }
 
-            current.Z += _data.SafeH;
-            er = _robot.MoveL(0, current, 0);
+            double pickZ = moveLPickProduct.Z - GetPickHeightOffset(tool);
+            var safePoint = new PosMoveL
+            {
+                X = robotX,
+                Y = robotY,
+                Z = pickZ + _data.SafeH,
+                RX = moveLPickProduct.RX,
+                RY = moveLPickProduct.RY,
+                RZ = safeRz
+            };
+
+            string er = _robot.MoveL(0, safePoint, 0);
             if (er != "OK")
             {
                 AddMachineLog($"[READY] Nâng H lỗi: {er}");
                 return false;
             }
 
+            AddRobotHistory(
+                $"[READY] Nâng từ điểm gắp lên SafeH -> X:{safePoint.X}, Y:{safePoint.Y}, " +
+                $"Z:{safePoint.Z}, RZ:{safePoint.RZ}");
             return true;
         }
 
@@ -2742,9 +2864,24 @@ namespace WpfCompanyApp.Services
 
             SetToolVacuum(tool, true);
             if (WaitForToolHolding(tool))
+            {
+                if (!MoveSafeZ(_pickCurrentTool, _pickRobotX, _pickRobotY))
+                {
+                    FailReadyCycle("[READY] Robot không nâng được lên độ cao an toàn H sau khi hút trượt. Dừng máy, cần Reset lỗi.");
+                    _pickToolState = PickToolSubState.Complete;
+                    return false;
+                }
                 return true;
+            }
+               
 
             SetToolVacuum(tool, false);
+            if (!MoveSafeZ(_pickCurrentTool, _pickRobotX, _pickRobotY))
+            {
+                FailReadyCycle("[READY] Robot không nâng được lên độ cao an toàn H sau khi hút trượt. Dừng máy, cần Reset lỗi.");
+                _pickToolState = PickToolSubState.Complete;
+                return false;
+            }
             AddMachineLog($"[READY] {GetToolName(tool)} hút lần 2 trượt, đã tắt đầu hút.");
             return false;
         }
@@ -3475,12 +3612,12 @@ namespace WpfCompanyApp.Services
                         _pickToolState = PickToolSubState.Complete;
                         return true;
                     }
-                    if (!MoveSafeZ())
-                    {
-                        FailReadyCycle("[READY] Robot không nâng được lên độ cao an toàn H sau khi hút trượt. Dừng máy, cần Reset lỗi.");
-                        _pickToolState = PickToolSubState.Complete;
-                        return true;
-                    }
+                    //if (!MoveSafeZ(_pickCurrentTool, _pickRobotX, _pickRobotY))
+                    //{
+                    //    FailReadyCycle("[READY] Robot không nâng được lên độ cao an toàn H sau khi hút trượt. Dừng máy, cần Reset lỗi.");
+                    //    _pickToolState = PickToolSubState.Complete;
+                    //    return true;
+                    //}
 
                     _pickCylinderConfirmStartedAtUtc = DateTime.UtcNow;
                     _pickToolState = PickToolSubState.ConfirmCylinderSensors;
@@ -3583,8 +3720,8 @@ namespace WpfCompanyApp.Services
 
                 // Cây con bước 2:
                 // - MoveL riêng tới ForwardPose1 để chụp camera đúng tại điểm 1.
-                // - Sau đó kiểm tra robot và chạy ABGO tới ForwardPose5.
-                // Không chạy MoveL riêng cho ForwardPose2..ForwardPose5.
+                // - Sau đó kiểm tra robot và chạy ABGO tới ForwardPose6.
+                // Không chạy MoveL riêng cho ForwardPose2..ForwardPose6.
                 case DropToolSubState.MoveForwardPose:
                     if (_dropForwardPoseIndex == 1)
                     {
@@ -3687,7 +3824,7 @@ namespace WpfCompanyApp.Services
                     return false;
 
                 // Cây con bước 4: Sau khi thả tất cả sản phẩm, chạy một lần quỹ đạo
-                // ABGOBACK tới ReturnPose5. Không chạy MoveL riêng ReturnPose1..ReturnPose5.
+                // ABGOBACK tới ReturnPose6. Không chạy MoveL riêng ReturnPose1..ReturnPose6.
                 case DropToolSubState.MoveReturnPose:
                     if (_dropReturnPoseIndex == 1)
                     {
@@ -4090,8 +4227,8 @@ namespace WpfCompanyApp.Services
                         break;
 
                     // Bước 10: Đi thả những sản phẩm đã hút được.
-                    // Robot đi ForwardPose1..ForwardPose5 một lần, thả đồng thời tất cả Tool đang giữ sản phẩm,
-                    // rồi đi ReturnPose1..ReturnPose5 một lần để người vận hành có thể Pause giữa các vị trí.
+                    // Robot đi ForwardPose1..ForwardPose6 một lần, thả đồng thời tất cả Tool đang giữ sản phẩm,
+                    // rồi đi ReturnPose1..ReturnPose6 một lần để người vận hành có thể Pause giữa các vị trí.
                     case ReadySubState.DropPickedProducts:
                         if (!HandleDropToolSubTree())
                             break;
@@ -4583,11 +4720,24 @@ namespace WpfCompanyApp.Services
             // ❌ Không cho chỉnh settings nếu không Idle
             if (_state != AppState.Idle)
             {
+                bool hasPendingSettingsRequest =
+                    _data.FUpdatePose ||
+                    _data.RequestEditPose ||
+                    _data.RequestMovePose;
+
                 // Clear tất cả request để không bị “dồn lệnh” sang lúc Idle
                 _data.FUpdatePose = false;
                 _data.RequestEditPose = false;
                 _data.RequestMovePose = false;
                 _data.MovePoseName = null;
+
+                if (hasPendingSettingsRequest)
+                {
+                    AutoCloseToast.ShowError(
+                        "Robot chưa ở trạng thái Idle. Lệnh Move/Lưu điểm đã bị hủy.",
+                        2500,
+                        "Không thể thực hiện");
+                }
                 return;
             }
             switch (_settingsState)
@@ -4676,6 +4826,10 @@ namespace WpfCompanyApp.Services
                         if (traj != null)
                         {
                             AddMachineLog($"[SETTING] Đang di chuyển robot tới điểm: {poseName} ({moveType})...");
+                            AutoCloseToast.ShowSuccess(
+                                $"Đang di chuyển robot tới {poseName} ({moveType})...",
+                                1800,
+                                "Đang thực hiện");
 
                             string moveErr = ""; // Biến để hứng lỗi từ Robot
 
@@ -4703,15 +4857,28 @@ namespace WpfCompanyApp.Services
                             // Nếu Robot trả về không phải chữ OK, in ngay lỗi ra màn hình
                             if (moveErr != "OK")
                             {
-                                Application.Current?.Dispatcher.Invoke(() =>
-                                {
-                                    MessageBox.Show($"Robot từ chối di chuyển!\nMã lỗi trả về: {moveErr}", "Lỗi Lệnh Move", MessageBoxButton.OK, MessageBoxImage.Error);
-                                });
+                                AddMachineLog($"[SETTING] Di chuyển tới {poseName} thất bại: {moveErr}");
+                                AutoCloseToast.ShowError(
+                                    $"Robot từ chối di chuyển tới {poseName}. Mã lỗi: {moveErr}",
+                                    3000,
+                                    "Lỗi lệnh Move");
                             }
                             else
                             {
                                 AddMachineLog($"[SETTING] Di chuyển thành công tới {poseName}");
+                                AutoCloseToast.ShowSuccess(
+                                    $"Robot đã di chuyển tới {poseName} ✔",
+                                    2200,
+                                    "Hoàn tất");
                             }
+                        }
+                        else
+                        {
+                            AddMachineLog($"[SETTING] Không tìm thấy dữ liệu điểm: {poseName}");
+                            AutoCloseToast.ShowError(
+                                $"Chưa có dữ liệu cho điểm {poseName}. Hãy lưu điểm trước.",
+                                3000,
+                                "Không thể Move");
                         }
 
                         _data.RequestMovePose = false;
@@ -4755,13 +4922,18 @@ namespace WpfCompanyApp.Services
                             _db.UpdateTrajectory(robotTrajectory);
 
                             AddMachineLog($"[SETTING] Đã lưu tọa độ thành công cho: {poseName}");
+                            AutoCloseToast.ShowSuccess(
+                                $"Đã lưu vị trí {poseName} ✔",
+                                2200,
+                                "Lưu điểm thành công");
                         }
                         else
                         {
-                            Application.Current?.Dispatcher.Invoke(() =>
-                            {
-                                MessageBox.Show("Lỗi đọc vị trí từ Robot: " + array[0], "Lỗi", MessageBoxButton.OK, MessageBoxImage.Error);
-                            });
+                            AddMachineLog($"[SETTING] Lưu {poseName} thất bại: {array[0]}");
+                            AutoCloseToast.ShowError(
+                                $"Không thể đọc vị trí robot để lưu {poseName}. Lỗi: {array[0]}",
+                                3000,
+                                "Lưu điểm thất bại");
                         }
 
                         _data.FUpdatePose = false;

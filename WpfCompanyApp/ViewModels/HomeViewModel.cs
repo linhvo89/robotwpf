@@ -275,9 +275,11 @@ namespace WpfCompanyApp.ViewModels
         // ======= VIEW MODE STATE (JOB / CAMERA) =======
         [ObservableProperty]
         [NotifyPropertyChangedFor(nameof(IsCameraViewVisible))]
+        [NotifyPropertyChangedFor(nameof(JobCameraButtonText))]
         private bool isJobViewVisible = true;
 
         public bool IsCameraViewVisible => !IsJobViewVisible;
+        public string JobCameraButtonText => IsJobViewVisible ? "Job" : "Camera";
 
         [RelayCommand]
         private void ShowJob()
@@ -289,6 +291,12 @@ namespace WpfCompanyApp.ViewModels
         private void ShowCamera()
         {
             IsJobViewVisible = false;
+        }
+
+        [RelayCommand]
+        private void ToggleJobCamera()
+        {
+            IsJobViewVisible = !IsJobViewVisible;
         }
         // ===== MODULE SOURCE CHO VmRenderControl =====
         public object? ModuleSource => _data.ModuleSource;
@@ -331,6 +339,7 @@ namespace WpfCompanyApp.ViewModels
 
                 _data.JobName = value.JobName;
                 UpdateSelectedJobHeightData(value);
+                _data.LoadJobCounters(value.Id);
                 _data.LoadJob = true;
 
                 SaveSelectedJob();
@@ -422,6 +431,7 @@ namespace WpfCompanyApp.ViewModels
 
                         _data.JobName = match.JobName;
                         UpdateSelectedJobHeightData(match);
+                        _data.LoadJobCounters(match.Id);
                         _data.LoadJob = true;
 
                         _isInternalChange = false;

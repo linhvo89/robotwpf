@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
@@ -539,7 +540,9 @@ namespace WpfCompanyApp.Services
             {
                 int i = 0;
                 bool flag = true;
-                while (true)
+                int operationTimeoutMs = Math.Max(readtimeout, 1000);
+                Stopwatch stopwatch = Stopwatch.StartNew();
+                while (stopwatch.ElapsedMilliseconds < operationTimeoutMs)
                 {
                     receive1 = str_read.Read(buffer, 0, 1);
                     if (buffer[0] == ']')
@@ -565,7 +568,7 @@ namespace WpfCompanyApp.Services
                         return "";
                     }
                 }
-                return barcoderv;
+                return "Timeout";
 
             }
             catch (Exception ex)
@@ -605,7 +608,9 @@ namespace WpfCompanyApp.Services
                     Disconnect();
                     tcpConnect(ip, port, readtimeout);
                 }
-                while (true)
+                int operationTimeoutMs = Math.Max(readtimeout, 1000);
+                Stopwatch stopwatch = Stopwatch.StartNew();
+                while (stopwatch.ElapsedMilliseconds < operationTimeoutMs)
                 {
                     try
                     {
@@ -655,7 +660,9 @@ namespace WpfCompanyApp.Services
                     Disconnect();
                     tcpConnect(ip, port, readtimeout);
                 }
-                while (true)
+                int operationTimeoutMs = Math.Max(readtimeout, 1000);
+                Stopwatch stopwatch = Stopwatch.StartNew();
+                while (stopwatch.ElapsedMilliseconds < operationTimeoutMs)
                 {
                     try
                     {
@@ -693,6 +700,9 @@ namespace WpfCompanyApp.Services
                 //string jsonData = jsonDataBuilder.ToString();
                 //return jsonData;
 
+                return string.IsNullOrEmpty(barcoderv)
+                    ? "Timeout Camera"
+                    : barcoderv;
             }
             catch (Exception ex)
             {

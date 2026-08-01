@@ -57,14 +57,25 @@ namespace WpfCompanyApp.Data
                     UpdatedAt TEXT NOT NULL DEFAULT (datetime('now'))
                 )";
 
+            string createJobCounters = @"
+                CREATE TABLE IF NOT EXISTS JobCounters(
+                    JobId INTEGER PRIMARY KEY,
+                    Basket1Count REAL NOT NULL DEFAULT 0,
+                    Basket2Count REAL NOT NULL DEFAULT 0,
+                    TotalCount REAL NOT NULL DEFAULT 0,
+                    UpdatedAt TEXT NOT NULL DEFAULT (datetime('now'))
+                )";
+
             using var cmd1 = new SqliteCommand(createJobs, conn);
             using var cmd2 = new SqliteCommand(createPoses, conn);
             using var cmd3 = new SqliteCommand(createRobotSpeedSettings, conn);
             using var cmd4 = new SqliteCommand(createAppSettings, conn);
+            using var cmd5 = new SqliteCommand(createJobCounters, conn);
             cmd1.ExecuteNonQuery();
             cmd2.ExecuteNonQuery();
             cmd3.ExecuteNonQuery();
             cmd4.ExecuteNonQuery();
+            cmd5.ExecuteNonQuery();
 
             string[] speedNames =
             {
@@ -172,6 +183,69 @@ namespace WpfCompanyApp.Data
                     UpdatedAt = datetime('now');";
             cmd.Parameters.AddWithValue("$settingName", settingName);
             cmd.Parameters.AddWithValue("$settingValue", settingValue ?? string.Empty);
+            cmd.ExecuteNonQuery();
+        }
+
+        public void GetJobCounters(
+            int jobId,
+            out double basket1Count,
+            out double basket2Count,
+            out double totalCount)
+        {
+            basket1Count = 0;
+            basket2Count = 0;
+            totalCount = 0;
+
+            if (jobId <= 0)
+                return;
+
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                SELECT Basket1Count, Basket2Count, TotalCount
+                FROM JobCounters
+                WHERE JobId = $jobId
+                LIMIT 1;";
+            cmd.Parameters.AddWithValue("$jobId", jobId);
+
+            using var reader = cmd.ExecuteReader();
+            if (!reader.Read())
+                return;
+
+            basket1Count = reader.GetDouble(0);
+            basket2Count = reader.GetDouble(1);
+            totalCount = reader.GetDouble(2);
+        }
+
+        public void SaveJobCounters(
+            int jobId,
+            double basket1Count,
+            double basket2Count,
+            double totalCount)
+        {
+            if (jobId <= 0)
+                return;
+
+            using var conn = new SqliteConnection($"Data Source={_dbPath}");
+            conn.Open();
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = @"
+                INSERT INTO JobCounters
+                    (JobId, Basket1Count, Basket2Count, TotalCount, UpdatedAt)
+                VALUES
+                    ($jobId, $basket1Count, $basket2Count, $totalCount, datetime('now'))
+                ON CONFLICT(JobId) DO UPDATE SET
+                    Basket1Count = excluded.Basket1Count,
+                    Basket2Count = excluded.Basket2Count,
+                    TotalCount = excluded.TotalCount,
+                    UpdatedAt = datetime('now');";
+            cmd.Parameters.AddWithValue("$jobId", jobId);
+            cmd.Parameters.AddWithValue("$basket1Count", Math.Max(0, basket1Count));
+            cmd.Parameters.AddWithValue("$basket2Count", Math.Max(0, basket2Count));
+            cmd.Parameters.AddWithValue("$totalCount", Math.Max(0, totalCount));
             cmd.ExecuteNonQuery();
         }
 

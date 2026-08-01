@@ -619,44 +619,14 @@
 
                         <Viewbox Stretch="Uniform">
 
-                            <Grid Margin="10">
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="auto"/>
-                                    <RowDefinition Height="auto"/>
-                                </Grid.RowDefinitions>
-                                <!-- ==== SLIDER SPEED ==== -->
-                        <Grid Grid.Row="0" Margin="0,10">
-                            <StackPanel>
-                                <TextBlock Text="Setting Robot Trajectory" FontSize="22" FontWeight="Bold" Margin="0 0 0 10" Foreground="#F5F5F5"/>
-                                <!-- SLIDER -->
-                                <StackPanel Orientation="Horizontal" Margin="0 5" VerticalAlignment="Center">
-                                    <TextBlock Text="Speed:" Width="110"  FontSize="20" VerticalAlignment="Center" Foreground="#CCCCCC"/>
-                                    <TextBlock  FontSize="18" Text="0" Width="25" TextAlignment="Right" VerticalAlignment="Center" Foreground="#999999"/>
-                                    <Grid Width="220" Margin="5,0">
-                                        <!-- Thanh nền -->
-                                        <Border Height="5" Background="#3C3C3C" VerticalAlignment="Center" CornerRadius="3"/>
-                                        <!-- Thanh màu xanh -->
-                                        <Border Height="5" Background="#007ACC" VerticalAlignment="Center" CornerRadius="3" HorizontalAlignment="Left">
-                                            <Border.Width>
-                                                <MultiBinding Converter="{StaticResource SliderValueToWidthConverter}">
-                                                    <Binding Path="Value" ElementName="sliderSpeed"/>
-                                                    <Binding Path="ActualWidth" RelativeSource="{RelativeSource Mode=FindAncestor, AncestorType=Grid}"/>
-                                                    <Binding Path="Maximum" ElementName="sliderSpeed"/>
-                                                </MultiBinding>
-                                            </Border.Width>
-                                        </Border>
-                                        <!-- Slider trong suốt -->
-                                        <Slider x:Name="sliderSpeed" Minimum="0" Maximum="100"  FontSize="18" Value="{Binding Speed, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" TickFrequency="5" IsSnapToTickEnabled="True" Background="Transparent" Opacity="0"/>
-                                    </Grid>
-                                    <TextBlock Text="100" Width="35" VerticalAlignment="Center" Foreground="#999999"  FontSize="18"/>
-                                    <TextBlock Text="{Binding Speed, StringFormat={}{0:F0}%}" Margin="10,0,0,0" VerticalAlignment="Center" Foreground="#F5F5F5"  FontSize="18"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </Grid>
-                        <!-- ==== BUTTON SECTION ==== -->
-                        <Grid Grid.Row="1"
-                          Margin="0,25,0,0"
-                          Background="#1E1E1E">
+                             <Grid Margin="10">
+                                 <Grid.RowDefinitions>
+                                     <RowDefinition Height="auto"/>
+                                 </Grid.RowDefinitions>
+                         <!-- ==== BUTTON SECTION ==== -->
+                         <Grid Grid.Row="0"
+                           Margin="0,10,0,0"
+                           Background="#1E1E1E">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto"/>
                                 <!-- Dòng 1 -->
@@ -733,7 +703,7 @@
                        Margin="0,0,0,15"
                        HorizontalAlignment="Center"/>
 
-                                    <UniformGrid Rows="6" Columns="5" HorizontalAlignment="Center" Margin="0,10">
+                                    <UniformGrid Rows="7" Columns="5" HorizontalAlignment="Center" Margin="0,10">
 
                                         <!-- HEADER -->
                                         <TextBlock Text="Save" FontSize="18" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
@@ -892,6 +862,36 @@
                           ItemsSource="{Binding MoveTypeOptions}"
                           SelectedItem="{Binding MoveTypes[4], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
+                                        <!-- ROW 6 -->
+                                        <Button Width="110" Content="💾 Đi Tha 6" FontSize="18" Background="#388E3C"
+                        Height="36"
+                        Command="{Binding SaveForwardPointCommand}" CommandParameter="6"/>
+
+                                        <Button Width="110" Content="🤖 Move " FontSize="18" Background="#1E88E5"
+                        Height="36"
+                        Command="{Binding MoveForwardPointCommand}" CommandParameter="6"/>
+
+                                        <Button Content="💾 Vel6" Width="110" Height="36" Background="#6A1B9A" FontSize="18"
+                        Command="{Binding SaveForwardVelocityCommand}" CommandParameter="6"/>
+
+                                        <TextBox Style="{StaticResource PrettyTextBox}"
+                         FontSize="18"
+                         Width="80"
+                         Height="36"
+                         VerticalContentAlignment="Center">
+                                            <TextBox.Text>
+                                                <Binding Path="ForwardVelocities[5]" UpdateSourceTrigger="LostFocus">
+                                                    <Binding.ValidationRules>
+                                                        <conv:Range01ValidationRule />
+                                                    </Binding.ValidationRules>
+                                                </Binding>
+                                            </TextBox.Text>
+                                        </TextBox>
+
+                                        <ComboBox Width="90" Height="36" FontSize="16" Style="{StaticResource PrettyComboBox}"
+                          ItemsSource="{Binding MoveTypeOptions}"
+                          SelectedItem="{Binding MoveTypes[5], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
                                     </UniformGrid>
                                 </StackPanel>
                             </Border>
@@ -914,7 +914,7 @@
                        Margin="0,0,0,15"
                        HorizontalAlignment="Center"/>
 
-                                    <UniformGrid Rows="6" Columns="5" HorizontalAlignment="Center" Margin="0,10">
+                                    <UniformGrid Rows="7" Columns="5" HorizontalAlignment="Center" Margin="0,10">
 
                                         <!-- Header -->
                                         <TextBlock Text="Save" FontSize="18" FontWeight="Bold" Foreground="White" HorizontalAlignment="Center"/>
@@ -1075,6 +1075,36 @@
                                         <ComboBox Width="90" Height="36" FontSize="16"  Style="{StaticResource PrettyComboBox}"
                           ItemsSource="{Binding MoveTypeOptions}"
                           SelectedItem="{Binding ReturnMoveTypes[4], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+
+                                        <!-- Row 6 -->
+                                        <Button Width="110" Content="💾 Quay Về 6" FontSize="18" Background="#388E3C"
+                        Height="36"
+                        Command="{Binding SaveReturnPointCommand}" CommandParameter="6"/>
+
+                                        <Button Width="110" Content="🤖 Move " FontSize="18" Background="#1E88E5"
+                        Height="36"
+                        Command="{Binding MoveReturnPointCommand}" CommandParameter="6"/>
+
+                                        <Button Content="💾 Vel6" Width="110" Height="36" Background="#6A1B9A" FontSize="18"
+                        Command="{Binding SaveReturnVelocityCommand}" CommandParameter="6"/>
+
+                                        <TextBox Style="{StaticResource PrettyTextBox}"
+                         FontSize="18"
+                         Width="80"
+                         Height="36"
+                         VerticalContentAlignment="Center">
+                                            <TextBox.Text>
+                                                <Binding Path="ReturnVelocities[5]" UpdateSourceTrigger="LostFocus">
+                                                    <Binding.ValidationRules>
+                                                        <conv:Range01ValidationRule />
+                                                    </Binding.ValidationRules>
+                                                </Binding>
+                                            </TextBox.Text>
+                                        </TextBox>
+
+                                        <ComboBox Width="90" Height="36" FontSize="16" Style="{StaticResource PrettyComboBox}"
+                          ItemsSource="{Binding MoveTypeOptions}"
+                          SelectedItem="{Binding ReturnMoveTypes[5], Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
 
                                     </UniformGrid>
                                 </StackPanel>

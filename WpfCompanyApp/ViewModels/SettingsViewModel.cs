@@ -52,10 +52,11 @@ namespace WpfCompanyApp.ViewModels
         public ObservableCollection<double> SpeedOptions { get; } =
             new(Enumerable.Range(1, 20)
                 .Select(i => Math.Round(i * 0.05, 2)));
-        // ⭐ 5 giá trị đang được chọn cho 5 điểm Forward
+        // ⭐ 6 giá trị đang được chọn cho 6 điểm Forward
         public ObservableCollection<RobotTrajectory.MoveTypeEnum> MoveTypes { get; } =
             new ObservableCollection<RobotTrajectory.MoveTypeEnum>
             {
+            RobotTrajectory.MoveTypeEnum.moveL,
             RobotTrajectory.MoveTypeEnum.moveL,
             RobotTrajectory.MoveTypeEnum.moveL,
             RobotTrajectory.MoveTypeEnum.moveL,
@@ -66,6 +67,7 @@ namespace WpfCompanyApp.ViewModels
         public ObservableCollection<RobotTrajectory.MoveTypeEnum> ReturnMoveTypes { get; } =
             new ObservableCollection<RobotTrajectory.MoveTypeEnum>
             {
+                RobotTrajectory.MoveTypeEnum.moveL,
                 RobotTrajectory.MoveTypeEnum.moveL,
                 RobotTrajectory.MoveTypeEnum.moveL,
                 RobotTrajectory.MoveTypeEnum.moveL,
@@ -99,34 +101,31 @@ namespace WpfCompanyApp.ViewModels
         {
             try
             {
-                // Ví dụ: đọc giá trị Vel1 từ bảng Config hoặc JobPose
-                var result = _db.GetRobotTrajectories(); // trả về double
-              //  _data.RobotTrajectories = result;
-                ForwardVelocities[0] = result[0].v;  // bind trực tiếp
-                ForwardVelocities[1] = result[1].v;
-                ForwardVelocities[2] = result[2].v;
-                ForwardVelocities[3] = result[3].v;
-                ForwardVelocities[4] = result[4].v;
-                ReturnVelocities[0]= result[5].v;
-                ReturnVelocities[1] = result[6].v;
-                ReturnVelocities[2] = result[7].v;
-                ReturnVelocities[3] = result[8].v;
-                ReturnVelocities[4] = result[9].v;
-                // ===== MoveType FORWARD (Combobox Forward) =====
-                MoveTypes[0] = result[0].MoveType;
-                MoveTypes[1] = result[1].MoveType;
-                MoveTypes[2] = result[2].MoveType;
-                MoveTypes[3] = result[3].MoveType;
-                MoveTypes[4] = result[4].MoveType;
+                var result = _db.GetRobotTrajectories()
+                    .Where(item => !string.IsNullOrWhiteSpace(item.NamePoses))
+                    .GroupBy(item => item.NamePoses, StringComparer.OrdinalIgnoreCase)
+                    .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
 
-                // ===== MoveType RETURN (Combobox Return) =====
-                ReturnMoveTypes[0] = result[5].MoveType;
-                ReturnMoveTypes[1] = result[6].MoveType;
-                ReturnMoveTypes[2] = result[7].MoveType;
-                ReturnMoveTypes[3] = result[8].MoveType;
-                ReturnMoveTypes[4] = result[9].MoveType;
-                PrePickVelocity = result[11].v;
-                PrePickMoveType = result[11].MoveType;
+                for (int i = 0; i < 6; i++)
+                {
+                    if (result.TryGetValue($"ForwardPose{i + 1}", out RobotTrajectory forward))
+                    {
+                        ForwardVelocities[i] = forward.v;
+                        MoveTypes[i] = forward.MoveType;
+                    }
+
+                    if (result.TryGetValue($"ReturnPose{i + 1}", out RobotTrajectory returnPoint))
+                    {
+                        ReturnVelocities[i] = returnPoint.v;
+                        ReturnMoveTypes[i] = returnPoint.MoveType;
+                    }
+                }
+
+                if (result.TryGetValue("PrePickPose", out RobotTrajectory prePick))
+                {
+                    PrePickVelocity = prePick.v;
+                    PrePickMoveType = prePick.MoveType;
+                }
             }
             catch (Exception ex)
             {
@@ -173,7 +172,7 @@ namespace WpfCompanyApp.ViewModels
         {
             if (e.Action == NotifyCollectionChangedAction.Replace)
             {
-                int index = e.NewStartingIndex;     // 0..4
+                int index = e.NewStartingIndex;     // 0..5
                 string namePoses = $"ForwardPose{index + 1}";
                 var type = MoveTypes[index];
 
@@ -184,7 +183,7 @@ namespace WpfCompanyApp.ViewModels
         {
             if (e.Action == NotifyCollectionChangedAction.Replace)
             {
-                int index = e.NewStartingIndex;        // 0..4
+                int index = e.NewStartingIndex;        // 0..5
                 string namePoses = $"ReturnPose{index + 1}"; // hoặc tên bạn đang dùng trong DB
                 var type = ReturnMoveTypes[index];
 
@@ -587,11 +586,11 @@ namespace WpfCompanyApp.ViewModels
         }
         // Velocity collection cho Return
         [ObservableProperty]
-        private ObservableCollection<double> returnVelocities = new ObservableCollection<double> { 0, 0, 0, 0, 0 };
+        private ObservableCollection<double> returnVelocities = new ObservableCollection<double> { 0, 0, 0, 0, 0, 0 };
 
         // Velocity collection cho Forward (nếu cần)
         [ObservableProperty]
-        private ObservableCollection<double> forwardVelocities = new ObservableCollection<double> { 0, 0, 0, 0, 0 };
+        private ObservableCollection<double> forwardVelocities = new ObservableCollection<double> { 0, 0, 0, 0, 0, 0 };
 
 
         [RelayCommand]
@@ -612,6 +611,9 @@ namespace WpfCompanyApp.ViewModels
                     robotTrajectory.v = vel;
                     robotTrajectory.NamePoses = $"ReturnPose{index}";
                     _db.UpdateVel(robotTrajectory);
+                    AutoCloseToast.ShowSuccess(
+                        $"Đã lưu vận tốc ReturnPose{index}: {vel:0.##} ✔",
+                        1800);
                     // lưu…
                 }
             }
@@ -642,6 +644,9 @@ namespace WpfCompanyApp.ViewModels
                     robotTrajectory.v = vel;
                     robotTrajectory.NamePoses = $"ForwardPose{index}";
                     _db.UpdateVel(robotTrajectory);
+                    AutoCloseToast.ShowSuccess(
+                        $"Đã lưu vận tốc ForwardPose{index}: {vel:0.##} ✔",
+                        1800);
                     // lưu…
                 }
             }
@@ -721,6 +726,9 @@ namespace WpfCompanyApp.ViewModels
                 robotTrajectory.v = vel;
                 robotTrajectory.NamePoses = $"PrePickPose";
                 _db.UpdateVel(robotTrajectory);
+                AutoCloseToast.ShowSuccess(
+                    $"Đã lưu vận tốc PrePickPose: {vel:0.##} ✔",
+                    1800);
             }
             else
             {

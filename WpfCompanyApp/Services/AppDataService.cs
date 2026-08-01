@@ -65,6 +65,8 @@ namespace WpfCompanyApp.Services
         [ObservableProperty] private double speedMoveToDrop1 = 0.2;
         [ObservableProperty] private double speedMoveBetweenDrops = 0.2;
         [ObservableProperty] private double speedReturnAfterDrop = 0.2;
+        private int _selectedJobId;
+        private bool _loadingJobCounters;
 
         private void LoadRobotSpeeds()
         {
@@ -133,6 +135,44 @@ namespace WpfCompanyApp.Services
 
         partial void OnWriteLogChanged(bool value) =>
             _db.SaveAppSetting(nameof(WriteLog), value.ToString());
+
+        public void LoadJobCounters(int jobId)
+        {
+            _selectedJobId = jobId;
+            _db.GetJobCounters(
+                jobId,
+                out double savedBasket1Count,
+                out double savedBasket2Count,
+                out double savedTotalCount);
+
+            _loadingJobCounters = true;
+            try
+            {
+                Basket1Count = savedBasket1Count;
+                Basket2Count = savedBasket2Count;
+                CycleCount = savedTotalCount;
+            }
+            finally
+            {
+                _loadingJobCounters = false;
+            }
+        }
+
+        private void SaveSelectedJobCounters()
+        {
+            if (_loadingJobCounters || _selectedJobId <= 0)
+                return;
+
+            _db.SaveJobCounters(
+                _selectedJobId,
+                Basket1Count,
+                Basket2Count,
+                CycleCount);
+        }
+
+        partial void OnBasket1CountChanged(double value) => SaveSelectedJobCounters();
+        partial void OnBasket2CountChanged(double value) => SaveSelectedJobCounters();
+        partial void OnCycleCountChanged(double value) => SaveSelectedJobCounters();
 
         private object? _moduleSource;
         public object? ModuleSource

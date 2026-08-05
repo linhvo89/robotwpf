@@ -662,6 +662,13 @@ namespace WpfCompanyApp.ViewModels
             _data.NamePose = poseName;
         }
 
+        [RelayCommand]
+        private void SavePickOffsets()
+        {
+            _data.SavePickOffsets();
+            AutoCloseToast.ShowSuccess("Đã lưu Offset điểm hút ✔", 1800);
+        }
+
         /// <summary>
         /// Move robot tới từng điểm workspace P1..P10.
         /// </summary>

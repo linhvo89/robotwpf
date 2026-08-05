@@ -444,7 +444,9 @@ namespace WpfCompanyApp.Services
                     return 0;
                 }
                 i++;
-                if (i > 1500)
+                // Polling giảm từ 20 ms xuống 10 ms nên tăng số lượt để giữ
+                // nguyên timeout xấp xỉ 30 giây.
+                if (i > 3000)
                 {
                     return 1;
                 }
@@ -534,7 +536,7 @@ namespace WpfCompanyApp.Services
                 if (flag03 == true && flag01 == true && flag02 == true && flag04 == true && flag05 == true && flag06 == true)
                 {
                     flag2 = false;
-                    Thread.Sleep(50);
+                    Thread.Sleep(10);
                     return 0;
                 }
                 i++;
@@ -2266,7 +2268,7 @@ namespace WpfCompanyApp.Services
             int count = 0;
             while (true)
             {
-                Thread.Sleep(50);
+                Thread.Sleep(10);
                 try
                 {
                     // 1. Send get robot motion state message: ReadMoveState,;
@@ -2288,8 +2290,7 @@ namespace WpfCompanyApp.Services
                     // 2. Parsing the returned motion state: MoveState if(MoveState == 1009)
                     if (arraybuf[2] == "1009")
                     {
-                        // In motion, wait for 10 milliseconds, query again 
-                        Thread.Sleep(20);
+                        // Vòng kế tiếp sẽ đọc lại sau 10 ms.
                     }
                     else if (arraybuf[2] == "0")
                     {
@@ -2301,7 +2302,8 @@ namespace WpfCompanyApp.Services
                         // Other error conditions are dealt with separately 
                         return CODE.FAIL;
                     }
-                    if (count > 400)
+                    // Giữ timeout xấp xỉ 28 giây như chu kỳ cũ 50+20 ms.
+                    if (count > 2800)
                     {
                         return CODE.FAIL;
                     }
@@ -2732,7 +2734,7 @@ namespace WpfCompanyApp.Services
                     return $"PathJ calculation error {pathErrorCode}";
                 }
 
-                Thread.Sleep(50);
+                Thread.Sleep(10);
             }
 
             return $"PathJ state timeout, last state={lastState}";
@@ -2761,6 +2763,36 @@ namespace WpfCompanyApp.Services
                     return fields.Length > 2 ? fields[2] : CODE.FAIL;
 
                 return CompleteMoveJ(endPosition) == 0 ? CODE.OK : "1";
+            }
+            finally
+            {
+                RestoreReceiveTimeout();
+            }
+        }
+
+        public string StartMovePathJ(int rbtID, string trajectory)
+        {
+            int sends = tcpsent($"MovePathJ,{rbtID},{trajectory},;");
+            if (sends != 0)
+                return CODE.CONNECT_FAIL;
+
+            SetReceiveTimeout(10000);
+            try
+            {
+                string response = subReciveCmd("MovePathJ");
+                if (string.IsNullOrEmpty(response))
+                    return $"{CODE.SUBRECIVE_FAIL}; received={LastReceiveDiagnostic}";
+
+                if (response == "Fail")
+                    return $"Fail; received={LastReceiveDiagnostic}";
+
+                string[] fields = response.Split(',');
+                if (fields.Length <= 1 || fields[1] != "OK")
+                    return fields.Length > 2 ? fields[2] : CODE.FAIL;
+
+                // Chỉ xác nhận controller đã nhận lệnh. Người gọi sẽ theo dõi
+                // tọa độ trong lúc chạy và tự chờ vị trí cuối của quỹ đạo.
+                return CODE.OK;
             }
             finally
             {
@@ -2875,9 +2907,10 @@ namespace WpfCompanyApp.Services
         {
             string[] arraybuf = new string[3];
             int count = 0;
-            for (int i = 0; i < ctime; i++)
+            // Polling 10 ms nhưng giữ tổng thời gian chờ tương đương cũ (50 ms).
+            for (int i = 0; i < ctime * 5; i++)
             {
-                Thread.Sleep(50);
+                Thread.Sleep(10);
                 try
                 {
                     // 1. Send get robot motion state message: ReadMoveState,;
@@ -2950,7 +2983,7 @@ namespace WpfCompanyApp.Services
             int count = 0;
             while (true)
             {
-                Thread.Sleep(50);
+                Thread.Sleep(10);
                 try
                 {
                     // 1. Send get robot motion state message: ReadMoveState,;
@@ -2980,8 +3013,7 @@ namespace WpfCompanyApp.Services
                     // 2. Parsing the returned motion state: MoveState if(MoveState == 1009)
                     if (arraybuf[2] == "1009")
                     {
-                        // In motion, wait for 10 milliseconds, query again 
-                        Thread.Sleep(20);
+                        // Vòng kế tiếp sẽ đọc lại sau 10 ms.
                     }
                     else if (arraybuf[2] == "0")
                     {
@@ -2993,7 +3025,8 @@ namespace WpfCompanyApp.Services
                         // Other error conditions are dealt with separately 
                         return CODE.FAIL;
                     }
-                    if (count > 400)
+                    // Giữ timeout xấp xỉ 28 giây như chu kỳ cũ 50+20 ms.
+                    if (count > 2800)
                     {
                         return CODE.FAIL;
                     }
@@ -3199,7 +3232,7 @@ namespace WpfCompanyApp.Services
             int i = 0;
             while (flag2 == true)
             {
-                Thread.Sleep(20);
+                Thread.Sleep(10);
                 string str = ReadActualPos(0);
                 string[] arr = str.Split(',');
                 if (arr[0] == "OK")
@@ -3265,7 +3298,9 @@ namespace WpfCompanyApp.Services
                     return 0;
                 }
                 i++;
-                if (i > 1500)
+                // Polling giảm từ 20 ms xuống 10 ms nên tăng số lượt để giữ
+                // nguyên timeout xấp xỉ 30 giây.
+                if (i > 3000)
                 {
                     return 1;
                 }
@@ -3354,7 +3389,7 @@ namespace WpfCompanyApp.Services
                 if (flag03 == true && flag01 == true && flag02 == true && flag04 == true && flag05 == true && flag06 == true)
                 {
                     flag2 = false;
-                    Thread.Sleep(50);
+                    Thread.Sleep(10);
                     return 0;
                 }
                 i++;

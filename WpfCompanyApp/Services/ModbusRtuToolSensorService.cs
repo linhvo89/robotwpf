@@ -29,6 +29,7 @@ namespace WpfCompanyApp.Services
         private Task? _readTask;
         private SerialPort? _serialPort;
         private IModbusSerialMaster? _master;
+        private int _disposed;
 
         private volatile bool _machine1Full;
         private volatile bool _machine2Full;
@@ -69,21 +70,14 @@ namespace WpfCompanyApp.Services
                 return;
             }
 
-            lock (_sync)
-            {
-                if (_readTask != null && !_readTask.IsCompleted)
-                    return;
+            string portName = _ini.Read("Name", "MobusRTU").Trim();
+            if (string.IsNullOrWhiteSpace(portName))
+                portName = "COM1";
 
-                _cts = new CancellationTokenSource();
-                string portName = _ini.Read("Name", "MobusRTU").Trim();
-                if (string.IsNullOrWhiteSpace(portName))
-                    portName = "COM1";
-
-                ConnectionStatusChanged?.Invoke(
-                    $"[MODBUS RTU] Bắt đầu kết nối PLC: {portName}, " +
-                    $"{ReadInt("BaudRate", 19200)} baud, SlaveId={ReadByte("SlaveId", 1)}...");
-                _readTask = Task.Run(() => ReadLoopAsync(_cts.Token));
-            }
+            ConnectionStatusChanged?.Invoke(
+                $"[MODBUS RTU] Chế độ đọc theo yêu cầu: {portName}, " +
+                $"{ReadInt("BaudRate", 19200)} baud, SlaveId={ReadByte("SlaveId", 1)}. " +
+                "Không chạy vòng quét nền.");
         }
 
         public bool IsToolHolding(int tool)
@@ -97,31 +91,94 @@ namespace WpfCompanyApp.Services
             };
         }
 
+        /// <summary>
+        /// Đọc trực tiếp PLC tại thời điểm gọi, không dùng giá trị cache của vòng quét nền.
+        /// </summary>
+        public bool TryReadToolHoldingNow(int tool, out bool isHolding)
+        {
+            isHolding = false;
+            if (tool < 1 || tool > 3)
+                return false;
+
+            try
+            {
+                lock (_sync)
+                {
+                    EnsureConnected();
+                    ReadAndUpdateAllCoils();
+                    isHolding = tool switch
+                    {
+                        1 => _tool1Holding,
+                        2 => _tool2Holding,
+                        3 => _tool3Holding,
+                        _ => false
+                    };
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _communicationHealthy = false;
+                Log.Warning("[MODBUS RTU] Direct tool sensor read error: {Message}", ex.Message);
+                NotifyCommunicationFailure(ex.Message);
+                return false;
+            }
+        }
+
+        public bool TryReadAllNow()
+        {
+            try
+            {
+                lock (_sync)
+                {
+                    EnsureConnected();
+                    ReadAndUpdateAllCoils();
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _communicationHealthy = false;
+                Log.Warning("[MODBUS RTU] On-demand read error: {Message}", ex.Message);
+                NotifyCommunicationFailure(ex.Message);
+                CloseConnection();
+                return false;
+            }
+        }
+
+        private void ReadAndUpdateAllCoils()
+        {
+            byte slaveId = ReadByte("SlaveId", 1);
+            bool[] values = _master!.ReadCoils(
+                slaveId,
+                Machine1FullAddress,
+                Tool3Address - Machine1FullAddress + 1);
+
+            _machine1Full = values[0];
+            _machine2Full = values[1];
+            _basket1Ready = values[2];
+            _basket2Ready = values[3];
+            _airPressureReady = values[4];
+            _tool1Holding = values[5];
+            _tool2Holding = values[6];
+            _tool3Holding = values[7];
+            _communicationHealthy = true;
+            NotifyCommunicationRestored();
+        }
+
         private async Task ReadLoopAsync(CancellationToken token)
         {
             while (!token.IsCancellationRequested)
             {
                 try
                 {
-                    EnsureConnected();
-
-                    byte slaveId = ReadByte("SlaveId", 1);
-                    bool[] values = _master!.ReadCoils(
-                        slaveId,
-                        Machine1FullAddress,
-                        Tool3Address - Machine1FullAddress + 1);
-
-                    _machine1Full = values[0]; // 20480 / X0 / Máy1
-                    _machine2Full = values[1]; // 20481 / X1 / Máy2
-                    _basket1Ready = values[2];
-                    _basket2Ready = values[3];
-                    _airPressureReady = values[4];
-                    _tool1Holding = values[5]; // 20485 / X5 / Tool1
-                    _tool2Holding = values[6]; // 20486 / X6 / Tool2
-                    _tool3Holding = values[7]; // 20487 / X7 / Tool3
-                    _communicationHealthy = true;
-
-                    NotifyCommunicationRestored();
+                    lock (_sync)
+                    {
+                        EnsureConnected();
+                        ReadAndUpdateAllCoils();
+                    }
                     await Task.Delay(50, token);
                 }
                 catch (OperationCanceledException)
@@ -271,6 +328,9 @@ namespace WpfCompanyApp.Services
 
         public void Dispose()
         {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+                return;
+
             _cts?.Cancel();
             try
             {

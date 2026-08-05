@@ -1505,6 +1505,92 @@
                     </Grid>
                 </TabItem>
 
+                <!-- ============= TAB 4: PICK POINT OFFSETS ============= -->
+                <TabItem Header="OFFSET ĐIỂM HÚT">
+                    <Grid Background="#20232A" Margin="20">
+                        <Grid.Resources>
+                            <Style TargetType="DataGridColumnHeader">
+                                <Setter Property="Background" Value="#1565C0"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                                <Setter Property="FontSize" Value="15"/>
+                                <Setter Property="FontWeight" Value="Bold"/>
+                                <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                <Setter Property="VerticalContentAlignment" Value="Center"/>
+                                <Setter Property="Height" Value="38"/>
+                                <Setter Property="BorderBrush" Value="#64B5F6"/>
+                                <Setter Property="BorderThickness" Value="0,0,1,1"/>
+                            </Style>
+                        </Grid.Resources>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto"/>
+                            <RowDefinition Height="*"/>
+                            <RowDefinition Height="Auto"/>
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Foreground="#CCCCCC" FontSize="15" Margin="8,0,8,12"
+                                   Text="Delta X/Y được cộng vào điểm hút theo Basket, Tool và vị trí X của sản phẩm. Đơn vị theo tọa độ robot."/>
+
+                        <Grid Grid.Row="1">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <GroupBox Header="Basket1" Style="{StaticResource DarkGroupBox}">
+                                <DataGrid ItemsSource="{Binding Data.PickOffsets}" AutoGenerateColumns="False"
+                                          CanUserAddRows="False" CanUserDeleteRows="False"
+                                          HeadersVisibility="Column" Background="#2F343F" Foreground="White"
+                                          RowBackground="#353B47" AlternatingRowBackground="#2F343F">
+                                    <DataGrid.RowStyle>
+                                        <Style TargetType="DataGridRow">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Basket}" Value="1">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DataGrid.RowStyle>
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Đầu hút" Binding="{Binding ToolName}" IsReadOnly="True" Width="*"/>
+                                        <DataGridTextColumn Header="Trường hợp" Binding="{Binding XCondition}" IsReadOnly="True" Width="2*"/>
+                                        <DataGridTextColumn Header="Delta X" Binding="{Binding DeltaX, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Width="*"/>
+                                        <DataGridTextColumn Header="Delta Y" Binding="{Binding DeltaY, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </GroupBox>
+
+                            <GroupBox Header="Basket2" Grid.Column="1" Style="{StaticResource DarkGroupBox}">
+                                <DataGrid ItemsSource="{Binding Data.PickOffsets}" AutoGenerateColumns="False"
+                                          CanUserAddRows="False" CanUserDeleteRows="False"
+                                          HeadersVisibility="Column" Background="#2F343F" Foreground="White"
+                                          RowBackground="#353B47" AlternatingRowBackground="#2F343F">
+                                    <DataGrid.RowStyle>
+                                        <Style TargetType="DataGridRow">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Basket}" Value="2">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </DataGrid.RowStyle>
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Đầu hút" Binding="{Binding ToolName}" IsReadOnly="True" Width="*"/>
+                                        <DataGridTextColumn Header="Trường hợp" Binding="{Binding XCondition}" IsReadOnly="True" Width="2*"/>
+                                        <DataGridTextColumn Header="Delta X" Binding="{Binding DeltaX, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Width="*"/>
+                                        <DataGridTextColumn Header="Delta Y" Binding="{Binding DeltaY, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Width="*"/>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </GroupBox>
+                        </Grid>
+
+                        <Button Grid.Row="2" Content="💾 Save Offset" Command="{Binding SavePickOffsetsCommand}"
+                                Width="180" Height="44" FontSize="17" HorizontalAlignment="Right"
+                                Margin="8,14,8,0" Style="{StaticResource ModernButton_Blue}"/>
+                    </Grid>
+                </TabItem>
+
             </TabControl>
         </Grid>
     </Grid>

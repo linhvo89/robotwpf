@@ -274,7 +274,7 @@ namespace WpfCompanyApp.ViewModels
         {
             string line = $"{DateTime.Now:HH:mm:ss} {message}";
             _data.MachineLog.Insert(0, line);
-            if (_data.MachineLog.Count > 3000)
+            if (_data.MachineLog.Count > 1000)
                 _data.MachineLog.RemoveAt(_data.MachineLog.Count - 1);
         }
         // ======= VIEW MODE STATE (JOB / CAMERA) =======

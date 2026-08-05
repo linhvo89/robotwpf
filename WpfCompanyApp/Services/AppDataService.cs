@@ -3,6 +3,8 @@ using CommunityToolkit.Mvvm.Input;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Collections.Specialized;
+using System.Globalization;
+using System.Linq;
 using WpfCompanyApp.CalibRobot;
 using WpfCompanyApp.Data;
 using WpfCompanyApp.Models;
@@ -26,6 +28,7 @@ namespace WpfCompanyApp.Services
         {
             LoadRobotSpeeds();
             LoadAppSettings();
+            LoadPickOffsets();
 
             // Khi bất kỳ phần tử nào trong Slots bị thay đổi,
             // event này sẽ được gọi (Action = Replace)
@@ -57,16 +60,18 @@ namespace WpfCompanyApp.Services
         [ObservableProperty] private bool runTool1 = true;
         [ObservableProperty] private bool runTool2 = true;
         [ObservableProperty] private bool runTool3 = true;
-        [ObservableProperty] private double retryZ = 5;
+        [ObservableProperty] private double retryZ = 10;
         [ObservableProperty] private double safeH = 50;
         [ObservableProperty] private int vacuumWaitMs = 500;
-        [ObservableProperty] private int emptyConfirmShots = 3;
+        [ObservableProperty] private int vacuumSensorReadDelayMs = 100;
+        [ObservableProperty] private int emptyConfirmShots = 2;
         [ObservableProperty] private int maxToolMissCount = 3;
         [ObservableProperty] private double speedCapture = 0.2;
         [ObservableProperty] private double speedSuction = 0.2;
         [ObservableProperty] private double speedMoveToDrop1 = 0.2;
         [ObservableProperty] private double speedMoveBetweenDrops = 0.2;
         [ObservableProperty] private double speedReturnAfterDrop = 0.2;
+        public ObservableCollection<PickOffsetSetting> PickOffsets { get; } = new();
         private int _selectedJobId;
         private bool _loadingJobCounters;
 
@@ -94,6 +99,60 @@ namespace WpfCompanyApp.Services
                 _db.GetAppSetting(nameof(WriteLog), bool.FalseString),
                 out bool savedWriteLog) &&
                 savedWriteLog;
+        }
+
+        private void LoadPickOffsets()
+        {
+            PickOffsets.Clear();
+            for (int basket = 1; basket <= 2; basket++)
+            {
+                for (int tool = 1; tool <= 3; tool++)
+                {
+                    AddPickOffset(basket, tool, false);
+                    AddPickOffset(basket, tool, true);
+                }
+            }
+        }
+
+        private void AddPickOffset(int basket, int tool, bool isGreaterThanOrEqualPickX)
+        {
+            var item = new PickOffsetSetting
+            {
+                Basket = basket,
+                Tool = tool,
+                IsGreaterThanOrEqualPickX = isGreaterThanOrEqualPickX
+            };
+
+            string saved = _db.GetAppSetting(item.SettingKey, "0,0");
+            string[] values = saved.Split(',');
+            if (values.Length == 2)
+            {
+                float.TryParse(values[0], NumberStyles.Float, CultureInfo.InvariantCulture, out float deltaX);
+                float.TryParse(values[1], NumberStyles.Float, CultureInfo.InvariantCulture, out float deltaY);
+                item.DeltaX = deltaX;
+                item.DeltaY = deltaY;
+            }
+            PickOffsets.Add(item);
+        }
+
+        public void SavePickOffsets()
+        {
+            foreach (PickOffsetSetting item in PickOffsets)
+            {
+                _db.SaveAppSetting(
+                    item.SettingKey,
+                    string.Format(CultureInfo.InvariantCulture, "{0:R},{1:R}", item.DeltaX, item.DeltaY));
+            }
+        }
+
+        public PickOffsetSetting GetPickOffset(int basket, int tool, double productX, double pickProductX)
+        {
+            bool isGreaterThanOrEqual = productX >= pickProductX;
+            return PickOffsets.FirstOrDefault(item =>
+                       item.Basket == basket &&
+                       item.Tool == tool &&
+                       item.IsGreaterThanOrEqualPickX == isGreaterThanOrEqual)
+                   ?? new PickOffsetSetting();
         }
 
         private static double GetSavedSpeed(

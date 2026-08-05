@@ -4,7 +4,10 @@ using Serilog;
 using System;
 using System.IO;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
+using VM.Core;
 using WpfCompanyApp.Logging;
 using WpfCompanyApp.Services;
 using WpfCompanyApp.ViewModels;
@@ -15,6 +18,9 @@ namespace WpfCompanyApp
     {
         private IHost _host;
         private static Assembly? _visionMasterXmlUiAssembly;
+        private Mutex? _singleInstanceMutex;
+        private bool _startupCompleted;
+        private const string SingleInstanceMutexName = @"Local\WpfCompanyApp.HMRobotV3.SingleInstance";
         // ⭐ Cho phép chỗ khác lấy ServiceProvider
         public static IServiceProvider Services { get; private set; }
         public App()
@@ -79,19 +85,68 @@ namespace WpfCompanyApp
 
         protected override void OnStartup(StartupEventArgs e)
         {
+            _singleInstanceMutex = new Mutex(true, SingleInstanceMutexName, out bool isFirstInstance);
+            if (!isFirstInstance)
+            {
+                MessageBox.Show(
+                    "Chương trình đang chạy. Không thể mở thêm lần nữa.",
+                    "Thông báo",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+                Shutdown();
+                return;
+            }
+
             var mainWindow = _host.Services.GetRequiredService<MainWindow>();
             mainWindow.Show();
             // ⭐⭐ BẮT BUỘC PHẢI START BACKGROUND SERVICE ⭐⭐
             var bgService = _host.Services.GetRequiredService<AppBackgroundService>();
             bgService.Start(1);
+            _startupCompleted = true;
             base.OnStartup(e);
         }
 
         protected override async void OnExit(ExitEventArgs e)
         {
-            await _host.StopAsync();
-            _host.Dispose();
-            base.OnExit(e);
+            try
+            {
+                if (!_startupCompleted)
+                    return;
+
+                // AppBackgroundService được khởi chạy thủ công nên Host.StopAsync()
+                // không tự dừng nó. Phải hủy loop và đóng robot/PLC trước.
+                var backgroundService = _host.Services.GetService<AppBackgroundService>();
+                if (backgroundService != null)
+                {
+                    Task stopTask = backgroundService.StopAsync();
+                    Task completedTask = await Task.WhenAny(stopTask, Task.Delay(5000));
+                    if (completedTask != stopTask)
+                        Log.Warning("Background service did not stop within 5 seconds.");
+                    else
+                        await stopTask;
+                }
+
+                // Đóng Solution VisionMaster rõ ràng khi người vận hành đóng ứng dụng.
+                // OnExit chạy trên UI thread nên có thể gọi trực tiếp SDK VisionMaster.
+                if (VmSolution.Instance.SolutionPath != null)
+                {
+                    VmSolution.Instance.CloseSolution();
+                    Log.Information("VisionMaster solution closed during application exit.");
+                }
+
+                await _host.StopAsync(TimeSpan.FromSeconds(5));
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error while shutting down application.");
+            }
+            finally
+            {
+                _host.Dispose();
+                _singleInstanceMutex?.Dispose();
+                Log.CloseAndFlush();
+                base.OnExit(e);
+            }
         }
     }
 }

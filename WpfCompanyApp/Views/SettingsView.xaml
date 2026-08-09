@@ -523,7 +523,7 @@
                                                         Command="{Binding DataContext.SavePositionReqCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                                                         CommandParameter="{Binding}"
                                                         FontSize="12"
-                                                        Width="108" 
+                                                        Width="98" 
                                                         Height="28" 
                                                         Margin="3,2">
                                                     <Button.Style>

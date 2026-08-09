@@ -195,17 +195,26 @@ namespace WpfCompanyApp.ViewModels
                 return null;
             }
         }
-        private bool CanHome() => _data.CurrentState == AppState.Idle;
+        private bool CanHome() =>
+            _data.CurrentState == AppState.Idle ||
+            (_data.CurrentState == AppState.Error && !_data.IsResetProcessing);
 
         [RelayCommand(CanExecute = nameof(CanHome))]
         private void Home()
         {
-            // Chỉ trạng thái Stop/Idle mới được phép về Home. Khi Error,
-            // người vận hành phải Reset thành công và chờ máy trở lại Idle.
             if (!CanHome())
                 return;
 
             _data.HomeRequested = true;
+
+            // Khi robot đang lỗi, nút Home đồng thời yêu cầu xóa lỗi. Chỉ sau
+            // khi reset robot thành công AppBackgroundService mới cho phép chạy
+            // quỹ đạo phục hồi về Home.
+            if (_data.CurrentState == AppState.Error)
+            {
+                _data.IsResetProcessing = true;
+                _data.ResetRequested = true;
+            }
         }
         [RelayCommand]
         private void Pause()
@@ -284,7 +293,7 @@ namespace WpfCompanyApp.ViewModels
         private bool isJobViewVisible = true;
 
         public bool IsCameraViewVisible => !IsJobViewVisible;
-        public string JobCameraButtonText => IsJobViewVisible ? "Job" : "Cam";
+        public string JobCameraButtonText => IsJobViewVisible ? "Model" : "Cam";
 
         [RelayCommand]
         private void ShowJob()

@@ -23,6 +23,7 @@ namespace WpfCompanyApp.ViewModels
     public partial class SettingsViewModel : ViewModelBase
     {
         private readonly DatabaseRobot _db = new();
+        private readonly AppBackgroundService _backgroundService;
 
         [ObservableProperty]
         private ObservableCollection<JobModelSetting> jobs;
@@ -77,9 +78,12 @@ namespace WpfCompanyApp.ViewModels
         [ObservableProperty]
         private RobotTrajectory.MoveTypeEnum prePickMoveType = RobotTrajectory.MoveTypeEnum.moveL;
 
-        public SettingsViewModel(AppDataService data)
+        public SettingsViewModel(
+            AppDataService data,
+            AppBackgroundService backgroundService)
         {
             _data = data;
+            _backgroundService = backgroundService;
             LoadJobs();
             LoadInitialValues();
             _data.PropertyChanged += Data_PropertyChanged;
@@ -722,7 +726,7 @@ namespace WpfCompanyApp.ViewModels
             _data.RobotPositionList.Clear();
             _data.IsSaveAllSuccess = false;
             _data.ShowTriggerPositions = false;
-            _data.RequestTriggerCamera = true;
+            _backgroundService.TriggerCalibrationCamera(_data.SelectedTriggerCamera);
         }
 
         // Command Save Position

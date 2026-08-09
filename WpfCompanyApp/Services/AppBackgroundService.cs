@@ -409,6 +409,72 @@ namespace WpfCompanyApp.Services
                 : "Flow1";
         }
 
+        public void TriggerCalibrationCamera(string cameraName)
+        {
+            if (_state != AppState.Idle)
+            {
+                AddMachineLog(
+                    $"[SETTING][TRIGGER][BLOCKED] Máy đang ở trạng thái {_state}; " +
+                    "chỉ cho phép trigger calibration khi STOP/IDLE.");
+                AutoCloseToast.ShowError(
+                    "Chỉ được trigger camera calibration khi máy đang Stop.",
+                    2500,
+                    "Không thể trigger camera");
+                return;
+            }
+
+            _activeTriggerCamera = string.Equals(
+                cameraName,
+                "Camera2",
+                StringComparison.OrdinalIgnoreCase)
+                ? "Camera2"
+                : "Camera1";
+            _activeCalibTool = "Tool1";
+
+            string flowName = GetTriggerFlowName(_activeTriggerCamera);
+            var procedure = VmSolution.Instance[flowName] as VmProcedure;
+            if (procedure == null)
+            {
+                _settingsTriggerCameraPending = false;
+                AddMachineLog(
+                    $"[SETTING][TRIGGER][ERROR] Không tìm thấy {flowName} cho {_activeTriggerCamera}.");
+                AutoCloseToast.ShowError(
+                    $"Không tìm thấy {flowName} cho {_activeTriggerCamera}.",
+                    3000,
+                    "Trigger camera thất bại");
+                return;
+            }
+
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                _data.ModuleSource = procedure;
+            });
+
+            _settingsTriggerCameraPending = true;
+            AddMachineLog(
+                $"[SETTING][TRIGGER] {_activeTriggerCamera} -> {flowName}.Run().");
+
+            try
+            {
+                procedure.Run();
+
+                // Run() là lệnh đồng bộ. Đọc trực tiếp outX/outY sau khi Flow hoàn tất
+                // để trigger calibration không phụ thuộc ProcessID của callback SDK.
+                if (_settingsTriggerCameraPending)
+                    ReadCalibrationTriggerResult(procedure);
+            }
+            catch (Exception ex)
+            {
+                _settingsTriggerCameraPending = false;
+                AddMachineLog(
+                    $"[SETTING][TRIGGER][ERROR] {flowName}.Run(): {ex.Message}");
+                AutoCloseToast.ShowError(
+                    $"Không trigger được {_activeTriggerCamera}: {ex.Message}",
+                    3000,
+                    "Trigger camera thất bại");
+            }
+        }
+
         private Affine2D? GetCameraAffine(string cameraName, string toolName)
         {
             return _data.GetCalibAffine(toolName, cameraName);
@@ -478,20 +544,42 @@ namespace WpfCompanyApp.Services
 
         private void ReadVisionResult(VmProcedure procedure)
         {
-            // Trigger trong Settings/Calibration vẫn dùng outX, outY như trước.
-            // Chỉ chu trình READY (Auto) mới dùng chuỗi kết quả của hai hàm tìm kiếm.
-            if (!_readyCameraPending || _settingsTriggerCameraPending)
+            if (_settingsTriggerCameraPending)
             {
-                xpixel = procedure.ModuResult.GetOutputFloat("outX").pFloatVal
-                    ?? Array.Empty<float>();
-                ypixel = procedure.ModuResult.GetOutputFloat("outY").pFloatVal
-                    ?? Array.Empty<float>();
-                HandleVisionTriggerResult(Math.Min(xpixel.Length, ypixel.Length));
+                ReadCalibrationTriggerResult(procedure);
                 return;
             }
 
+            if (!_readyCameraPending)
+                return;
+
+            ReadAutomaticVisionResult(procedure);
+        }
+
+        private void ReadCalibrationTriggerResult(VmProcedure procedure)
+        {
+            // Trigger calibration: Vision trả riêng hai mảng tọa độ outX và outY.
+            xpixel = procedure.ModuResult.GetOutputFloat("outX").pFloatVal
+                ?? Array.Empty<float>();
+            ypixel = procedure.ModuResult.GetOutputFloat("outY").pFloatVal
+                ?? Array.Empty<float>();
+
+            int count = Math.Min(xpixel.Length, ypixel.Length);
+            AddMachineLog(
+                $"[SETTING][TRIGGER] Đã nhận outX={xpixel.Length}, " +
+                $"outY={ypixel.Length} từ {GetTriggerFlowName(_activeTriggerCamera)}.");
+            HandleVisionTriggerResult(count);
+        }
+
+        private void ReadAutomaticVisionResult(VmProcedure procedure)
+        {
+            // Chạy tự động: Vision trả chuỗi tổng hợp qua output ketqua.
             string rawResult = procedure.ModuResult
                 .GetOutputString("ketqua").astStringVal[0].strValue;
+
+            AddMachineLog(
+                $"[READY] Basket{_readyCurrentBasket}: đã nhận output ketqua từ " +
+                $"{GetTriggerFlowName(_activeTriggerCamera)}.");
 
             if (!TryMergeVisionProducts(rawResult, out List<VisionProduct> products, out string error))
                 throw new FormatException($"Chuỗi ketqua không hợp lệ: {error}");
@@ -691,10 +779,10 @@ namespace WpfCompanyApp.Services
                             case 10000:
 
 
-                                if (vmProcessInfoList.nNum == 0) return;
                                 try
                                 {
-                                    vmProcedure = (VmProcedure)VmSolution.Instance[vmProcessInfoList.astProcessInfo[0].strProcessName];
+                                    vmProcedure = VmSolution.Instance[
+                                        GetTriggerFlowName(_activeTriggerCamera)] as VmProcedure;
                                     if (vmProcedure == null) return;
                                     List<VmDynamicIODefine.IoNameInfo> ioNameInfos = vmProcedure.ModuResult.GetAllOutputNameInfo();
                                  }
@@ -717,7 +805,9 @@ namespace WpfCompanyApp.Services
 
                                         try
                                         {
-                                            ReadVisionResult(vmProcedure);
+                                            // Đọc đúng procedure vừa được Trigger; không phụ thuộc
+                                            // vmProcessInfoList chỉ được làm mới khi đổi/load Job.
+                                            ReadVisionResult(pro);
                                         
                                         }
                                         catch (Exception ex)
@@ -783,10 +873,10 @@ namespace WpfCompanyApp.Services
                             case 10001:
 
 
-                                if (vmProcessInfoList.nNum == 0) return;
                                 try
                                 {
-                                    vmProcedure = (VmProcedure)VmSolution.Instance[vmProcessInfoList.astProcessInfo[1].strProcessName];
+                                    vmProcedure = VmSolution.Instance[
+                                        GetTriggerFlowName(_activeTriggerCamera)] as VmProcedure;
                                     if (vmProcedure == null) return;
                                     List<VmDynamicIODefine.IoNameInfo> ioNameInfos = vmProcedure.ModuResult.GetAllOutputNameInfo();
                                 }
@@ -808,7 +898,9 @@ namespace WpfCompanyApp.Services
 
                                         try
                                         {
-                                            ReadVisionResult(vmProcedure);
+                                            // Đọc đúng procedure vừa được Trigger; không phụ thuộc
+                                            // vmProcessInfoList chỉ được làm mới khi đổi/load Job.
+                                            ReadVisionResult(pro);
                                         }
                                         catch (Exception ex)
                                         {
@@ -1014,6 +1106,7 @@ namespace WpfCompanyApp.Services
 
             _cycleActiveTime.Stop();
             _state = AppState.Error;
+            ActivateMachineErrorAlarm();
         }
 
         private void StartCycleStatistics()
@@ -1609,10 +1702,12 @@ namespace WpfCompanyApp.Services
         {
             UpdateRobotStatusHistory();
             UpdateRobotHomeStatus();
+            UpdateBothBasketsEmptyAlarm();
 
             if (_data.StartRequested)
             {
                 _data.StartRequested = false;
+                ClearAllLampBlinkStatesForStart();
                 TurnOffBlowAirOutputs();
                 LoadCalibAffines();
 
@@ -1678,6 +1773,7 @@ namespace WpfCompanyApp.Services
                 }
 
                 _state = AppState.Running;
+                SetRunningGreenLamp();
                 StartCycleStatistics();
 
                 // ⭐ Nếu trước đó có nhấn STOP → reset lại index
@@ -1712,6 +1808,7 @@ namespace WpfCompanyApp.Services
             if (_data.StopRequested)
             {
                 _data.StopRequested = false;
+                TurnOffAllIndicatorsForStop();
                 _stopAfterCycle = false;
                 _productLoaded = false;
                 _stopPressedBeforeStart = true;   // ⭐ ghi nhớ rằng đã nhấn Stop
@@ -1730,6 +1827,7 @@ namespace WpfCompanyApp.Services
                 _data.ResetRequested = false;
                 AddMachineLog("[STATE] Reset requested in IDLE.");
                 index = 0;
+                ClearBothBasketsEmptyAlarm();
                 TurnOffAllOutputs();
 
                 try
@@ -1784,6 +1882,7 @@ namespace WpfCompanyApp.Services
                 _machineRunTime.Stop();
                 _pausedByDoorInterlock = true;
                 _state = AppState.Paused;
+                SetPausedYellowLamp();
                 ReportRecoverableInterlock(
                     $"[PAUSE] {runningDoorError} Robot đã tạm dừng tại chỗ. " +
                     "Đóng cửa và nhấn Start để tiếp tục.");
@@ -1808,6 +1907,7 @@ namespace WpfCompanyApp.Services
                 _machineRunTime.Stop();
                 _pausedByDoorInterlock = true;
                 _state = AppState.Paused;
+                SetPausedYellowLamp();
                 ReportRecoverableInterlock(
                     $"[PAUSE] Điều kiện PLC không đạt: {runningInterlockError}. " +
                     "Robot đã tạm dừng tại chỗ. Khôi phục tín hiệu rồi nhấn Start để tiếp tục; không cần Reset.");
@@ -1829,6 +1929,7 @@ namespace WpfCompanyApp.Services
             {
                 
                 _data.StopRequested = false;
+                TurnOffAllIndicatorsForStop();
                 _cycleActiveTime.Stop();
                 _machineRunTime.Stop();
                 index = 0;
@@ -1892,6 +1993,7 @@ namespace WpfCompanyApp.Services
                 _machineRunTime.Stop();
                 _pausedByDoorInterlock = false;
                 _state = AppState.Paused;
+                SetPausedYellowLamp();
                 return;
             }
 
@@ -1956,6 +2058,7 @@ namespace WpfCompanyApp.Services
             if (_data.StopRequested)
             {
                 _data.StopRequested = false;
+                TurnOffAllIndicatorsForStop();
                 _cycleActiveTime.Stop();
                 _machineRunTime.Stop();
 
@@ -2006,6 +2109,7 @@ namespace WpfCompanyApp.Services
                 ClearErrorStatus();
                 _pausedByDoorInterlock = false;
                 AddMachineLog("[STATE] Resume from paused -> RUNNING");
+                TurnOffPausedYellowLamp();
 
                 // TODO: gửi lệnh Resume cho robot
                 // _robot.Resume();
@@ -2013,6 +2117,7 @@ namespace WpfCompanyApp.Services
                 _cycleActiveTime.Start();
                 _machineRunTime.Start();
                 _state = AppState.Running;
+                SetRunningGreenLamp();
                 return;
             }
 
@@ -2067,7 +2172,15 @@ namespace WpfCompanyApp.Services
                         string er = _robot.ReadActualPosMoveL(0, out movel2);
                         if (er == "OK")
                         {
-                            if (!TryLoadWorkspaceBoundary(out List<PosMoveL> workspaceBoundary, out string workspaceError))
+                            if (TryRecoverHomeFromReturnPose1(movel2, out bool returnRecoveryMatched))
+                            {
+                                ok = MoveNamedPose("HomePose");
+                            }
+                            else if (returnRecoveryMatched)
+                            {
+                                AddMachineLog("[HOMING][RECOVERY] Không hoàn thành được ReturnPose2..6.");
+                            }
+                            else if (!TryLoadWorkspaceBoundary(out List<PosMoveL> workspaceBoundary, out string workspaceError))
                             {
                                 AddMachineLog($"[HOMING] {workspaceError} Không cho phép Move Home.");
                             }
@@ -2309,6 +2422,59 @@ namespace WpfCompanyApp.Services
 
             return sameX && sameY && sameZ;
         }
+
+        private bool TryRecoverHomeFromReturnPose1(PosMoveL actualPosition, out bool matched)
+        {
+            const double returnPoseToleranceMm = 10.0;
+            matched = false;
+
+            RobotTrajectory returnPose1 = _db.GetRobotTrajectoryByNamePoses("ReturnPose1");
+            if (returnPose1 == null)
+            {
+                AddMachineLog("[HOMING][RECOVERY] Không tìm thấy ReturnPose1 trong database.");
+                return false;
+            }
+
+            var returnPose1Position = new PosMoveL
+            {
+                X = returnPose1.X,
+                Y = returnPose1.Y,
+                Z = returnPose1.Z,
+                RX = returnPose1.Rx,
+                RY = returnPose1.Ry,
+                RZ = returnPose1.Rz
+            };
+
+            matched = IsAlmostEqual(returnPose1Position, actualPosition, returnPoseToleranceMm);
+            if (!matched)
+                return false;
+
+            AddMachineLog(
+                "[HOMING][RECOVERY] Robot đang tại ReturnPose1 sau lỗi/Stop. " +
+                "Bắt đầu đi tuần tự ReturnPose2 -> ReturnPose6.");
+
+            string speedResult = _robot.SetOverride(0, _data.SpeedReturnAfterDrop);
+            if (speedResult != "OK")
+            {
+                AddMachineLog(
+                    $"[HOMING][RECOVERY] Không cài được tốc độ quay về " +
+                    $"{_data.SpeedReturnAfterDrop:0.00}: {speedResult}");
+                return false;
+            }
+
+            for (int i = 2; i <= 6; i++)
+            {
+                if (!MoveNamedPose($"ReturnPose{i}"))
+                {
+                    AddMachineLog($"[HOMING][RECOVERY] Dừng phục hồi tại ReturnPose{i}.");
+                    return false;
+                }
+            }
+
+            AddMachineLog(
+                "[HOMING][RECOVERY] Đã hoàn thành ReturnPose2 -> ReturnPose6; tiếp tục về HomePose.");
+            return true;
+        }
         int ivan = 0;
 
         private readonly List<int> _readyBasketQueue = new();
@@ -2352,7 +2518,15 @@ namespace WpfCompanyApp.Services
         private int _dropReturnPoseIndex = 1;
         private int _fullWorkConsecutiveDropCount = 0;
         private bool _fullWorkLampOn = false;
+        private bool _fullWorkBlinkActive = false;
         private DateTime _fullWorkNextLampToggleUtc = DateTime.MinValue;
+        private bool _bothBasketsEmptyAlarmPending = false;
+        private bool _bothBasketsEmptyAlarmActive = false;
+        private bool _bothBasketsEmptyYellowLampOn = false;
+        private DateTime _bothBasketsEmptyNextLampToggleUtc = DateTime.MinValue;
+        private bool _machineErrorAlarmActive = false;
+        private bool _machineErrorRedLampOn = false;
+        private DateTime _machineErrorNextLampToggleUtc = DateTime.MinValue;
 
         private void ResetReadyCycle()
         {
@@ -2375,6 +2549,8 @@ namespace WpfCompanyApp.Services
             _stopPendingPickResult = false;
             _startupRecoveryDrop = false;
             _fullWorkConsecutiveDropCount = 0;
+            _fullWorkBlinkActive = false;
+            _fullWorkNextLampToggleUtc = DateTime.MinValue;
             SetFullWorkLamp(false);
             ResetPickToolSubTree();
             ResetDropToolSubTree();
@@ -2808,13 +2984,18 @@ namespace WpfCompanyApp.Services
 
         private bool IsSelectedFullWorkSensorActive()
         {
-            _toolSensorRtu.TryReadAllNow();
-            return string.Equals(
+            if (!_toolSensorRtu.TryReadAllNow())
+                return false;
+
+            bool rawSignal = string.Equals(
                     _data.SelectedFullWorkSensor,
                     "Máy2",
                     StringComparison.OrdinalIgnoreCase)
                 ? _toolSensorRtu.IsMachine2Full
                 : _toolSensorRtu.IsMachine1Full;
+
+            // X0/X1 là tín hiệu active-low: 0 = máy đầy sản phẩm, 1 = đã trống.
+            return !rawSignal;
         }
 
         private string GetSelectedFullWorkSensorDescription()
@@ -2841,6 +3022,210 @@ namespace WpfCompanyApp.Services
             }
 
             _fullWorkLampOn = on;
+            Application.Current?.Dispatcher.Invoke(() =>
+                _data.GreenLampOn = on);
+        }
+
+        private void SetRunningGreenLamp()
+        {
+            _fullWorkBlinkActive = false;
+            _fullWorkNextLampToggleUtc = DateTime.MinValue;
+            _fullWorkLampOn = false;
+            SetFullWorkLamp(true);
+            if (_fullWorkLampOn)
+                AddMachineLog("[RUNNING] Đã bật đèn xanh CO2.");
+        }
+
+        private void SetPausedYellowLamp()
+        {
+            _fullWorkBlinkActive = false;
+            _fullWorkLampOn = false;
+            _fullWorkNextLampToggleUtc = DateTime.MinValue;
+
+            string greenResult = _robot.SetBoxCO(2, 0);
+            string yellowResult = _robot.SetBoxCO(1, 1);
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                _data.GreenLampOn = false;
+                _data.YellowLampOn = yellowResult == "OK";
+            });
+
+            if (greenResult == "OK" && yellowResult == "OK")
+                AddMachineLog("[PAUSE] Đã tắt đèn xanh CO2 và bật đèn vàng CO1.");
+            else
+                AddMachineLog(
+                    $"[PAUSE][OUTPUT][ERROR] Không thể đặt đèn Pause: " +
+                    $"CO2={greenResult}, CO1={yellowResult}.");
+        }
+
+        private void TurnOffPausedYellowLamp()
+        {
+            string result = _robot.SetBoxCO(1, 0);
+            Application.Current?.Dispatcher.Invoke(() =>
+                _data.YellowLampOn = false);
+
+            if (result != "OK")
+                AddMachineLog($"[RUNNING][OUTPUT][ERROR] Không thể tắt đèn vàng CO1: {result}");
+        }
+
+        private void ActivateBothBasketsEmptyAlarm()
+        {
+            _bothBasketsEmptyAlarmPending = false;
+            _bothBasketsEmptyAlarmActive = true;
+            _bothBasketsEmptyYellowLampOn = true;
+            _bothBasketsEmptyNextLampToggleUtc = DateTime.UtcNow.AddSeconds(1);
+
+            string buzzerResult = _robot.SetBoxCO(3, 1);
+            string yellowLampResult = _robot.SetBoxCO(1, 1);
+
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                _data.BuzzerOn = buzzerResult == "OK";
+                _data.YellowLampOn = yellowLampResult == "OK";
+            });
+
+            if (buzzerResult != "OK" || yellowLampResult != "OK")
+            {
+                AddMachineLog(
+                    $"[EMPTY BASKETS][OUTPUT][ERROR] Không thể bật đầy đủ cảnh báo: " +
+                    $"CO3={buzzerResult}, CO1={yellowLampResult}.");
+                return;
+            }
+
+            AddMachineLog(
+                "[EMPTY BASKETS] Đã bật còi CO3 và bắt đầu nháy đèn vàng CO1 " +
+                "theo chu kỳ 1 giây sáng / 1 giây tắt.");
+        }
+
+        private void UpdateBothBasketsEmptyAlarm()
+        {
+            if (!_bothBasketsEmptyAlarmActive ||
+                DateTime.UtcNow < _bothBasketsEmptyNextLampToggleUtc)
+            {
+                return;
+            }
+
+            bool nextLampState = !_bothBasketsEmptyYellowLampOn;
+            string result = _robot.SetBoxCO(1, nextLampState ? 1 : 0);
+            if (result == "OK")
+            {
+                _bothBasketsEmptyYellowLampOn = nextLampState;
+                Application.Current?.Dispatcher.Invoke(() =>
+                    _data.YellowLampOn = nextLampState);
+            }
+            else
+            {
+                AddMachineLog(
+                    $"[EMPTY BASKETS][OUTPUT][ERROR] Không thể đổi trạng thái đèn vàng CO1: {result}");
+            }
+
+            _bothBasketsEmptyNextLampToggleUtc = DateTime.UtcNow.AddSeconds(1);
+        }
+
+        private void ClearBothBasketsEmptyAlarm()
+        {
+            bool wasActive = _bothBasketsEmptyAlarmActive || _bothBasketsEmptyAlarmPending;
+            _bothBasketsEmptyAlarmPending = false;
+            _bothBasketsEmptyAlarmActive = false;
+            _bothBasketsEmptyYellowLampOn = false;
+            _bothBasketsEmptyNextLampToggleUtc = DateTime.MinValue;
+
+            if (!wasActive)
+                return;
+
+            string yellowLampResult = _robot.SetBoxCO(1, 0);
+            string buzzerResult = _robot.SetBoxCO(3, 0);
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                _data.YellowLampOn = false;
+                _data.BuzzerOn = false;
+            });
+
+            if (yellowLampResult != "OK" || buzzerResult != "OK")
+            {
+                AddMachineLog(
+                    $"[EMPTY BASKETS][OUTPUT][ERROR] Không thể tắt đầy đủ cảnh báo: " +
+                    $"CO1={yellowLampResult}, CO3={buzzerResult}.");
+            }
+        }
+
+        private void ClearAllLampBlinkStatesForStart()
+        {
+            _fullWorkBlinkActive = false;
+            _fullWorkLampOn = false;
+            _fullWorkNextLampToggleUtc = DateTime.MinValue;
+
+            _bothBasketsEmptyAlarmPending = false;
+            _bothBasketsEmptyAlarmActive = false;
+            _bothBasketsEmptyYellowLampOn = false;
+            _bothBasketsEmptyNextLampToggleUtc = DateTime.MinValue;
+
+            _machineErrorAlarmActive = false;
+            _machineErrorRedLampOn = false;
+            _machineErrorNextLampToggleUtc = DateTime.MinValue;
+
+            var errors = new List<string>();
+            for (int bit = 0; bit <= 3; bit++)
+            {
+                string result = _robot.SetBoxCO(bit, 0);
+                if (result != "OK")
+                    errors.Add($"CO{bit}: {result}");
+            }
+
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                _data.RedLampOn = false;
+                _data.YellowLampOn = false;
+                _data.GreenLampOn = false;
+                _data.BuzzerOn = false;
+            });
+
+            if (errors.Count == 0)
+            {
+                AddMachineLog(
+                    "[START] Đã xóa toàn bộ timer/trạng thái nháy và OFF CO0..CO3.");
+            }
+            else
+            {
+                AddMachineLog(
+                    $"[START][OUTPUT][ERROR] Không thể OFF đầy đủ CO0..CO3: " +
+                    $"{string.Join("; ", errors)}");
+            }
+        }
+
+        private void ActivateMachineErrorAlarm()
+        {
+            // Cảnh báo lỗi được ưu tiên hơn cảnh báo hết Basket.
+            _bothBasketsEmptyAlarmPending = false;
+            _bothBasketsEmptyAlarmActive = false;
+            _bothBasketsEmptyYellowLampOn = false;
+            _bothBasketsEmptyNextLampToggleUtc = DateTime.MinValue;
+            _robot.SetBoxCO(1, 0);
+
+            _machineErrorAlarmActive = true;
+            _machineErrorRedLampOn = true;
+            _machineErrorNextLampToggleUtc = DateTime.MinValue;
+
+            string redLampResult = _robot.SetBoxCO(0, 1);
+            string buzzerResult = _robot.SetBoxCO(3, 1);
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                _data.RedLampOn = redLampResult == "OK";
+                _data.BuzzerOn = buzzerResult == "OK";
+                _data.YellowLampOn = false;
+            });
+
+            if (redLampResult != "OK" || buzzerResult != "OK")
+            {
+                AddMachineLog(
+                    $"[ERROR][OUTPUT] Không thể bật đầy đủ cảnh báo lỗi: " +
+                    $"CO0={redLampResult}, CO3={buzzerResult}.");
+            }
+            else
+            {
+                AddMachineLog(
+                    "[ERROR] Đèn đỏ CO0 và còi CO3 đang ON liên tục.");
+            }
         }
 
         private void SuspendCycleTimingForFullWork()
@@ -2868,19 +3253,20 @@ namespace WpfCompanyApp.Services
             }
 
             AddMachineLog(
-                "[FULL WORK] Tiếp tục tính cycle time sau khi cảm biến đầy đã về 0.");
+                "[FULL WORK] Tiếp tục tính cycle time sau khi cảm biến đầy đã về 1.");
         }
 
         private bool EnterFullWorkWaitIfRequired()
         {
-            if (IsSelectedFullWorkSensorActive())
+            bool fullWorkActive = IsSelectedFullWorkSensorActive();
+            if (fullWorkActive)
                 _fullWorkConsecutiveDropCount++;
             else
                 _fullWorkConsecutiveDropCount = 0;
 
             AddMachineLog(
                 $"[FULL WORK] Sau lần thả: {GetSelectedFullWorkSensorDescription()}=" +
-                $"{(IsSelectedFullWorkSensorActive() ? 1 : 0)}, " +
+                $"{(fullWorkActive ? 0 : 1)}, " +
                 $"liên tiếp {_fullWorkConsecutiveDropCount}/2.");
 
             if (_fullWorkConsecutiveDropCount < 2)
@@ -2899,10 +3285,11 @@ namespace WpfCompanyApp.Services
 
             _fullWorkLampOn = false;
             SetFullWorkLamp(true);
-            _fullWorkNextLampToggleUtc = DateTime.UtcNow.AddSeconds(1);
+            _fullWorkBlinkActive = true;
+            _fullWorkNextLampToggleUtc = DateTime.UtcNow.AddMilliseconds(500);
             AddMachineLog(
-                $"[FULL WORK] {GetSelectedFullWorkSensorDescription()} ở mức 1 trong 2 lần thả liên tiếp. " +
-                "Robot đã về HomePose và chờ cảm biến về 0; đèn xanh CO2 nháy mỗi 1 giây.");
+                $"[FULL WORK] {GetSelectedFullWorkSensorDescription()} ở mức 0 trong 2 lần thả liên tiếp. " +
+                "Robot đã về HomePose và chờ cảm biến về 1; đèn xanh CO2 nháy mỗi 500 ms.");
             SuspendCycleTimingForFullWork();
             _readyState = ReadySubState.WaitFullWorkClear;
             return true;
@@ -4007,7 +4394,7 @@ namespace WpfCompanyApp.Services
                    IsToolHolding(3);
         }
 
-        private void StopBecauseNoProductPicked()
+        private void StopBecauseNoProductPicked(bool raisePickFailureError = false)
         {
             AddMachineLog("Không hút được sản phẩm. Vui lòng kiểm tra nguồn khí, áp suất hút, giác hút, dây tín hiệu và cảm biến sản phẩm.");
             if (!MoveNamedPose("HomePose"))
@@ -4019,11 +4406,21 @@ namespace WpfCompanyApp.Services
             _data.StopRequested = false;
             _cycleActiveTime.Stop();
             _machineRunTime.Stop();
-            _state = AppState.Idle;
             _productLoaded = false;
             _stopAfterCycle = false;
             _stopPendingPickResult = false;
             _readyState = ReadySubState.CheckStatus;
+
+            if (raisePickFailureError)
+            {
+                RaiseError(
+                    $"Robot đã xuống gắp {MinimumFailedCapturePickCycles} lượt liên tiếp " +
+                    "nhưng không đầu hút nào lấy được sản phẩm. Robot đã về Home; " +
+                    "kiểm tra nguồn khí, áp suất hút, giác hút, dây tín hiệu và cảm biến sản phẩm.");
+                return;
+            }
+
+            _state = AppState.Idle;
             AddMachineLog("[READY] Không đầu hút nào có sản phẩm, robot đã về Home và máy đã dừng.");
         }
 
@@ -4038,7 +4435,7 @@ namespace WpfCompanyApp.Services
             {
                 AddMachineLog(
                     $"[READY] Đã đủ {MinimumFailedCapturePickCycles} lượt chụp-hút liên tiếp thất bại, robot sẽ về Home.");
-                StopBecauseNoProductPicked();
+                StopBecauseNoProductPicked(raisePickFailureError: true);
                 return;
             }
 
@@ -4764,8 +5161,9 @@ namespace WpfCompanyApp.Services
                                     if (_readyEmptyVerificationRounds >= RequiredEmptyBasketVerificationRounds)
                                     {
                                         AddMachineLog(
-                                            $"[READY] Basket1 và Basket2 không có sản phẩm sau " +
+                                            $"[WARNING][READY] Basket1 và Basket2 đã hết sản phẩm sau " +
                                             $"{RequiredEmptyBasketVerificationRounds} vòng kiểm tra. Kết thúc chương trình.");
+                                        _bothBasketsEmptyAlarmPending = true;
                                         _readyState = ReadySubState.FinishAllBaskets;
                                         break;
                                     }
@@ -4882,25 +5280,28 @@ namespace WpfCompanyApp.Services
 
                     // Máy nhận được hai mẫu đầy ở hai lần thả liên tiếp:
                     // robot đã về Home và chờ người vận hành lấy sản phẩm ra.
-                    // Trong lúc chờ, đèn xanh CO2 đảo trạng thái mỗi một giây.
+                    // Trong lúc chờ, đèn xanh CO2 đảo trạng thái mỗi 500 ms.
                     case ReadySubState.WaitFullWorkClear:
                         if (!IsSelectedFullWorkSensorActive())
                         {
+                            _fullWorkBlinkActive = false;
                             SetFullWorkLamp(false);
+                            SetRunningGreenLamp();
                             _fullWorkConsecutiveDropCount = 0;
                             _fullWorkNextLampToggleUtc = DateTime.MinValue;
                             ResumeCycleTimingAfterFullWork();
                             AddMachineLog(
-                                $"[FULL WORK] {GetSelectedFullWorkSensorDescription()} đã về 0. " +
-                                "Tắt CO2 và tiếp tục chương trình.");
+                                $"[FULL WORK] {GetSelectedFullWorkSensorDescription()} đã về 1. " +
+                                "Bật sáng liên tục CO2 và tiếp tục chương trình.");
                             ContinueAfterCompletedDrop(captureFreshImage: true);
                             break;
                         }
 
-                        if (DateTime.UtcNow >= _fullWorkNextLampToggleUtc)
+                        if (_fullWorkBlinkActive &&
+                            DateTime.UtcNow >= _fullWorkNextLampToggleUtc)
                         {
                             SetFullWorkLamp(!_fullWorkLampOn);
-                            _fullWorkNextLampToggleUtc = DateTime.UtcNow.AddSeconds(1);
+                            _fullWorkNextLampToggleUtc = DateTime.UtcNow.AddMilliseconds(500);
                         }
                         break;
 
@@ -4912,6 +5313,8 @@ namespace WpfCompanyApp.Services
                             break;
                         }
                         AddMachineLog("[READY] Đã xử lý hết Basket, robot đã về Home. Kết thúc chương trình.");
+                        if (_bothBasketsEmptyAlarmPending)
+                            ActivateBothBasketsEmptyAlarm();
                         _data.StopRequested = false;
                         _cycleActiveTime.Stop();
                         _machineRunTime.Stop();
@@ -5310,14 +5713,19 @@ namespace WpfCompanyApp.Services
         {
             UpdateManualStatusIfDue();
 
-            if (_state != AppState.Idle)
+            bool fullManualAllowed =
+                _state == AppState.Idle ||
+                _state == AppState.Error;
+
+            if (!fullManualAllowed)
             {
                 ClearPendingManualRequests();
+                HandleManualBuzzerOnly();
                 if (!_manualBlockedLogged)
                 {
                     AddMachineLog(
-                        $"[MANUAL][BLOCKED] Không cho phép điều khiển Manual Robot khi máy đang ở trạng thái {_state}. " +
-                        "Hãy nhấn STOP và chờ máy về trạng thái Idle.");
+                        $"[MANUAL][BLOCKED] Máy đang ở trạng thái {_state}: " +
+                        "chỉ cho phép bật/tắt còi CO3; các điều khiển khác được giữ nguyên.");
                     _manualBlockedLogged = true;
                 }
                 return;
@@ -5392,22 +5800,7 @@ namespace WpfCompanyApp.Services
                     if (_data.RequestTriggerCamera)
                     {
                         _data.RequestTriggerCamera = false;
-                        //  HandleTriggerCamera(); // Gọi hàm xử lý Trigger
-                        _activeTriggerCamera = _data.SelectedTriggerCamera;
-                        _activeCalibTool = "Tool1";
-
-                        string flowName = GetTriggerFlowName(_activeTriggerCamera);
-                        var pro = VmSolution.Instance[flowName] as VmProcedure;
-                        if (pro != null)
-                        {
-                            _settingsTriggerCameraPending = true;
-                            pro.Run();
-                        }
-                        else
-                        {
-                            _settingsTriggerCameraPending = false;
-                            AddMachineLog($"[SETTING] Lỗi: Không tìm thấy {flowName} để chạy Trigger Camera.");
-                        }
+                        TriggerCalibrationCamera(_data.SelectedTriggerCamera);
                     }
                     if (_data.RequestSavePositionTrigger)
                     {
@@ -5596,7 +5989,10 @@ namespace WpfCompanyApp.Services
             if (_data.ResetRequested)
             {
                 _data.ResetRequested = false;
-                AddMachineLog("[ERROR] Người vận hành nhấn RESET, thử reset robot...");
+                bool homeAfterReset = _data.HomeRequested;
+                AddMachineLog(homeAfterReset
+                    ? "[ERROR] Người vận hành nhấn HOME, thử reset robot trước khi phục hồi về Home..."
+                    : "[ERROR] Người vận hành nhấn RESET, thử reset robot...");
                 TurnOffAllOutputs();
 
                 try
@@ -5605,6 +6001,8 @@ namespace WpfCompanyApp.Services
                     {
                         AddMachineLog($"[ERROR] Reset robot thất bại: {resetError}");
                         AddRobotHistory($"[ERROR][ROBOT STATUS] {resetError}");
+                        _data.HomeRequested = false;
+                        ActivateMachineErrorAlarm();
                         return; // vẫn ở Error
                     }
 
@@ -5615,12 +6013,12 @@ namespace WpfCompanyApp.Services
                 // Tắt đèn đỏ
               
 
-                // Reset chỉ xóa lỗi và đưa máy về trạng thái Stop/Idle.
-                // Robot chỉ được di chuyển khi người vận hành nhấn Home riêng.
                     _data.HomeRequested = false;
-                    AddMachineLog("[ERROR] Reset OK -> chuyển sang IDLE, không di chuyển robot.");
+                    AddMachineLog(homeAfterReset
+                        ? "[ERROR] Reset OK -> bắt đầu quỹ đạo phục hồi về HOME."
+                        : "[ERROR] Reset OK -> chuyển sang IDLE, không di chuyển robot.");
                     _machineRunTime.Stop();
-                    _state = AppState.Idle;
+                    _state = homeAfterReset ? AppState.Homing : AppState.Idle;
                     _readyState = ReadySubState.CheckStatus;
                     _productLoaded = false;
                     _stopAfterCycle = false;
@@ -5714,20 +6112,25 @@ namespace WpfCompanyApp.Services
             _data.JogRZPlusReq = false;
             _data.JogRZMinusReq = false;
 
-            // Cylinder/Vacuum là trạng thái output dùng chung với chu trình Auto.
-            // Không được xóa tại đây vì sẽ làm luồng Manual ghi đè output Auto.
-            _data.PushAir1 = false;
-            _data.PushAir2 = false;
-            _data.PushAir3 = false;
-            _data.TriggerCamera = false;
-            _data.BuzzerOn = false;
-            _data.RedLampOn = false;
-            _data.YellowLampOn = false;
-            _data.GreenLampOn = false;
+            // Không thay đổi các thuộc tính output tại đây. Chúng là trạng thái
+            // dùng chung với Auto; riêng Buzzer CO3 được xử lý độc lập trên Manual.
         }
 
         private void TurnOffAllOutputs()
         {
+            // Dừng toàn bộ bộ định thời nháy trước khi ghi OFF output để không
+            // có nhánh state-machine nào bật đèn trở lại sau Reset.
+            _fullWorkBlinkActive = false;
+            _fullWorkLampOn = false;
+            _fullWorkNextLampToggleUtc = DateTime.MinValue;
+            _bothBasketsEmptyAlarmPending = false;
+            _bothBasketsEmptyAlarmActive = false;
+            _bothBasketsEmptyYellowLampOn = false;
+            _bothBasketsEmptyNextLampToggleUtc = DateTime.MinValue;
+            _machineErrorAlarmActive = false;
+            _machineErrorRedLampOn = false;
+            _machineErrorNextLampToggleUtc = DateTime.MinValue;
+
             Application.Current?.Dispatcher.Invoke(() =>
             {
                 _data.PushAir1 = false;
@@ -5778,6 +6181,44 @@ namespace WpfCompanyApp.Services
             }
         }
 
+        private void TurnOffAllIndicatorsForStop()
+        {
+            // Hủy mọi trạng thái nháy trước khi OFF để các vòng xử lý nền
+            // không bật lại đèn sau khi người vận hành nhấn Stop.
+            _fullWorkBlinkActive = false;
+            _fullWorkLampOn = false;
+            _fullWorkNextLampToggleUtc = DateTime.MinValue;
+            _bothBasketsEmptyAlarmPending = false;
+            _bothBasketsEmptyAlarmActive = false;
+            _bothBasketsEmptyYellowLampOn = false;
+            _bothBasketsEmptyNextLampToggleUtc = DateTime.MinValue;
+            _machineErrorAlarmActive = false;
+            _machineErrorRedLampOn = false;
+            _machineErrorNextLampToggleUtc = DateTime.MinValue;
+
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                _data.RedLampOn = false;
+                _data.YellowLampOn = false;
+                _data.GreenLampOn = false;
+                _data.BuzzerOn = false;
+            });
+
+            var errors = new List<string>();
+            for (int bit = 0; bit <= 3; bit++)
+            {
+                string result = _robot.SetBoxCO(bit, 0);
+                if (result != "OK")
+                    errors.Add($"CO{bit}: {result}");
+            }
+
+            if (errors.Count == 0)
+                AddMachineLog("[STOP] Đã tắt toàn bộ đèn và còi CO0..CO3.");
+            else
+                AddMachineLog(
+                    $"[STOP][OUTPUT][ERROR] Không thể tắt một số đèn/còi: {string.Join("; ", errors)}");
+        }
+
         private void TurnOffBlowAirOutputs()
         {
             SetBlowAirOutputs(false, "[START]");
@@ -5810,6 +6251,37 @@ namespace WpfCompanyApp.Services
         }
 
         // === OUTPUT REQUESTS ===
+        private void HandleManualBuzzerOnly()
+        {
+            try
+            {
+                if (!_manualOutputSnapshotInitialized)
+                {
+                    string result = _robot.ReadBoxCO_01234567(out int[] coValues);
+                    if (result != "OK" || coValues == null || coValues.Length < 8)
+                    {
+                        AddMachineLog(
+                            $"[MANUAL][BUZZER][READ ERROR] Không đọc được CO3: {result}.");
+                        return;
+                    }
+
+                    for (int bit = 0; bit < 8; bit++)
+                        _manualCoSnapshot[bit] = coValues[bit] == 1;
+
+                    Application.Current?.Dispatcher.Invoke(() =>
+                        _data.BuzzerOn = _manualCoSnapshot[3]);
+                    _manualOutputSnapshotInitialized = true;
+                    return;
+                }
+
+                WriteManualCoIfChanged(3, _data.BuzzerOn, "Buzzer");
+            }
+            catch (Exception ex)
+            {
+                AddMachineLog($"[MANUAL][BUZZER][ERROR] {ex.Message}");
+            }
+        }
+
         private void HandleOutputRequests()
         {
             try

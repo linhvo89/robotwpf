@@ -18,8 +18,17 @@ namespace WpfCompanyApp
     /// </summary>
     public partial class MainWindow : Window
     {
+        private const uint ScClose = 0xF060;
+        private const uint MfByCommand = 0x00000000;
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern System.IntPtr GetSystemMenu(System.IntPtr hWnd, bool revert);
+
+        [System.Runtime.InteropServices.DllImport("user32.dll")]
+        private static extern bool DeleteMenu(System.IntPtr hMenu, uint position, uint flags);
+
         // ===== THÔNG TIN PHIÊN BẢN - CHỈNH SỬA TẠI ĐÂY =====
-        public const string ApplicationVersion = "1.6.6";
+        public const string ApplicationVersion = "2.0.3";
         public static readonly string ReleaseDateTime =
             System.IO.File.GetLastWriteTime(
                 System.Reflection.Assembly.GetExecutingAssembly().Location)
@@ -32,6 +41,16 @@ namespace WpfCompanyApp
             InitializeComponent();
             Title = $"KBOT v{ApplicationVersion}";
             DataContext = viewModel; // ✅ Inject từ DI
+            SourceInitialized += DisableWindowCloseButton;
+        }
+
+        private void DisableWindowCloseButton(object? sender, System.EventArgs e)
+        {
+            System.IntPtr windowHandle =
+                new System.Windows.Interop.WindowInteropHelper(this).Handle;
+            System.IntPtr systemMenu = GetSystemMenu(windowHandle, false);
+            if (systemMenu != System.IntPtr.Zero)
+                DeleteMenu(systemMenu, ScClose, MfByCommand);
         }
 
         private void HelpButton_Click(object sender, RoutedEventArgs e)

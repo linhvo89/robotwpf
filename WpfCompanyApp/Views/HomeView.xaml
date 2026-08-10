@@ -705,6 +705,7 @@
                                  Height="170"
                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                                  FontFamily="Consolas"
+                                 FontSize="14"
                                  Background="#0E1117"
                                  Foreground="#00FF88">
                             <ListBox.ItemTemplate>
@@ -722,7 +723,7 @@
                                FontWeight="Bold" FontSize="16" Foreground="#E0E0E0" Margin="0,0,0,5"/>
                     <Border Background="#0E1117" CornerRadius="6" Padding="5">
                         <ListBox ItemsSource="{Binding RobotHistory}"
-                                 FontSize="13"
+                                 FontSize="14"
                                  Background="#0E1117"
                                  Foreground="#00FF88"
                                  MaxHeight="170"

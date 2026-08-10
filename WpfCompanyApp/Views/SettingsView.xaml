@@ -1585,9 +1585,23 @@
                             </GroupBox>
                         </Grid>
 
-                        <Button Grid.Row="2" Content="💾 Save Offset" Command="{Binding SavePickOffsetsCommand}"
-                                Width="180" Height="44" FontSize="17" HorizontalAlignment="Right"
-                                Margin="8,14,8,0" Style="{StaticResource ModernButton_Blue}"/>
+                        <Grid Grid.Row="2" Margin="8,14,8,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <CheckBox Grid.Column="0"
+                                      Content="Nâng Z thêm 20 mm khi hút lần 1 thành công"
+                                      IsChecked="{Binding Data.FirstPickSuccessLiftEnabled, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                      Foreground="White" FontSize="16" FontWeight="SemiBold"
+                                      VerticalAlignment="Center"
+                                      ToolTip="Bật: robot nâng Z 20 mm sau khi hút lần 1 thành công. Tắt: bỏ qua lệnh nâng này."/>
+
+                            <Button Grid.Column="1" Content="💾 Save Offset" Command="{Binding SavePickOffsetsCommand}"
+                                    Width="180" Height="44" FontSize="17" HorizontalAlignment="Right"
+                                    Style="{StaticResource ModernButton_Blue}"/>
+                        </Grid>
                     </Grid>
                 </TabItem>
 

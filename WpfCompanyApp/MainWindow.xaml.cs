@@ -21,6 +21,7 @@ namespace WpfCompanyApp
         private const uint ScClose = 0xF060;
         private const uint MfByCommand = 0x00000000;
 
+
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         private static extern System.IntPtr GetSystemMenu(System.IntPtr hWnd, bool revert);
 
@@ -28,7 +29,7 @@ namespace WpfCompanyApp
         private static extern bool DeleteMenu(System.IntPtr hMenu, uint position, uint flags);
 
         // ===== THÔNG TIN PHIÊN BẢN - CHỈNH SỬA TẠI ĐÂY =====
-        public const string ApplicationVersion = "2.0.3";
+        public const string ApplicationVersion = "2.1.0";
         public static readonly string ReleaseDateTime =
             System.IO.File.GetLastWriteTime(
                 System.Reflection.Assembly.GetExecutingAssembly().Location)

@@ -65,6 +65,7 @@ namespace WpfCompanyApp.Services
         [ObservableProperty] private int vacuumWaitMs = 500;
         [ObservableProperty] private int vacuumSensorReadDelayMs = 100;
         [ObservableProperty] private int emptyConfirmShots = 2;
+        [ObservableProperty] private bool firstPickSuccessLiftEnabled = true;
         [ObservableProperty] private int maxToolMissCount = 3;
         [ObservableProperty] private double speedCapture = 0.2;
         [ObservableProperty] private double speedSuction = 0.2;
@@ -99,6 +100,16 @@ namespace WpfCompanyApp.Services
                 _db.GetAppSetting(nameof(WriteLog), bool.FalseString),
                 out bool savedWriteLog) &&
                 savedWriteLog;
+
+            string savedFirstPickSuccessLiftEnabled = _db.GetAppSetting(
+                nameof(FirstPickSuccessLiftEnabled),
+                "1");
+            FirstPickSuccessLiftEnabled =
+                savedFirstPickSuccessLiftEnabled == "1" ||
+                string.Equals(
+                    savedFirstPickSuccessLiftEnabled,
+                    bool.TrueString,
+                    System.StringComparison.OrdinalIgnoreCase);
         }
 
         private void LoadPickOffsets()
@@ -196,6 +207,9 @@ namespace WpfCompanyApp.Services
 
         partial void OnWriteLogChanged(bool value) =>
             _db.SaveAppSetting(nameof(WriteLog), value.ToString());
+
+        partial void OnFirstPickSuccessLiftEnabledChanged(bool value) =>
+            _db.SaveAppSetting(nameof(FirstPickSuccessLiftEnabled), value ? "1" : "0");
 
         public void LoadJobCounters(int jobId)
         {

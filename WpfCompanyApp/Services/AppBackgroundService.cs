@@ -1535,6 +1535,9 @@ namespace WpfCompanyApp.Services
                 AddMachineLog(
                     $"[READY] Delay trước khi đọc cảm biến hút sau nâng Z={_data.VacuumSensorReadDelayMs} ms.");
                 AddMachineLog(
+                    $"[READY] Nâng Z {FirstPickSuccessLiftZ:0.###} mm sau hút lần 1: " +
+                    $"{(_data.FirstPickSuccessLiftEnabled ? "BẬT" : "TẮT")}.");
+                AddMachineLog(
                     $"[READY] Offset X trigger camera khi chạy GOTAB={_captureTriggerXOffsetMm:0.###} mm.");
                 
                 AddRobotHistory("[INIT] Load config OK");
@@ -1927,12 +1930,15 @@ namespace WpfCompanyApp.Services
             // ✅ Stop trong RUNNING phụ thuộc đã kẹp sản phẩm chưa
             if (_data.StopRequested)
             {
-                
+                 
                 _data.StopRequested = false;
-                TurnOffAllIndicatorsForStop();
                 _cycleActiveTime.Stop();
                 _machineRunTime.Stop();
                 index = 0;
+
+                // Chưa tắt đèn xanh tại đây. Khi robot đang gắp/giữ sản phẩm hoặc
+                // đang thả, state vẫn là Running để robot hoàn tất quỹ đạo và về
+                // Home; đèn xanh phải giữ ON cho tới khi robot dừng thực sự.
 
                 if (_readyState == ReadySubState.PickByTools ||
                     _readyState == ReadySubState.LiftSafeAfterPick)
@@ -2300,6 +2306,7 @@ namespace WpfCompanyApp.Services
                 _state = AppState.Idle;
                 _productLoaded = false;
                 _stopAfterCycle = false;
+                TurnOffAllIndicatorsForStop();
 
                 AddMachineLog("[HOMING] Completed, back to IDLE.");
             }
@@ -2500,6 +2507,7 @@ namespace WpfCompanyApp.Services
         private const int MaxPickAttemptsPerToolPerImage = 3;
         private const int MinimumFailedCapturePickCycles = 5;
         private const int RequiredEmptyBasketVerificationRounds = 3;
+        private const double FirstPickSuccessLiftZ = 20.0;
         private int _readyFailedCapturePickCycles = 0;
         private readonly int[] _pickAttemptsPerTool = new int[4];
         private PickToolSubState _pickToolState = PickToolSubState.Idle;
@@ -2510,6 +2518,7 @@ namespace WpfCompanyApp.Services
         private double _pickRobotX = 0;
         private double _pickRobotY = 0;
         private bool _pickCurrentOk = false;
+        private bool _pickCylinderRaisedBeforeHandleResult;
         private DateTime _pickCylinderConfirmStartedAtUtc = DateTime.MinValue;
         private static readonly TimeSpan PickCylinderConfirmTimeout = TimeSpan.FromSeconds(1);
         private static readonly TimeSpan HomeCylinderConfirmTimeout = TimeSpan.FromMilliseconds(500);
@@ -2551,7 +2560,8 @@ namespace WpfCompanyApp.Services
             _fullWorkConsecutiveDropCount = 0;
             _fullWorkBlinkActive = false;
             _fullWorkNextLampToggleUtc = DateTime.MinValue;
-            SetFullWorkLamp(false);
+            // Reset dữ liệu chu trình không được tắt CO2: phương thức này cũng
+            // được gọi tại CheckStatus trong lúc máy vẫn đang Running.
             ResetPickToolSubTree();
             ResetDropToolSubTree();
         }
@@ -3010,6 +3020,16 @@ namespace WpfCompanyApp.Services
 
         private void SetFullWorkLamp(bool on)
         {
+            // CO2 chỉ được phép chuyển OFF bởi hiệu ứng nháy khi state machine
+            // thực sự còn đang chờ FullWork. Đây là lớp chặn cuối cùng để một
+            // nhịp 500 ms cũ không thể tắt đèn sau khi đã chuyển sang chạy.
+            if (!on &&
+                (!_fullWorkBlinkActive ||
+                 _readyState != ReadySubState.WaitFullWorkClear))
+            {
+                return;
+            }
+
             if (_fullWorkLampOn == on)
                 return;
 
@@ -3701,9 +3721,42 @@ namespace WpfCompanyApp.Services
                 holdingStopwatch.ElapsedMilliseconds);
             if (holdingFirstAttempt)
             {
-                AddMachineLog(
-                    $"[READY] {GetToolName(tool)} cảm biến hút ON ở lần hút 1; kết quả tạm thời, nâng Z để xác nhận.");
-            
+                if (_data.FirstPickSuccessLiftEnabled)
+                {
+                    AddMachineLog(
+                        $"[READY] {GetToolName(tool)} cảm biến hút ON ở lần hút 1; " +
+                        $"thu xi lanh rồi nâng Z thêm {FirstPickSuccessLiftZ} mm để xác nhận.");
+
+                    if (!SetPickCylinderUpForTool(tool))
+                    {
+                        FailReadyCycle(
+                            $"[READY] Không thu được xi lanh {tool} trước khi nâng Z sau hút lần 1. " +
+                            "Dừng máy, giữ hút và cần Reset lỗi.",
+                            releaseVacuum: false);
+                        return false;
+                    }
+
+                    _pickCylinderRaisedBeforeHandleResult = true;
+
+                    if (!MovePickPoint(
+                            offsetRobotX,
+                            offsetRobotY,
+                            pickZ + FirstPickSuccessLiftZ,
+                            pickRz))
+                    {
+                        FailReadyCycle(
+                            $"[READY] Robot không nâng được {FirstPickSuccessLiftZ} mm sau khi hút lần 1. " +
+                            "Dừng máy, giữ hút và cần Reset lỗi.",
+                            releaseVacuum: false);
+                        return false;
+                    }
+                }
+                else
+                {
+                    AddMachineLog(
+                        $"[READY] {GetToolName(tool)} cảm biến hút ON ở lần hút 1; " +
+                        "bỏ qua nâng Z theo cấu hình.");
+                }
 
                 // Chưa chốt sản phẩm tại đây. Việc đọc trực tiếp và quyết định
                 // OK/NG chỉ thực hiện một lần tại ConfirmCylinderSensors.
@@ -3727,7 +3780,18 @@ namespace WpfCompanyApp.Services
             if (holdingSecondAttempt)
             {
                 AddMachineLog(
-                    $"[READY] {GetToolName(tool)} cảm biến hút ON ở lần hút 2; kết quả tạm thời, nâng Z để xác nhận.");
+                    $"[READY] {GetToolName(tool)} cảm biến hút ON ở lần hút 2; " +
+                    "thu xi lanh rồi nâng Z để xác nhận.");
+                if (!SetPickCylinderUpForTool(tool))
+                {
+                    FailReadyCycle(
+                        $"[READY] Không thu được xi lanh {tool} trước MoveSafeZ sau hút lần 2. " +
+                        "Dừng máy, giữ hút và cần Reset lỗi.",
+                        releaseVacuum: false);
+                    return false;
+                }
+
+                _pickCylinderRaisedBeforeHandleResult = true;
                 if (!MoveSafeZ(_pickCurrentTool, offsetRobotX, offsetRobotY))
                 {
                     FailReadyCycle(
@@ -3746,6 +3810,16 @@ namespace WpfCompanyApp.Services
             // Chưa tắt hút tại đây. Có trường hợp cảm biến chân không lên chậm
             // và chỉ ổn định sau khi đầu hút được nâng. Quyết định ON/OFF cuối cùng
             // được thực hiện sau khi nâng xi lanh và kiểm tra lại cảm biến.
+            if (!SetPickCylinderUpForTool(tool))
+            {
+                FailReadyCycle(
+                    $"[READY] Không thu được xi lanh {tool} trước MoveSafeZ sau hút lần 2. " +
+                    "Dừng máy, giữ hút và cần Reset lỗi.",
+                    releaseVacuum: false);
+                return false;
+            }
+
+            _pickCylinderRaisedBeforeHandleResult = true;
             if (!MoveSafeZ(_pickCurrentTool, offsetRobotX, offsetRobotY))
             {
                 FailReadyCycle(
@@ -4421,6 +4495,7 @@ namespace WpfCompanyApp.Services
             }
 
             _state = AppState.Idle;
+            TurnOffAllIndicatorsForStop();
             AddMachineLog("[READY] Không đầu hút nào có sản phẩm, robot đã về Home và máy đã dừng.");
         }
 
@@ -4586,7 +4661,7 @@ namespace WpfCompanyApp.Services
 
                 // Cây con bước 4: Move tới điểm gắp, bật hút, nếu trượt thì hạ RetryZ và hút lại.
                 case PickToolSubState.PickProduct:
-             
+                    _pickCylinderRaisedBeforeHandleResult = false;
 
                     _pickCurrentOk = TryPickWithTool(_pickCurrentTool, _pickRobotX, _pickRobotY);
                     if (_state == AppState.Error)
@@ -4602,7 +4677,8 @@ namespace WpfCompanyApp.Services
                 case PickToolSubState.HandlePickResult:
                     // Tool đã xác nhận có sản phẩm phải giữ hút ON trước và sau khi
                     // thu xi lanh; không cho robot nâng Z nếu DO hút bị ghi đè OFF.
-                    if (!SetPickCylinderUpForTool(_pickCurrentTool))
+                    if (!_pickCylinderRaisedBeforeHandleResult &&
+                        !SetPickCylinderUpForTool(_pickCurrentTool))
                     {
                         FailReadyCycle(
                             $"[READY] Robot không điều khiển được xi lanh về vị trí lên cho {_pickCurrentToolName}. Dừng máy, cần Reset lỗi.",
@@ -5065,7 +5141,10 @@ namespace WpfCompanyApp.Services
                                 _readyCameraPending = false;
                                 _readyCameraTriggeredAtUtc = DateTime.MinValue;
                                 _readyCameraTimeoutCount++;
-                                int maxTimeouts = Math.Max(MinimumFailedCapturePickCycles, _data.EmptyConfirmShots);
+                                // Số lần chụp lại khi camera không trả kết quả phải dùng cùng
+                                // cấu hình với số ảnh xác nhận Basket rỗng. Trước đây giá trị
+                                // tối thiểu 5 làm EmptyConfirmShotsPerBasket=2 vẫn chạy 5 lần.
+                                int maxTimeouts = Math.Max(1, _data.EmptyConfirmShots);
 
                                 if (_readyCameraTimeoutCount >= maxTimeouts)
                                 {
@@ -5108,6 +5187,10 @@ namespace WpfCompanyApp.Services
                         }
 
                         AddMachineLog($"[READY] Basket{_readyCurrentBasket} có {_readyCameraResultCount} sản phẩm.");
+                        // Basket vẫn còn sản phẩm: hủy toàn bộ số lần xác nhận rỗng
+                        // trước đó. Chỉ các ảnh rỗng liên tiếp của cùng Basket mới
+                        // được dùng để kết luận Basket đã hết sản phẩm.
+                        _readyEmptyConfirmCount = 0;
                         // Basket hiện tại còn sản phẩm nên không thể dùng lần xác nhận rỗng
                         // của Basket trước để kết luận cả hai Basket đã hết.
                         _readyEmptyBasketMask = 0;
@@ -5284,16 +5367,21 @@ namespace WpfCompanyApp.Services
                     case ReadySubState.WaitFullWorkClear:
                         if (!IsSelectedFullWorkSensorActive())
                         {
+                            // Khóa bộ nháy và rời hẳn state FullWork trước khi ghi
+                            // output cuối cùng. Như vậy không còn nhịp 500 ms nào có
+                            // thể đảo CO2 sau khi máy đã quay lại chạy bình thường.
                             _fullWorkBlinkActive = false;
-                            SetFullWorkLamp(false);
-                            SetRunningGreenLamp();
-                            _fullWorkConsecutiveDropCount = 0;
                             _fullWorkNextLampToggleUtc = DateTime.MinValue;
+                            _fullWorkConsecutiveDropCount = 0;
                             ResumeCycleTimingAfterFullWork();
+                            ContinueAfterCompletedDrop(captureFreshImage: true);
+
+                            // Lệnh output cuối cùng khi thoát FullWork luôn là ON;
+                            // không tắt CO2 trung gian vì sẽ tạo thêm một nhịp đen.
+                            SetRunningGreenLamp();
                             AddMachineLog(
                                 $"[FULL WORK] {GetSelectedFullWorkSensorDescription()} đã về 1. " +
                                 "Bật sáng liên tục CO2 và tiếp tục chương trình.");
-                            ContinueAfterCompletedDrop(captureFreshImage: true);
                             break;
                         }
 
@@ -5312,6 +5400,7 @@ namespace WpfCompanyApp.Services
                             FailReadyCycle("[READY] Robot không về được HomePose khi kết thúc. Dừng máy, cần Reset lỗi.");
                             break;
                         }
+                        bool stoppedByRequest = _stopAfterCycle;
                         AddMachineLog("[READY] Đã xử lý hết Basket, robot đã về Home. Kết thúc chương trình.");
                         if (_bothBasketsEmptyAlarmPending)
                             ActivateBothBasketsEmptyAlarm();
@@ -5323,6 +5412,8 @@ namespace WpfCompanyApp.Services
                         _stopAfterCycle = false;
                         _startupRecoveryDrop = false;
                         _readyState = ReadySubState.CheckStatus;
+                        if (stoppedByRequest)
+                            TurnOffAllIndicatorsForStop();
                         break;
                             
                 }

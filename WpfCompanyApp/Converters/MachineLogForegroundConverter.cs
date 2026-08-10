@@ -24,7 +24,9 @@ namespace WpfCompanyApp.Converters
         {
             string message = value as string ?? string.Empty;
 
-            if (message.IndexOf("[INTERLOCK]", StringComparison.OrdinalIgnoreCase) >= 0 ||
+            if (message.IndexOf("[FULL WORK]", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("[FULLWORK]", StringComparison.OrdinalIgnoreCase) >= 0 ||
+                message.IndexOf("[INTERLOCK]", StringComparison.OrdinalIgnoreCase) >= 0 ||
                 message.IndexOf("[WARNING]", StringComparison.OrdinalIgnoreCase) >= 0)
             {
                 return WarningBrush;

@@ -17,8 +17,8 @@ from reportlab.platypus import (
 )
 
 ROOT = Path(r"E:\Nittan\WpfCompanyApp_net58")
-SRC = ROOT / "output" / "documents" / "Huong_dan_van_hanh_KBOT.docx"
-OUT = ROOT / "output" / "pdf" / "Huong_dan_van_hanh_KBOT.pdf"
+SRC = ROOT / "output" / "documents" / "Huong_dan_van_hanh_KBOT_v2.1.2.docx"
+OUT = ROOT / "output" / "pdf" / "Huong_dan_van_hanh_KBOT_v2.1.2.pdf"
 OUT.parent.mkdir(parents=True, exist_ok=True)
 
 pdfmetrics.registerFont(TTFont("Arial", r"C:\Windows\Fonts\arial.ttf"))
@@ -95,9 +95,17 @@ def image_from_paragraph(p, doc):
     img = Image(str(tmp))
     iw, ih = img.imageWidth, img.imageHeight
     max_w, max_h = 4.6 * inch, 2.65 * inch
-    scale = min(max_w / iw, max_h / ih)
-    img.drawWidth = iw * scale
-    img.drawHeight = ih * scale
+    extents = p._p.xpath(".//wp:extent")
+    if extents:
+        requested_w = int(extents[0].get("cx")) / 12700
+        requested_h = int(extents[0].get("cy")) / 12700
+        scale = min(1, max_w / requested_w, max_h / requested_h)
+        img.drawWidth = requested_w * scale
+        img.drawHeight = requested_h * scale
+    else:
+        scale = min(max_w / iw, max_h / ih)
+        img.drawWidth = iw * scale
+        img.drawHeight = ih * scale
     img.hAlign = "CENTER"
     return img
 

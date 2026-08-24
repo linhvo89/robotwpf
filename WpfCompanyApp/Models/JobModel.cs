@@ -5,6 +5,9 @@ namespace WpfCompanyApp.Models
 {
     public partial class JobModelHome : ObservableObject
     {
+        public const double MinHeight = -10;
+        public const double MaxHeight = 40;
+
         public int Id { get; set; }
         public string JobName { get; set; }
 
@@ -12,22 +15,25 @@ namespace WpfCompanyApp.Models
         public double H1
         {
             get => _h1;
-            set => SetProperty(ref _h1, value);
+            set => SetProperty(ref _h1, LimitHeight(value));
         }
 
         private double _h2;
         public double H2
         {
             get => _h2;
-            set => SetProperty(ref _h2, value);
+            set => SetProperty(ref _h2, LimitHeight(value));
         }
 
         private double _h3;
         public double H3
         {
             get => _h3;
-            set => SetProperty(ref _h3, value);
+            set => SetProperty(ref _h3, LimitHeight(value));
         }
+
+        private static double LimitHeight(double value) =>
+            value < MinHeight ? MinHeight : value > MaxHeight ? MaxHeight : value;
 
         public double H4 { get; set; }
         public double H5 { get; set; }

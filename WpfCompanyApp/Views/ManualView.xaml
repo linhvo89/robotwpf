@@ -2,6 +2,7 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:Release="clr-namespace:VMControls.WPF.Release;assembly=VMControls.WPF.Release"
              xmlns:conv="clr-namespace:WpfCompanyApp.Converters"
+             xmlns:services="clr-namespace:WpfCompanyApp.Services"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <UserControl.Resources>
@@ -436,7 +437,13 @@
                                 <Setter Property="IsEnabled" Value="False"/>
                                 <Setter Property="Opacity" Value="0.5"/>
                                 <Style.Triggers>
-                                    <DataTrigger Binding="{Binding CurrentState}" Value="Idle">
+                                    <DataTrigger Binding="{Binding CurrentState}"
+                                                 Value="{x:Static services:AppState.Idle}">
+                                        <Setter Property="IsEnabled" Value="True"/>
+                                        <Setter Property="Opacity" Value="1"/>
+                                    </DataTrigger>
+                                    <DataTrigger Binding="{Binding CurrentState}"
+                                                 Value="{x:Static services:AppState.Error}">
                                         <Setter Property="IsEnabled" Value="True"/>
                                         <Setter Property="Opacity" Value="1"/>
                                     </DataTrigger>
@@ -689,6 +696,26 @@
                             <GroupBox Header="Robot">
                                     <StackPanel>
 
+                                    <Border Margin="8,4,8,8" Padding="10,8" CornerRadius="5">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Background" Value="#243348"/>
+                                                <Setter Property="BorderBrush" Value="#4F6B8F"/>
+                                                <Setter Property="BorderThickness" Value="1"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding RobotHasFault}" Value="True">
+                                                        <Setter Property="Background" Value="#5C1F2B"/>
+                                                        <Setter Property="BorderBrush" Value="#FF3D64"/>
+                                                        <Setter Property="BorderThickness" Value="2"/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+                                        <TextBlock Text="{Binding RobotStatusMessage}"
+                                                   Foreground="White" FontWeight="SemiBold"
+                                                   TextWrapping="Wrap"/>
+                                    </Border>
+
                                     <!-- Robot startup status: Powered on -> Initialized -> Disable -> Standby -->
                                     <Grid Margin="8,4,8,4" Height="62">
                                         <Grid.ColumnDefinitions>
@@ -904,7 +931,7 @@
                                         </TextBlock>
                                     </Grid>
 
-                                    <UniformGrid Columns="3" Margin="0,10">
+                                    <UniformGrid Columns="2" Margin="0,10">
 
                                         <Button Width="120" Height="42" FontSize="16" FontWeight="Bold" Foreground="White">
                                             <Button.Style>
@@ -957,31 +984,6 @@
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding CloseOn}" Value="True">
                                                             <Setter Property="Background" Value="#D32F2F"/>
-                                                        </DataTrigger>
-                                                    </Style.Triggers>
-                                                </Style>
-                                            </Button.Style>
-                                        </Button>
-                                        <Button Content="FREE DRIVE"
-        Command="{Binding RequestFreeDriveCommand}"
-        Width="120" Height="42" FontSize="16" FontWeight="Bold" Foreground="White" Margin="5">
-                                            <Button.Style>
-                                                <Style TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
-                                                    <Setter Property="Content" Value="BRAKE LOCK"/>
-                                                    <Setter Property="Background" Value="#555555"/>
-
-                                                    <Setter Property="IsEnabled" Value="False"/>
-                                                    <Setter Property="Opacity" Value="0.5"/>
-
-                                                    <Style.Triggers>
-                                                        <DataTrigger Binding="{Binding EnableOn}" Value="True">
-                                                            <Setter Property="IsEnabled" Value="True"/>
-                                                            <Setter Property="Opacity" Value="1.0"/>
-                                                        </DataTrigger>
-
-                                                        <DataTrigger Binding="{Binding FreeDriveOn}" Value="True">
-                                                            <Setter Property="Content" Value="FREE DRIVE"/>
-                                                            <Setter Property="Background" Value="#2196F3"/>
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>

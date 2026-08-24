@@ -23,10 +23,6 @@ namespace WpfCompanyApp.Views
         public ManualView()
         {
             InitializeComponent();
-
-            //// LẤY ĐÚNG INSTANCE AppDataService đã đăng ký Singleton
-            //var data = App.Services.GetRequiredService<AppDataService>();
-            //DataContext = data;
         }
 
         private void Button_Click(object sender, RoutedEventArgs e)

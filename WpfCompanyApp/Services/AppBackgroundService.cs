@@ -90,6 +90,7 @@ namespace WpfCompanyApp.Services
         SelectTool,
         LoadCalibration,
         PickProduct,
+        WaitPickMove,
         HandlePickResult,
         ConfirmCylinderSensors,
         Complete
@@ -145,6 +146,7 @@ namespace WpfCompanyApp.Services
         private bool _robotConnectFailureLogged = false;
         private bool? _lastRobotReadyStatus;
         private string _lastRobotStatusSignature = "";
+        private string _lastManualRobotAlarmSignature = "";
         private DateTime _nextRobotStatusCheckUtc = DateTime.MinValue;
         private static readonly TimeSpan RobotStatusCheckInterval = TimeSpan.FromSeconds(1);
         private DateTime _nextHomePositionCheckUtc = DateTime.MinValue;
@@ -170,6 +172,7 @@ namespace WpfCompanyApp.Services
         private bool _lastCi4Start;
         private bool _lastCi5Stop;
         private bool _lastCi6Reset;
+        private bool _robotControlInputsInitialized;
         private bool _robotControlCiReadFailed;
 
         // Cycle time is measured only while the machine is actually Running.
@@ -587,7 +590,7 @@ namespace WpfCompanyApp.Services
             xpixel = products.Select(product => product.X).ToArray();
             ypixel = products.Select(product => product.Y).ToArray();
             AddMachineLog(
-                $"[READY] Basket{_readyCurrentBasket}: đã gộp kết quả hai hàm tìm kiếm, " +
+                $"[READY] Basket{_readyCurrentBasket}: đã gộp các chuỗi kết quả Vision, " +
                 $"còn {products.Count} sản phẩm không trùng.");
             HandleVisionTriggerResult(products.Count);
         }
@@ -603,7 +606,7 @@ namespace WpfCompanyApp.Services
             if (string.IsNullOrWhiteSpace(rawResult))
                 return true;
 
-            string normalized = rawResult.Trim().TrimStart('[').TrimEnd(']');
+            string normalized = rawResult.Trim();
             string[] groups = normalized.Split('#');
             if (groups.Length == 0)
             {
@@ -614,7 +617,8 @@ namespace WpfCompanyApp.Services
             var parsedGroups = new List<List<VisionProduct>>();
             for (int groupIndex = 0; groupIndex < groups.Length; groupIndex++)
             {
-                string[] fields = groups[groupIndex]
+                string group = groups[groupIndex].Trim().TrimStart('[').TrimEnd(']');
+                string[] fields = group
                     .Split(new[] { ';' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(field => field.Trim())
                     .ToArray();
@@ -628,11 +632,11 @@ namespace WpfCompanyApp.Services
                 if (!int.TryParse(fields[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int count) ||
                     count < 0)
                 {
-                    // Một số flow Vision nối thêm dữ liệu phụ sau dấu '#'
-                    // nhưng không đặt số lượng ở đầu nhóm. Khi gặp định dạng này,
-                    // giữ các sản phẩm hợp lệ đã đọc trước '#' và bỏ phần còn lại.
-                    if (groupIndex > 0)
-                        break;
+                    // Với định dạng mới, phần đứng trước dấu '#' chỉ là tiền tố;
+                    // mỗi đoạn sau '#' mới là một chuỗi kết quả Vision. Bỏ tiền tố
+                    // để vẫn đọc đầy đủ tất cả các kết quả ở phía sau.
+                    if (groupIndex == 0 && groups.Length > 1)
+                        continue;
 
                     error = $"số lượng nhóm {groupIndex + 1} không hợp lệ";
                     return false;
@@ -672,6 +676,12 @@ namespace WpfCompanyApp.Services
                 }
 
                 parsedGroups.Add(products);
+            }
+
+            if (parsedGroups.Count == 0)
+            {
+                error = "không tìm thấy chuỗi kết quả nào sau dấu '#'";
+                return false;
             }
 
             // Gộp tuần tự tất cả kết quả và loại mọi tọa độ trùng, kể cả trường hợp
@@ -1568,6 +1578,10 @@ namespace WpfCompanyApp.Services
                 if (ok)
                 {
                     _isRobotConnected = true;
+                    // Mẫu CI đầu tiên sau khi kết nối chỉ dùng làm trạng thái gốc.
+                    // Nếu một nút đang giữ ON lúc mở chương trình, không được hiểu
+                    // nhầm đó là cạnh nhấn mới và tự tạo lệnh Start/Stop/Reset.
+                    _robotControlInputsInitialized = false;
                     AddMachineLog(
                         _robotConnectFailureLogged
                             ? "[ROBOT TCP] Đã kết nối lại robot thành công."
@@ -1625,6 +1639,12 @@ namespace WpfCompanyApp.Services
 
                 _lastRobotReadyStatus = null;
                 _lastRobotStatusSignature = readErrorSignature;
+                Application.Current?.Dispatcher.Invoke(() =>
+                {
+                    _data.RobotHasFault = true;
+                    _data.RobotStatusMessage =
+                        $"Không đọc được trạng thái robot ({result}). Kiểm tra kết nối và Status / Log.";
+                });
                 return;
             }
 
@@ -1672,6 +1692,33 @@ namespace WpfCompanyApp.Services
             string statusSignature = isReady
                 ? "READY"
                 : string.Join("|", notReadyReasons);
+
+            bool hasFault =
+                state[2] != 0 || state[3] != 0 || state[4] != 0 || state[7] != 0;
+            string operatorMessage = hasFault
+                ? state[7] != 0
+                    ? "EMERGENCY STOP đang tác động. Bảo đảm vùng máy an toàn, nhả Emergency Stop, xử lý nguyên nhân rồi nhấn Reset Robot."
+                    : $"Robot đang lỗi (mã {state[3]}, trục {state[4]}). Kiểm tra Status / Log, xử lý nguyên nhân rồi nhấn Reset Robot."
+                : isReady
+                    ? "Robot sẵn sàng vận hành."
+                    : $"Robot chưa sẵn sàng: {string.Join("; ", notReadyReasons)}.";
+
+            Application.Current?.Dispatcher.Invoke(() =>
+            {
+                _data.RobotHasFault = hasFault;
+                _data.RobotStatusMessage = operatorMessage;
+            });
+
+            if (!hasFault)
+            {
+                _lastManualRobotAlarmSignature = "";
+            }
+            else if (_data.ManualActive && _lastManualRobotAlarmSignature != statusSignature)
+            {
+                _lastManualRobotAlarmSignature = statusSignature;
+                AddMachineLog($"[MANUAL][ROBOT ALARM] {operatorMessage}");
+                AutoCloseToast.ShowError(operatorMessage, 6000, "Cảnh báo Robot");
+            }
 
             // Chỉ ghi khi trạng thái thay đổi để không làm đầy Robot History.
             if (!force &&
@@ -2518,6 +2565,13 @@ namespace WpfCompanyApp.Services
         private double _pickRobotX = 0;
         private double _pickRobotY = 0;
         private bool _pickCurrentOk = false;
+        private PosMoveL? _pickPendingMoveTarget;
+        private DateTime _pickMoveStartedAtUtc = DateTime.MinValue;
+        private DateTime _pickMoveNextPollUtc = DateTime.MinValue;
+        private int _pickMoveReadFailureCount;
+        private static readonly TimeSpan PickMoveTimeout = TimeSpan.FromSeconds(10);
+        private static readonly TimeSpan PickMovePollInterval = TimeSpan.FromMilliseconds(20);
+        private const double PickMovePositionToleranceMm = 0.2;
         private bool _pickCylinderRaisedBeforeHandleResult;
         private DateTime _pickCylinderConfirmStartedAtUtc = DateTime.MinValue;
         private static readonly TimeSpan PickCylinderConfirmTimeout = TimeSpan.FromSeconds(1);
@@ -2576,6 +2630,10 @@ namespace WpfCompanyApp.Services
             _pickRobotX = 0;
             _pickRobotY = 0;
             _pickCurrentOk = false;
+            _pickPendingMoveTarget = null;
+            _pickMoveStartedAtUtc = DateTime.MinValue;
+            _pickMoveNextPollUtc = DateTime.MinValue;
+            _pickMoveReadFailureCount = 0;
             _pickCylinderConfirmStartedAtUtc = DateTime.MinValue;
             Array.Clear(_pickAttemptsPerTool, 0, _pickAttemptsPerTool.Length);
         }
@@ -3014,8 +3072,8 @@ namespace WpfCompanyApp.Services
                     _data.SelectedFullWorkSensor,
                     "Máy2",
                     StringComparison.OrdinalIgnoreCase)
-                ? "Máy2 (X1/20481)"
-                : "Máy1 (X0/20480)";
+                ? $"{_data.FullWorkMachine2Name} (X1/20481)"
+                : $"{_data.FullWorkMachine1Name} (X0/20480)";
         }
 
         private void SetFullWorkLamp(bool on)
@@ -3678,7 +3736,7 @@ namespace WpfCompanyApp.Services
             return readOk && isHolding;
         }
 
-        private bool TryPickWithTool(int tool, double robotX, double robotY)
+        private PosMoveL BuildPickPoint(int tool, double robotX, double robotY)
         {
             PickOffsetSetting offset = _data.GetPickOffset(
                 _readyCurrentBasket,
@@ -3696,11 +3754,109 @@ namespace WpfCompanyApp.Services
                 pickRz += _readyCurrentBasket == 1 ? 90 : -90;
             }
 
+            return new PosMoveL
+            {
+                X = offsetRobotX,
+                Y = offsetRobotY,
+                Z = pickZ,
+                RX = moveLPickProduct.RX,
+                RY = moveLPickProduct.RY,
+                RZ = pickRz
+            };
+        }
+
+        private bool StartPickMove(int tool, double robotX, double robotY)
+        {
+            PickOffsetSetting offset = _data.GetPickOffset(
+                _readyCurrentBasket,
+                tool,
+                robotX,
+                moveLPickProduct.X);
+
             AddRobotHistory(
                 $"[READY] Offset Basket{_readyCurrentBasket}/{GetToolName(tool)}: " +
                 $"DeltaX={offset.DeltaX}, DeltaY={offset.DeltaY}.");
 
-            if (!MovePickPoint(offsetRobotX, offsetRobotY, pickZ, pickRz))
+            PosMoveL target = BuildPickPoint(tool, robotX, robotY);
+            var commandStopwatch = Stopwatch.StartNew();
+            string result = _robot.MoveL_NoComplete(0, target, 0);
+            commandStopwatch.Stop();
+            LogPerformanceIfSlow(
+                $"MovePickPointCommand/Tool{tool}",
+                commandStopwatch.ElapsedMilliseconds);
+
+            if (result != "OK")
+            {
+                AddMachineLog($"[READY] Move gắp lỗi: {result}");
+                return false;
+            }
+
+            _pickPendingMoveTarget = target;
+            _pickMoveStartedAtUtc = DateTime.UtcNow;
+            _pickMoveNextPollUtc = DateTime.UtcNow;
+            _pickMoveReadFailureCount = 0;
+            return true;
+        }
+
+        private bool TryCompletePendingPickMove(out bool completed)
+        {
+            completed = false;
+            PosMoveL? target = _pickPendingMoveTarget;
+            if (target == null)
+                return false;
+
+            DateTime nowUtc = DateTime.UtcNow;
+            if (nowUtc - _pickMoveStartedAtUtc >= PickMoveTimeout)
+            {
+                AddMachineLog(
+                    $"[READY] Timeout {PickMoveTimeout.TotalSeconds:0.#} giây chờ robot tới điểm gắp.");
+                return false;
+            }
+
+            if (nowUtc < _pickMoveNextPollUtc)
+                return true;
+
+            _pickMoveNextPollUtc = nowUtc + PickMovePollInterval;
+            string readResult = _robot.ReadActualPosMoveL(0, out PosMoveL actual);
+            if (readResult != "OK" || actual == null)
+            {
+                _pickMoveReadFailureCount++;
+                if (_pickMoveReadFailureCount < 3)
+                    return true;
+
+                AddMachineLog(
+                    $"[READY] Không đọc được tọa độ robot khi chờ điểm gắp sau " +
+                    $"{_pickMoveReadFailureCount} lần: {readResult}.");
+                return false;
+            }
+
+            _pickMoveReadFailureCount = 0;
+            bool reached =
+                Math.Abs(actual.X - target.X) <= PickMovePositionToleranceMm &&
+                Math.Abs(actual.Y - target.Y) <= PickMovePositionToleranceMm &&
+                Math.Abs(actual.Z - target.Z) <= PickMovePositionToleranceMm;
+
+            if (!reached)
+                return true;
+
+            completed = true;
+            long elapsedMs = (long)(nowUtc - _pickMoveStartedAtUtc).TotalMilliseconds;
+            AddRobotHistory($"[PERF] MovePickPoint/Tool{_pickCurrentTool}: {elapsedMs} ms.");
+            AddRobotHistory(
+                $"[READY] Move gắp -> X:{target.X}, Y:{target.Y}, Z:{target.Z}, RZ:{target.RZ}");
+            _pickPendingMoveTarget = null;
+            return true;
+        }
+
+        private bool TryPickWithTool(int tool, double robotX, double robotY, bool skipInitialMove = false)
+        {
+            PosMoveL initialPickPoint = BuildPickPoint(tool, robotX, robotY);
+            double offsetRobotX = initialPickPoint.X;
+            double offsetRobotY = initialPickPoint.Y;
+            double pickZ = initialPickPoint.Z;
+            double pickRz = initialPickPoint.RZ;
+
+            if (!skipInitialMove && !MovePickPoint(offsetRobotX, offsetRobotY, pickZ, pickRz))
             {
                 FailReadyCycle($"[READY] Robot không di chuyển được tới điểm gắp cho {GetToolName(tool)}. Dừng máy, cần Reset lỗi.");
                 return false;
@@ -3764,11 +3920,11 @@ namespace WpfCompanyApp.Services
             }
 
             AddMachineLog($"[READY] {GetToolName(tool)} hút lần 1 trượt, hạ RetryZ={_data.RetryZ}.");
-            if (!MovePickPoint(offsetRobotX, offsetRobotY, pickZ - _data.RetryZ, pickRz))
-            {
-                FailReadyCycle($"[READY] Robot không hạ được RetryZ cho {GetToolName(tool)}. Dừng máy, cần Reset lỗi.");
-                return false;
-            }
+            //if (!MovePickPoint(offsetRobotX, offsetRobotY, pickZ - _data.RetryZ, pickRz))
+            //{
+            //    FailReadyCycle($"[READY] Robot không hạ được RetryZ cho {GetToolName(tool)}. Dừng máy, cần Reset lỗi.");
+            //    return false;
+            //}
 
             SetToolVacuum(tool, true);
             holdingStopwatch.Restart();
@@ -3925,17 +4081,25 @@ namespace WpfCompanyApp.Services
                 return false;
             }
 
-            if (state[7] != 0 || state[2] != 0 || state[3] != 0 || state[4] != 0)
-            {
-                string errorDescription = state[3] != 0
-                    ? new Error_Robot().Ss_Error(state[3])
-                    : "Robot đang ở trạng thái lỗi";
+            //if (state[7] != 0 || state[2] != 0 || state[3] != 0 || state[4] != 0)
+            //{
+            //    string errorDescription = state[3] != 0
+            //        ? new Error_Robot().Ss_Error(state[3])
+            //        : "Robot đang ở trạng thái lỗi";
 
+            //    error =
+            //        $"Robot ERROR - ErrorCode={state[3]} ({errorDescription}), " +
+            //        $"ErrorAxis={state[4]}, Emergency={state[7]}. " +
+            //        "Không gửi lệnh khởi tạo. Hãy nhả Emergency Stop nếu đang tác động, sau đó nhấn nút Reset.";
+            //    AddRobotHistory($"[ERROR][ROBOT STATUS] {error}");
+            //    return false;
+            //}
+            // Emergency
+            if (state[7] != 0)
+            {
                 error =
-                    $"Robot ERROR - ErrorCode={state[3]} ({errorDescription}), " +
-                    $"ErrorAxis={state[4]}, Emergency={state[7]}. " +
-                    "Không gửi lệnh khởi tạo. Hãy nhả Emergency Stop nếu đang tác động, sau đó nhấn nút Reset.";
-                AddRobotHistory($"[ERROR][ROBOT STATUS] {error}");
+                    $"Robot vẫn còn Emergency Stop: Emergency={state[7]}. " +
+                    "Hãy nhả nút Emergency Stop rồi nhấn Reset lại.";
                 return false;
             }
 
@@ -4114,11 +4278,11 @@ namespace WpfCompanyApp.Services
                 return false;
             }
 
-            if (state[7] == 0 && state[2] == 0 && state[3] == 0 && state[4] == 0)
-            {
-                error = string.Empty;
-                return true;
-            }
+            //if (state[7] == 0 && state[2] == 0 && state[3] == 0 )
+            //{
+            //    error = string.Empty;
+            //    return true;
+            //}
 
             AddRobotHistory(
                 $"[RESET][ROBOT STATUS] Gửi GrpReset - ErrorCode={state[3]}, " +
@@ -4142,8 +4306,7 @@ namespace WpfCompanyApp.Services
                 if (stateReadOk &&
                     state[7] == 0 &&
                     state[2] == 0 &&
-                    state[3] == 0 &&
-                    state[4] == 0)
+                    state[3] == 0 )
                 {
                     _lastRobotReadyStatus = null;
                     _lastRobotStatusSignature = "";
@@ -4161,16 +4324,50 @@ namespace WpfCompanyApp.Services
                 return false;
             }
 
-            if (state[7] != 0 || state[2] != 0 || state[3] != 0 || state[4] != 0)
+            //if (state[7] != 0 || state[2] != 0 || state[3] != 0 || state[4] != 0)
+            //{
+            //    error =
+            //        $"Robot vẫn còn lỗi sau Reset: ErrorCode={state[3]}, " +
+            //        $"ErrorAxis={state[4]}, Emergency={state[7]}. " +
+            //        $"Response lệnh={resetResult}. Nếu Emergency=1, hãy nhả nút " +
+            //        "Emergency Stop rồi nhấn Reset lại.";
+            //    return false;
+            //}
+            // Emergency
+            if (state[7] != 0)
             {
                 error =
-                    $"Robot vẫn còn lỗi sau Reset: ErrorCode={state[3]}, " +
-                    $"ErrorAxis={state[4]}, Emergency={state[7]}. " +
-                    $"Response lệnh={resetResult}. Nếu Emergency=1, hãy nhả nút " +
-                    "Emergency Stop rồi nhấn Reset lại.";
+                    $"Robot vẫn còn Emergency Stop: Emergency={state[7]}. " +
+                    "Hãy nhả nút Emergency Stop rồi nhấn Reset lại.";
                 return false;
             }
 
+            // Robot Error Code
+            if (state[3] != 0)
+            {
+                error =
+                    $"Robot vẫn còn lỗi: ErrorCode={state[3]}. " +
+                    $"Response lệnh Reset={resetResult}.";
+                return false;
+            }
+
+            // Robot Error Axis
+            if (state[4] != 0)
+            {
+                error =
+                    $"Robot vẫn còn lỗi Axis: ErrorAxis={state[4]}. " +
+                    $"Response lệnh Reset={resetResult}.";
+                return false;
+            }
+
+            // State 2
+            if (state[2] != 0)
+            {
+                error =
+                    $"Robot vẫn còn trạng thái lỗi: State[2]={state[2]}. " +
+                    $"Response lệnh Reset={resetResult}.";
+                return false;
+            }
             error = $"Không xác định được kết quả Reset; response lệnh={resetResult}.";
             return false;
         }
@@ -4663,7 +4860,38 @@ namespace WpfCompanyApp.Services
                 case PickToolSubState.PickProduct:
                     _pickCylinderRaisedBeforeHandleResult = false;
 
-                    _pickCurrentOk = TryPickWithTool(_pickCurrentTool, _pickRobotX, _pickRobotY);
+                    if (!StartPickMove(_pickCurrentTool, _pickRobotX, _pickRobotY))
+                    {
+                        FailReadyCycle(
+                            $"[READY] Robot không di chuyển được tới điểm gắp cho {_pickCurrentToolName}. " +
+                            "Dừng máy, cần Reset lỗi.");
+                        _pickToolState = PickToolSubState.Complete;
+                        return true;
+                    }
+
+                    _pickToolState = PickToolSubState.WaitPickMove;
+                    return false;
+
+                // Không giữ luồng trong CompleteXYZ(). Mỗi vòng quét chỉ đọc vị trí
+                // một lần; các request Stop/Pause và giám sát an toàn vẫn được xử lý.
+                case PickToolSubState.WaitPickMove:
+                    if (!TryCompletePendingPickMove(out bool moveCompleted))
+                    {
+                        FailReadyCycle(
+                            $"[READY] Robot không xác nhận được điểm gắp cho {_pickCurrentToolName}. " +
+                            "Dừng máy, cần Reset lỗi.");
+                        _pickToolState = PickToolSubState.Complete;
+                        return true;
+                    }
+
+                    if (!moveCompleted)
+                        return false;
+
+                    _pickCurrentOk = TryPickWithTool(
+                        _pickCurrentTool,
+                        _pickRobotX,
+                        _pickRobotY,
+                        skipInitialMove: true);
                     if (_state == AppState.Error)
                     {
                         _pickToolState = PickToolSubState.Complete;
@@ -5546,12 +5774,16 @@ namespace WpfCompanyApp.Services
                         return;
                     }
 
-                    if (openState[7] != 0 || openState[2] != 0 || openState[3] != 0 || openState[4] != 0)
+                    //if (openState[7] != 0 || openState[2] != 0 || openState[3] != 0 || openState[4] != 0)
+                    //{
+                    //    AddMachineLog("[MANUAL] OPEN bị chặn: robot đang lỗi/Emergency. Hãy Reset trước.");
+                    //    return;
+                    //}
+                    if (openState[7] != 0 )
                     {
                         AddMachineLog("[MANUAL] OPEN bị chặn: robot đang lỗi/Emergency. Hãy Reset trước.");
                         return;
                     }
-
                     bool wasPoweredOn = openState[9] == 1;
                     if (openState[9] == 0)
                     {
@@ -5802,6 +6034,8 @@ namespace WpfCompanyApp.Services
         // === MANUAL ===
         private void HandleManual()
         {
+            // Keep the Manual robot indicators live even while the main state is Error.
+            UpdateRobotStatusHistory();
             UpdateManualStatusIfDue();
 
             bool fullManualAllowed =
@@ -6146,6 +6380,20 @@ namespace WpfCompanyApp.Services
             bool ci4Start = ci[4] == 1;
             bool ci5Stop = ci[5] == 1;
             bool ci6Reset = ci[6] == 1;
+
+            if (!_robotControlInputsInitialized)
+            {
+                _lastCi4Start = ci4Start;
+                _lastCi5Stop = ci5Stop;
+                _lastCi6Reset = ci6Reset;
+                _robotControlInputsInitialized = true;
+                AddMachineLog(
+                    $"[CONTROL INPUT] Đồng bộ trạng thái ban đầu: " +
+                    $"CI4(Start)={(ci4Start ? 1 : 0)}, " +
+                    $"CI5(Stop)={(ci5Stop ? 1 : 0)}, " +
+                    $"CI6(Reset)={(ci6Reset ? 1 : 0)}. Không phát lệnh điều khiển.");
+                return;
+            }
 
             bool startRising = ci4Start && !_lastCi4Start;
             bool stopRising = ci5Stop && !_lastCi5Stop;

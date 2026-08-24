@@ -7,6 +7,7 @@ using WpfCompanyApp.Models;
 using Newtonsoft.Json;
 using System.Threading;
 using System.Globalization;
+using System.Diagnostics;
 
 namespace WpfCompanyApp.Services
 {
@@ -695,7 +696,7 @@ namespace WpfCompanyApp.Services
                 return CODE.ERR_Connect;
             }
         }
-       
+
         public int OSCmd()
         {
             //	for(int i = 0; i < 10; i++)
@@ -1049,7 +1050,7 @@ namespace WpfCompanyApp.Services
             }
             return CODE.CONNECT_FAIL;
         }
-        public string ReadActualPosMoveL(int rbtID,out PosMoveL moveL)
+        public string ReadActualPosMoveL(int rbtID, out PosMoveL moveL)
         {
             PosMoveL moveL1 = new PosMoveL();
             for (int i = 0; i < 5; i++)
@@ -1074,14 +1075,14 @@ namespace WpfCompanyApp.Services
                                 moveL1.RZ = double.Parse(arraybuf[13], System.Globalization.CultureInfo.InvariantCulture);
                                 moveL = moveL1;
                                 return Pos = arraybuf[1];
-                             }
-                            else  
+                            }
+                            else
                             {
                                 moveL = null;
                                 return arraybuf[2];
 
                             }
-                              
+
                         }
                         else
                         {
@@ -1089,7 +1090,7 @@ namespace WpfCompanyApp.Services
                             return CODE.SUBRECIVE_FAIL;
 
                         }
-                       
+
                     }
                     else
                     {
@@ -2091,76 +2092,157 @@ namespace WpfCompanyApp.Services
         }
         public string MoveL(int rbtID, PosMoveL Jpos, int err)
         {
-            string Jposition;//= string.Concat(new object[]{ ",",Jpos.X,",",Jpos.Y,",",Jpos.Z, ",",Jpos.RX,",",Jpos.RY,",",Jpos.RZ});
+            string Jposition;
+
             if (err == 0)
             {
-                Jposition = string.Concat(new object[] { ",", Jpos.X, ",", Jpos.Y, ",", Jpos.Z, ",", Jpos.RX, ",", Jpos.RY, ",", Jpos.RZ });
-            }
-            else if (err == 1)
-            {
-                Jpos.Z = Jpos.Z - 8;
-                Jposition = string.Concat(new object[] { ",", Jpos.X, ",", Jpos.Y, ",", Jpos.Z, ",", Jpos.RX, ",", Jpos.RY, ",", Jpos.RZ });
-            }
-            else if (err == 2)
-            {
-                Jpos.Z = Jpos.Z - 8;
-                Jposition = string.Concat(new object[] { ",", Jpos.X, ",", Jpos.Y, ",", Jpos.Z, ",", Jpos.RX, ",", Jpos.RY, ",", Jpos.RZ });
-            }
-            else if (err == 3)
-            {
-                Jpos.Z = Jpos.Z - 8;
-                Jposition = string.Concat(new object[] { ",", Jpos.X, ",", Jpos.Y, ",", Jpos.Z, ",", Jpos.RX, ",", Jpos.RY, ",", Jpos.RZ });
+                Jposition = string.Concat(new object[]
+                {
+            ",", Jpos.X, ",", Jpos.Y, ",", Jpos.Z,
+            ",", Jpos.RX, ",", Jpos.RY, ",", Jpos.RZ
+                });
             }
             else
             {
-                Jposition = string.Concat(new object[] { ",", Jpos.X, ",", Jpos.Y, ",", Jpos.Z, ",", Jpos.RX, ",", Jpos.RY, ",", Jpos.RZ });
+                Jpos.Z = Jpos.Z - 8;
+
+                Jposition = string.Concat(new object[]
+                {
+            ",", Jpos.X, ",", Jpos.Y, ",", Jpos.Z,
+            ",", Jpos.RX, ",", Jpos.RY, ",", Jpos.RZ
+                });
             }
-            int sends = this.tcpsent(string.Concat(new object[] { "MoveL,", rbtID, Jposition, ",;" }));
-            bool flag = sends == 0;
-            string result;
-            if (flag)
+
+            // Thử gửi lệnh tối đa 5 lần
+            for (int attempt = 1; attempt <= 5; attempt++)
             {
+                int sends = this.tcpsent(
+                    string.Concat(new object[]
+                    {
+                "MoveL,", rbtID, Jposition, ",;"
+                    }));
+
+                if (sends != 0)
+                {
+                    return "CONNECT_FAIL";
+                }
+
                 string bufdata = this.subReciveCmd("MoveL");
-                bool flag2 = bufdata != "";
-                if (flag2)
+
+                if (string.IsNullOrEmpty(bufdata))
                 {
-                    string[] arraybuf = bufdata.Split(',');
-                    if (arraybuf[1] == "OK")
-                    {
-                        int complete = CompleteXYZ(Jpos);
-                        if (complete == 0)
-                        {
-                            // Thread.Sleep(100);
-                            return CODE.OK;
-                        }
-                        else
-                        {
-                            return CODE.FAIL;
-                        }
-                        //string AxisCompleted = this.WaitMotionFinish();
-                        //if (AxisCompleted == "0") {
-                        //    result = arraybuf[1];
-                        //}
-                        //else {
-                        //    result = AxisCompleted;
-                        //}
-                    }
-                    else
-                    {
-                        result = arraybuf[2];
-                    }
+                    return "SUBRECIVE_FAIL";
                 }
-                else
+
+                string[] arraybuf = bufdata.Split(',');
+
+                if (arraybuf.Length < 3)
                 {
-                    result = CODE.SUBRECIVE_FAIL;
+                    return "Data error";
                 }
+
+                // Robot OK
+                if (arraybuf[1] == "OK")
+                {
+                    int complete = CompleteXYZ(Jpos);
+
+                    return complete == 0
+                        ? CODE.OK
+                        : CODE.FAIL;
+                }
+
+                // Robot trả về 20018
+                if (arraybuf[2] == "20018")
+                {
+                    // Nếu chưa đủ 5 lần thì gửi lại
+                    if (attempt < 5)
+                    {
+                        Thread.Sleep(100);
+                        continue;
+                    }
+
+                    // 5 lần liên tiếp đều 20018
+                    return "5 lần liên tiếp đều 20018";
+                }
+
+                // Các lỗi khác -> return ngay
+                return arraybuf[2];
             }
-            else
-            {
-                result = CODE.CONNECT_FAIL;
-            }
-            return result;
+
+            return CODE.FAIL;
         }
+        //public string MoveL(int rbtID, PosMoveL Jpos, int err)
+        //{
+        //    string Jposition;//= string.Concat(new object[]{ ",",Jpos.X,",",Jpos.Y,",",Jpos.Z, ",",Jpos.RX,",",Jpos.RY,",",Jpos.RZ});
+        //    if (err == 0)
+        //    {
+        //        Jposition = string.Concat(new object[] { ",", Jpos.X, ",", Jpos.Y, ",", Jpos.Z, ",", Jpos.RX, ",", Jpos.RY, ",", Jpos.RZ });
+        //    }
+        //    else if (err == 1)
+        //    {
+        //        Jpos.Z = Jpos.Z - 8;
+        //        Jposition = string.Concat(new object[] { ",", Jpos.X, ",", Jpos.Y, ",", Jpos.Z, ",", Jpos.RX, ",", Jpos.RY, ",", Jpos.RZ });
+        //    }
+        //    else if (err == 2)
+        //    {
+        //        Jpos.Z = Jpos.Z - 8;
+        //        Jposition = string.Concat(new object[] { ",", Jpos.X, ",", Jpos.Y, ",", Jpos.Z, ",", Jpos.RX, ",", Jpos.RY, ",", Jpos.RZ });
+        //    }
+        //    else if (err == 3)
+        //    {
+        //        Jpos.Z = Jpos.Z - 8;
+        //        Jposition = string.Concat(new object[] { ",", Jpos.X, ",", Jpos.Y, ",", Jpos.Z, ",", Jpos.RX, ",", Jpos.RY, ",", Jpos.RZ });
+        //    }
+        //    else
+        //    {
+        //        Jposition = string.Concat(new object[] { ",", Jpos.X, ",", Jpos.Y, ",", Jpos.Z, ",", Jpos.RX, ",", Jpos.RY, ",", Jpos.RZ });
+        //    }
+        //    int sends = this.tcpsent(string.Concat(new object[] { "MoveL,", rbtID, Jposition, ",;" }));
+        //    bool flag = sends == 0;
+        //    string result;
+        //    if (flag)
+        //    {
+        //        string bufdata = this.subReciveCmd("MoveL");
+        //        bool flag2 = bufdata != "";
+        //        if (flag2)
+        //        {
+        //            string[] arraybuf = bufdata.Split(',');
+        //            if (arraybuf[1] == "OK" || arraybuf[2] == "20018")
+        //            {
+        //                int complete = CompleteXYZ(Jpos);
+        //                if (complete == 0)
+        //                {
+        //                    // Thread.Sleep(100);
+        //                    return CODE.OK;
+        //                }
+        //                else
+        //                {
+        //                    return CODE.FAIL;
+        //                }
+        //                //string AxisCompleted = this.WaitMotionFinish();
+        //                //if (AxisCompleted == "0") {
+        //                //    result = arraybuf[1];
+        //                //}
+        //                //else {
+        //                //    result = AxisCompleted;
+        //                //}
+        //            }
+        //            else
+        //            {
+        //                result = arraybuf[2];
+        //            }
+        //        }
+        //        else
+        //        {
+        //            result = CODE.SUBRECIVE_FAIL;
+        //        }
+        //    }
+        //    else
+        //    {
+        //        result = CODE.CONNECT_FAIL;
+        //    }
+        //    return result;
+        //}
         public string MoveL_NoComplete(int rbtID, PosMoveL Jpos, int err)
         {
             string Jposition;//= string.Concat(new object[]{ ",",Jpos.X,",",Jpos.Y,",",Jpos.Z, ",",Jpos.RX,",",Jpos.RY,",",Jpos.RZ});
@@ -3215,99 +3297,125 @@ namespace WpfCompanyApp.Services
             }
         }
 
-     
+
         public string SettingStatus(int[] data)
         {
             return "Ok";
         }
         public int CompleteXYZ(PosMoveL pla)
         {
-            bool flag01 = true;
-            bool flag02 = true;
-            bool flag03 = true;
-            //bool flag04 = true;
-            //bool flag05 = true;
-            bool flag06 = true;
-            bool flag2 = true;
-            int i = 0;
-            while (flag2 == true)
+            const double positionToleranceMm = 1;
+            TimeSpan timeout = TimeSpan.FromSeconds(30);
+
+            var stopwatch = Stopwatch.StartNew();
+
+            int invalidDataCount = 0;
+
+            while (stopwatch.Elapsed < timeout)
             {
-                Thread.Sleep(10);
+                Thread.Sleep(20);
+
                 string str = ReadActualPos(0);
+
+                if (string.IsNullOrWhiteSpace(str))
+                {
+                    invalidDataCount++;
+
+                    if (invalidDataCount >= 3)
+                        return 1;
+
+                    continue;
+                }
+
                 string[] arr = str.Split(',');
-                if (arr[0] == "OK")
+
+                // Data không hợp lệ
+                if (arr.Length < 7 || arr[0] != "OK")
                 {
-                    if ((double.Parse(arr[1], System.Globalization.CultureInfo.InvariantCulture) > (pla.X - 0.05)) && (double.Parse(arr[1]) < (pla.X + 0.05)))
-                    {
-                        flag01 = true;
-                    }
-                    else
-                    {
-                        flag01 = false;
-                    }
-                    if ((double.Parse(arr[2], System.Globalization.CultureInfo.InvariantCulture) > (pla.Y - 0.05)) && ((double.Parse(arr[2]) < (pla.Y + 0.05))))
-                    {
-                        flag02 = true;
-                    }
-                    else
-                    {
-                        flag02 = false;
-                    }
-                    if ((double.Parse(arr[3], System.Globalization.CultureInfo.InvariantCulture) > (pla.Z - 0.05)) && (double.Parse(arr[3]) < (pla.Z + 0.05)))
-                    {
-                        flag03 = true;
-                    }
-                    else
-                    {
-                        flag03 = false;
-                    }
-                    //if ((double.Parse(arr[4]) > (pla.RX - 0.03)) && (double.Parse(arr[4]) < (pla.RX + 0.03)))
-                    //{
-                    //	flag04 = true;
-                    //}
-                    //else
-                    //{
-                    //	flag04 = false;
-                    //}
-                    //if ((double.Parse(arr[5]) > (pla.RY - 0.03)) && (double.Parse(arr[5]) < (pla.RY + 0.03)))
-                    //{
-                    //	flag05 = true;
-                    //}
-                    //else
-                    //{
-                    //	flag05 = false;
-                    //}
-                    if ((double.Parse(arr[6], System.Globalization.CultureInfo.InvariantCulture) > (pla.RZ - 0.05)) && (double.Parse(arr[6]) < (pla.RZ + 0.05)))
-                    {
-                        flag06 = true;
-                    }
-                    else
-                    {
-                        flag06 = true;
-                    }
-                }
-                else
-                {
-                    return 1;
+                    invalidDataCount++;
+
+                    if (invalidDataCount >= 3)
+                        return 1;
+
+                    continue;
                 }
 
-                if (flag03 == true && flag01 == true && flag02 == true && flag06 == true)
+                // Data hợp lệ → reset số lần lỗi liên tiếp
+                invalidDataCount = 0;
+
+                // Parse X/Y/Z
+                if (!double.TryParse(
+                        arr[1],
+                        System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out double actualX) ||
+
+                    !double.TryParse(
+                        arr[2],
+                        System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out double actualY) ||
+
+                    !double.TryParse(
+                        arr[3],
+                        System.Globalization.NumberStyles.Float,
+                        System.Globalization.CultureInfo.InvariantCulture,
+                        out double actualZ))
                 {
-                    flag2 = false;
-                    Thread.Sleep(10);
+                    invalidDataCount++;
+
+                    if (invalidDataCount >= 3)
+                        return 1;
+
+                    continue;
+                }
+
+                // Kiểm tra robot đã tới vị trí yêu cầu chưa
+                bool reached =
+                    Math.Abs(actualX - pla.X) <= positionToleranceMm &&
+                    Math.Abs(actualY - pla.Y) <= positionToleranceMm &&
+                    Math.Abs(actualZ - pla.Z) <= positionToleranceMm;
+
+                if (reached)
                     return 0;
-                }
-                i++;
-                // Polling giảm từ 20 ms xuống 10 ms nên tăng số lượt để giữ
-                // nguyên timeout xấp xỉ 30 giây.
-                if (i > 3000)
-                {
-                    return 1;
-                }
-
             }
+
+            // Quá 30 giây nhưng robot chưa tới vị trí
             return 1;
         }
+        //public int CompleteXYZ(PosMoveL pla)
+        //{
+        //    const double positionToleranceMm = 0.2;
+        //    TimeSpan timeout = TimeSpan.FromSeconds(30);
+        //    var stopwatch = Stopwatch.StartNew();
+
+        //    while (stopwatch.Elapsed < timeout)
+        //    {
+        //        Thread.Sleep(20);
+        //        string str = ReadActualPos(0);
+        //        string[] arr = str.Split(',');
+        //        if (arr.Length < 7 || arr[0] != "OK")
+        //            return 1;
+
+        //        if (!double.TryParse(arr[1], System.Globalization.NumberStyles.Float,
+        //                System.Globalization.CultureInfo.InvariantCulture, out double actualX) ||
+        //            !double.TryParse(arr[2], System.Globalization.NumberStyles.Float,
+        //                System.Globalization.CultureInfo.InvariantCulture, out double actualY) ||
+        //            !double.TryParse(arr[3], System.Globalization.NumberStyles.Float,
+        //                System.Globalization.CultureInfo.InvariantCulture, out double actualZ))
+        //            return 1;
+
+        //        bool reached =
+        //            Math.Abs(actualX - pla.X) <= positionToleranceMm &&
+        //            Math.Abs(actualY - pla.Y) <= positionToleranceMm &&
+        //            Math.Abs(actualZ - pla.Z) <= positionToleranceMm;
+
+        //        if (reached)
+        //            return 0;
+        //    }
+
+        //    return 1;
+        //}
         public int CompleteMoveJ(PosMoveJ pla)
         {
             bool flag01 = true;

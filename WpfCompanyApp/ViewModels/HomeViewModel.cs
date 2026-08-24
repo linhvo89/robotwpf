@@ -378,6 +378,15 @@ namespace WpfCompanyApp.ViewModels
         {
             if (job == null) return;
 
+            bool isHeightColumn = columnName == "H1" || columnName == "H2" || columnName == "H3";
+            if (isHeightColumn &&
+                (value < JobModelHome.MinHeight || value > JobModelHome.MaxHeight))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(value),
+                    $"{columnName} chỉ được nhập từ {JobModelHome.MinHeight} đến {JobModelHome.MaxHeight} mm.");
+            }
+
             _db.UpdateJobHomeValue(job.Id, columnName, value);
 
             switch (columnName)

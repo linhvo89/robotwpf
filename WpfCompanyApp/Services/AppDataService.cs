@@ -24,8 +24,10 @@ namespace WpfCompanyApp.Services
             get => _currentState;
             set => SetProperty(ref _currentState, value);
         }
-        public AppDataService()
+        public AppDataService(INIFile ini)
         {
+            FullWorkMachine1Name = ReadFullWorkMachineName(ini, "Machine1Name", "Máy1");
+            FullWorkMachine2Name = ReadFullWorkMachineName(ini, "Machine2Name", "Máy2");
             LoadRobotSpeeds();
             LoadAppSettings();
             LoadPickOffsets();
@@ -85,6 +87,15 @@ namespace WpfCompanyApp.Services
             SpeedMoveToDrop1 = GetSavedSpeed(savedSpeeds, nameof(SpeedMoveToDrop1), SpeedMoveToDrop1);
             SpeedMoveBetweenDrops = GetSavedSpeed(savedSpeeds, nameof(SpeedMoveBetweenDrops), SpeedMoveBetweenDrops);
             SpeedReturnAfterDrop = GetSavedSpeed(savedSpeeds, nameof(SpeedReturnAfterDrop), SpeedReturnAfterDrop);
+        }
+
+        public string FullWorkMachine1Name { get; }
+        public string FullWorkMachine2Name { get; }
+
+        private static string ReadFullWorkMachineName(INIFile ini, string key, string defaultName)
+        {
+            string configuredName = ini.Read(key, "FullWork").Trim();
+            return string.IsNullOrWhiteSpace(configuredName) ? defaultName : configuredName;
         }
 
         private void LoadAppSettings()
@@ -345,6 +356,8 @@ namespace WpfCompanyApp.Services
         [ObservableProperty] private bool openOn;
         [ObservableProperty] private bool closeOn;
         [ObservableProperty] private bool robotPoweredOn;
+        [ObservableProperty] private bool robotHasFault;
+        [ObservableProperty] private string robotStatusMessage = "Đang chờ đọc trạng thái robot...";
 
         // Jog settings
         [ObservableProperty] private bool isStepMode;
@@ -356,9 +369,9 @@ namespace WpfCompanyApp.Services
             get => _stepMM;
             set
             {
-                // Giới hạn từ 0 đến 50 mm
+                // Giới hạn từ 0 đến 20 mm
                 if (value < 0) value = 0;
-                if (value > 50) value = 50;
+                if (value > 20) value = 20;
 
                 SetProperty(ref _stepMM, value);
             }
@@ -370,9 +383,9 @@ namespace WpfCompanyApp.Services
             get => _stepDegree;
             set
             {
-                // Giới hạn từ 0 đến 5 độ
+                // Giới hạn từ 0 đến 2 độ
                 if (value < 0) value = 0;
-                if (value > 5) value = 5;
+                if (value > 2) value = 2;
 
                 SetProperty(ref _stepDegree, value);
             }

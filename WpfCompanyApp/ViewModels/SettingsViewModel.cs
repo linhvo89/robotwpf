@@ -84,6 +84,11 @@ namespace WpfCompanyApp.ViewModels
         {
             _data = data;
             _backgroundService = backgroundService;
+            FullWorkSensorList = new ObservableCollection<FullWorkSensorOption>
+            {
+                new FullWorkSensorOption("Máy1", _data.FullWorkMachine1Name),
+                new FullWorkSensorOption("Máy2", _data.FullWorkMachine2Name)
+            };
             LoadJobs();
             LoadInitialValues();
             _data.PropertyChanged += Data_PropertyChanged;
@@ -708,8 +713,7 @@ namespace WpfCompanyApp.ViewModels
         [ObservableProperty]
         private ObservableCollection<string> basketRunModeList = new(new[] { "Basket1", "Basket2", "Both" });
 
-        [ObservableProperty]
-        private ObservableCollection<string> fullWorkSensorList = new(new[] { "Máy1", "Máy2" });
+        public ObservableCollection<FullWorkSensorOption> FullWorkSensorList { get; }
 
         // ✅ Tool được chọn (mặc định Tool1)
         [ObservableProperty]
